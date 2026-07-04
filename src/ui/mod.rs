@@ -6,11 +6,16 @@ mod settings;
 pub mod theme;
 
 use crate::config::AppConfig;
+use crate::net::NetService;
 use crate::overlay::{home::Home, settings::Settings, toast::Toasts, Focus};
 use crate::platform::window::AppWindow;
 use egui_sdl2::egui;
 use egui_sdl2::EguiGlow;
 use std::time::Duration;
+
+/// Radar snapshots at most this stale while idle — covers peer-expiry pruning
+/// and freshly announced ports without waking every frame.
+const IDLE_REFRESH: Duration = Duration::from_secs(1);
 
 pub struct AppUi {
     egui: EguiGlow,
@@ -18,8 +23,8 @@ pub struct AppUi {
     pub home: Home,
     pub settings: Settings,
     pub toasts: Toasts,
-    /// Radar row count as of the last frame — the command router clamps the
-    /// home cursor against it. Zero until discovery fills the radar.
+    /// Peer count as of the last frame — the command router clamps the home
+    /// cursor against it without re-locking the registry.
     pub peer_count: usize,
 }
 
@@ -60,19 +65,33 @@ impl AppUi {
         self.repaint_delay.take()
     }
 
-    /// Build the frame. The radar list stays empty until discovery lands.
-    pub fn update(&mut self, config: &AppConfig) {
+    /// Build the frame. Reads shared net state (brief registry lock) before
+    /// entering the egui closure.
+    pub fn update(&mut self, net: &NetService, config: &AppConfig) {
+        let peers = net.shared.peers.snapshot();
+        self.peer_count = peers.len();
         let data = home::HomeData {
             alias: config.device.alias.clone(),
-            endpoint: format!("HTTP · port {}", config.network.port),
-            cursor: self.home.cursor(self.peer_count),
-            peers: Vec::new(),
+            endpoint: endpoint_line(net),
+            cursor: self.home.cursor(peers.len()),
+            peers: peers
+                .iter()
+                .map(|p| home::PeerRow {
+                    alias: p.info.alias.clone(),
+                    detail: format!(
+                        "{} · {}",
+                        p.info.device_model.as_deref().unwrap_or("unknown"),
+                        p.ip
+                    ),
+                    proto: p.info.protocol.as_deref().unwrap_or("http").to_uppercase(),
+                })
+                .collect(),
         };
 
         let settings_open = self.settings.open;
         let settings_state = &self.settings;
         let toasts: Vec<String> = self.toasts.live().map(str::to_string).collect();
-        let port = config.network.port;
+        let actual_port = net.http_port();
 
         self.egui.run(|ctx| {
             // egui 0.34 panels are shown inside an explicit root Ui spanning
@@ -84,7 +103,7 @@ impl AppUi {
             );
             root.set_clip_rect(ctx.content_rect());
             if settings_open {
-                settings::render(&mut root, settings_state, config, port);
+                settings::render(&mut root, settings_state, config, actual_port);
             } else {
                 home::render(&mut root, &data);
             }
@@ -92,8 +111,8 @@ impl AppUi {
         });
 
         // Fold the frame-timing sources into one idle bound: egui's own
-        // request (animations/sizing passes) and toast expiry.
-        let mut delay = self.egui.repaint_delay();
+        // request (animations/sizing passes), toast expiry, radar staleness.
+        let mut delay = self.egui.repaint_delay().min(IDLE_REFRESH);
         if let Some(t) = self.toasts.next_expiry() {
             delay = delay.min(t);
         }
@@ -108,6 +127,14 @@ impl AppUi {
 
     pub fn destroy(&mut self) {
         self.egui.destroy();
+    }
+}
+
+fn endpoint_line(net: &NetService) -> String {
+    let port = net.http_port();
+    match crate::net::local_ip() {
+        Some(ip) => format!("HTTP · {ip}:{port}"),
+        None => format!("HTTP · port {port} · no network"),
     }
 }
 

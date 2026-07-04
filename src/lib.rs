@@ -1,7 +1,9 @@
 mod app;
-// Public: headless tests and tools reach the config layer without SDL.
+// Public: the headless integration tests (tests/) drive the net layer and its
+// config types directly, without SDL.
 pub mod config;
 mod event;
+pub mod net;
 mod overlay;
 mod platform;
 mod ui;

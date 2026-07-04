@@ -23,7 +23,18 @@ sdl2 = { version = "0.38", default-features = false }
 egui-sdl2 = { version = "0.4", default-features = false, features = ["glow-backend"] }
 glow = "0.17"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 toml = "1.1"
 log = "0.4"
 env_logger = "0.11"
 png = "0.18"
+# Outbound HTTP (register replies now, uploads in M3). Plain-HTTP build for the
+# protocol's http mode; the rustls feature joins in the HTTPS milestone.
+ureq = { version = "3", default-features = false }
+# Only for SO_REUSEADDR/SO_REUSEPORT before binding UDP 53317 — std can't set
+# them pre-bind, and without them we can't coexist with the official LocalSend
+# app on the dev machine. The socket converts into std::net::UdpSocket after.
+socket2 = { version = "0.6", features = ["all"] }
+# Random session ids / tokens / fingerprint; a hex helper in net::protocol is
+# all we need on top, so no uuid/rand.
+getrandom = "0.3"

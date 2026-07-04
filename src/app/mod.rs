@@ -5,10 +5,13 @@ mod command;
 pub use command::{AppCommand, Direction};
 
 use crate::config::AppConfig;
+use crate::event::user::UserEventSender;
 use crate::event::AppEventHandler;
+use crate::net::NetService;
 use crate::overlay::Focus;
 use crate::platform::window::AppWindow;
 use crate::ui::AppUi;
+use std::sync::Arc;
 
 /// Rows a shoulder-button page jump moves in a list.
 const PAGE_JUMP: i32 = 8;
@@ -18,6 +21,7 @@ pub struct App {
     ui: AppUi,
     event_handler: AppEventHandler,
     config: AppConfig,
+    net: NetService,
     running: bool,
 }
 
@@ -27,17 +31,28 @@ impl App {
         let ui = AppUi::new(&window);
         let event_handler = AppEventHandler::new(sdl, config.input.clone())?;
 
+        // Net threads wake the blocked event loop through SDL user events;
+        // the sender must be created on this (video) thread.
+        let wake = Arc::new(UserEventSender::new());
+        let net = NetService::spawn(&config.device, &config.network, wake)
+            .map_err(|e| format!("failed to start networking: {e}"))?;
+
         Ok(Self {
             window,
             ui,
             event_handler,
             config,
+            net,
             running: true,
         })
     }
 
     pub fn run(mut self) {
-        log::info!("running as `{}`", self.config.device.alias);
+        log::info!(
+            "running as `{}` on port {}",
+            self.config.device.alias,
+            self.net.http_port()
+        );
         let mut commands: Vec<AppCommand> = Vec::new();
         while self.running {
             self.event_handler
@@ -45,10 +60,11 @@ impl App {
             for command in commands.drain(..) {
                 self.execute_command(command);
             }
-            self.ui.update(&self.config);
+            self.ui.update(&self.net, &self.config);
             self.ui.draw(&self.window);
         }
         self.ui.destroy();
+        self.net.stop();
     }
 
     /// Interpret a command against the current focus — the single place where
@@ -57,8 +73,10 @@ impl App {
         match (self.ui.focus(), command) {
             (_, AppCommand::Shutdown) => self.running = false,
 
-            // The binding exists shell-first; discovery wires it up next.
-            (_, AppCommand::ReAnnounce) => self.ui.toasts.push("Discovery is coming soon"),
+            (_, AppCommand::ReAnnounce) => {
+                self.net.re_announce();
+                self.ui.toasts.push("Announcing…");
+            }
 
             (Focus::Home, AppCommand::Nav(dir)) => {
                 let count = self.ui.peer_count;
@@ -74,8 +92,7 @@ impl App {
             }
             (Focus::Home, AppCommand::Confirm) => {
                 if self.ui.home.cursor(self.ui.peer_count).is_some() {
-                    // The send flow (file browser → confirm → upload) comes
-                    // after the transfer milestones.
+                    // The send flow (file browser → confirm → upload) is M3/M4.
                     self.ui.toasts.push("Sending files is coming soon");
                 }
             }

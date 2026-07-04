@@ -1,9 +1,10 @@
-//! SDL event pump ownership and routing: gamepad, keyboard, window/quit.
-//! Blocks when idle (retsurf's pattern) so the app costs nothing while nobody
-//! is pressing buttons.
+//! SDL event pump ownership and routing: gamepad, keyboard, window/quit, and
+//! the cross-thread user events. Blocks when idle (retsurf's pattern) so the
+//! app costs nothing while nobody is transferring or pressing buttons.
 
 mod gamepad;
 mod keyboard;
+pub mod user;
 
 use crate::app::AppCommand;
 use crate::config::InputConfig;
@@ -107,6 +108,9 @@ impl AppEventHandler {
                 ..
             } => keyboard::on_key_down(kc, repeat, commands),
             Event::Quit { .. } => commands.push(AppCommand::Shutdown),
+            // User events exist purely to unblock the wait; per-frame reads of
+            // the shared net state pick up whatever changed.
+            Event::User { .. } => {}
             _ => {}
         }
     }

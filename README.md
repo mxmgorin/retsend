@@ -11,13 +11,16 @@ blocking networking (threads, no async runtime).
 
 ## Status
 
-Early. Working now: the app shell — SDL2 window + egui, D-pad/left-stick
-navigation with hold-repeat, keyboard mirror for desktop dev, TOML config,
-read-only settings screen.
+Early. Working now:
 
-Next, in order: discovery (LocalSend protocol v2.1), receive files
-(accept/decline + progress), send files (device picker → file browser),
-settings editing + on-screen keyboard, PortMaster packaging, HTTPS mode.
+- **Discovery** (LocalSend protocol v2.1): UDP multicast announce/listen on
+  `224.0.0.167:53317`, TCP `/register` exchange, radar UI of nearby devices.
+- App shell: SDL2 window + egui, D-pad/left-stick navigation with hold-repeat,
+  keyboard mirror for desktop dev, TOML config, read-only settings screen.
+
+Next, in order: receive files (accept/decline + progress), send files
+(device picker → file browser), settings editing + on-screen keyboard,
+PortMaster packaging, HTTPS mode.
 
 ## Run (desktop)
 
@@ -38,12 +41,6 @@ Environment: `LSRETRO_DATA_DIR`, `LSRETRO_CONFIG`, `LSRETRO_SAVE_DIR`,
 `LSRETRO_SCALE`, `LSRETRO_GLES=0|1`, `LSRETRO_LOG_LEVEL`, `LSRETRO_LOG_FILE`,
 `LSRETRO_PANIC_FILE`.
 
-## Test
-
-```sh
-cargo test
-```
-
-## License
-
-GPL-3.0
+The HTTP port defaults to 53317 and falls back to the next free one when the
+official LocalSend app already holds it (the announce carries the real port,
+so discovery keeps working).
