@@ -6,6 +6,7 @@ mod event;
 pub mod net;
 mod overlay;
 mod platform;
+pub mod transfer;
 mod ui;
 
 use crate::app::App;
