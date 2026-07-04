@@ -1,0 +1,10 @@
+[toolchain]
+# egui 0.34 (via egui-sdl2 0.4) requires rustc >= 1.92.
+channel = "1.95.0"
+
+components = [
+    "clippy",
+    "rustfmt",
+    # For rust-analyzer
+    "rust-src",
+]
