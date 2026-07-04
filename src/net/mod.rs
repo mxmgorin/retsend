@@ -9,9 +9,12 @@ pub mod httpd;
 pub mod protocol;
 pub mod server;
 
+use crate::transfer::inbound::InboundSession;
 use discovery::PeerRegistry;
 use protocol::DeviceInfo;
+use server::PendingRequest;
 use std::net::{IpAddr, TcpStream, UdpSocket};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
@@ -29,12 +32,35 @@ pub enum WakeReason {
     Done,
 }
 
+/// Receive behavior the server consults per request. A snapshot of
+/// [`crate::config::TransferConfig`]; the settings screen updates it live.
+#[derive(Clone)]
+pub struct TransferSettings {
+    pub save_dir: PathBuf,
+    pub auto_accept: bool,
+}
+
+impl From<&crate::config::TransferConfig> for TransferSettings {
+    fn from(cfg: &crate::config::TransferConfig) -> Self {
+        Self {
+            save_dir: PathBuf::from(&cfg.save_dir),
+            auto_accept: cfg.auto_accept,
+        }
+    }
+}
+
 /// State shared between the net threads and the UI thread.
 pub struct NetShared {
     /// Our announced identity. `port` holds the *actually bound* TCP port.
     /// Mutex (not read-only) because settings will edit the alias live.
     pub me: Mutex<DeviceInfo>,
     pub peers: PeerRegistry,
+    pub transfer: Mutex<TransferSettings>,
+    /// A prepare-upload parked awaiting the user's accept/decline. At most
+    /// one; its handler thread blocks with the HTTP response unsent.
+    pub pending: Mutex<Option<PendingRequest>>,
+    /// The accepted transfer currently receiving files. At most one.
+    pub active: Mutex<Option<Arc<InboundSession>>>,
     pub wake: Arc<dyn Wake>,
     /// Set by [`NetService::stop`]; every loop polls it and exits.
     pub shutdown: AtomicBool,
@@ -53,6 +79,7 @@ impl NetService {
     pub fn spawn(
         device: &crate::config::DeviceConfig,
         network: &crate::config::NetworkConfig,
+        transfer: &crate::config::TransferConfig,
         wake: Arc<dyn Wake>,
     ) -> std::io::Result<Self> {
         let me = DeviceInfo {
@@ -72,6 +99,9 @@ impl NetService {
         let shared = Arc::new(NetShared {
             me: Mutex::new(me),
             peers: PeerRegistry::new(),
+            transfer: Mutex::new(TransferSettings::from(transfer)),
+            pending: Mutex::new(None),
+            active: Mutex::new(None),
             wake,
             shutdown: AtomicBool::new(false),
         });

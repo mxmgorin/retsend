@@ -34,7 +34,7 @@ impl App {
         // Net threads wake the blocked event loop through SDL user events;
         // the sender must be created on this (video) thread.
         let wake = Arc::new(UserEventSender::new());
-        let net = NetService::spawn(&config.device, &config.network, wake)
+        let net = NetService::spawn(&config.device, &config.network, &config.transfer, wake)
             .map_err(|e| format!("failed to start networking: {e}"))?;
 
         Ok(Self {
