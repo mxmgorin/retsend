@@ -26,6 +26,18 @@ pub const ROW_HEIGHT: f32 = 44.0;
 /// Install the accent on egui's dark theme: a translucent accent fill behind
 /// selected widgets ringed by the solid accent, plus accent links and caret.
 pub fn apply(ctx: &egui::Context) {
+    // egui's default Proportional family is Ubuntu → NotoEmoji → emoji-icon
+    // and never consults Hack (the Monospace face). Some of our glyphs — the
+    // plain arrow → before the save path among them — live only in Hack, so
+    // without this they render as tofu. Append Hack as a last-resort
+    // fallback: Ubuntu is still tried first, so ordinary text is unchanged.
+    // (Same fix as retsurf's theme.)
+    let mut fonts = egui::FontDefinitions::default();
+    if let Some(prop) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+        prop.push("Hack".to_owned());
+    }
+    ctx.set_fonts(fonts);
+
     let mut visuals = egui::Visuals::dark();
     visuals.selection.bg_fill = ACCENT.linear_multiply(0.30);
     visuals.selection.stroke = egui::Stroke::new(1.0, ACCENT);
