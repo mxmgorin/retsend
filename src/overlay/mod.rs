@@ -5,11 +5,16 @@
 pub mod home;
 pub mod settings;
 pub mod toast;
+pub mod transfer;
 
 /// Which surface owns navigation input right now, in precedence order.
-/// Prompt/Browser/Osk join in later milestones.
+/// Browser/Osk join in later milestones.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Focus {
-    Home,
+    /// The incoming-request modal — outranks everything below it.
+    Prompt,
     Settings,
+    /// The transfer progress/summary screen.
+    Transfer,
+    Home,
 }

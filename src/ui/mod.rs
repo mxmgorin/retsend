@@ -2,26 +2,34 @@
 //! machines; `App` drives them through commands, this module draws them.
 
 mod home;
+mod prompt;
 mod settings;
 pub mod theme;
+mod transfer;
 
 use crate::config::AppConfig;
+use crate::net::server::DECISION_TIMEOUT;
 use crate::net::NetService;
-use crate::overlay::{home::Home, settings::Settings, toast::Toasts, Focus};
+use crate::overlay::{home::Home, settings::Settings, toast::Toasts, transfer::TransferView};
 use crate::platform::window::AppWindow;
+use crate::transfer::inbound::FileState;
 use egui_sdl2::egui;
 use egui_sdl2::EguiGlow;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 /// Radar snapshots at most this stale while idle — covers peer-expiry pruning
 /// and freshly announced ports without waking every frame.
 const IDLE_REFRESH: Duration = Duration::from_secs(1);
+/// The incoming modal's countdown bar animates at this cadence.
+const PROMPT_REFRESH: Duration = Duration::from_millis(100);
 
 pub struct AppUi {
     egui: EguiGlow,
     repaint_delay: Option<Duration>,
     pub home: Home,
     pub settings: Settings,
+    pub transfer: TransferView,
     pub toasts: Toasts,
     /// Peer count as of the last frame — the command router clamps the home
     /// cursor against it without re-locking the registry.
@@ -42,16 +50,9 @@ impl AppUi {
             repaint_delay: None,
             home: Home::new(),
             settings: Settings::new(),
+            transfer: TransferView::new(),
             toasts: Toasts::new(),
             peer_count: 0,
-        }
-    }
-
-    pub fn focus(&self) -> Focus {
-        if self.settings.open {
-            Focus::Settings
-        } else {
-            Focus::Home
         }
     }
 
@@ -65,8 +66,8 @@ impl AppUi {
         self.repaint_delay.take()
     }
 
-    /// Build the frame. Reads shared net state (brief registry lock) before
-    /// entering the egui closure.
+    /// Build the frame. Reads shared net state (brief locks) before entering
+    /// the egui closure.
     pub fn update(&mut self, net: &NetService, config: &AppConfig) {
         let peers = net.shared.peers.snapshot();
         self.peer_count = peers.len();
@@ -88,6 +89,8 @@ impl AppUi {
                 .collect(),
         };
 
+        let prompt_data = prompt_data(net, config);
+        let transfer_data = self.transfer_data();
         let settings_open = self.settings.open;
         let settings_state = &self.settings;
         let toasts: Vec<String> = self.toasts.live().map(str::to_string).collect();
@@ -104,19 +107,73 @@ impl AppUi {
             root.set_clip_rect(ctx.content_rect());
             if settings_open {
                 settings::render(&mut root, settings_state, config, actual_port);
+            } else if let Some(t) = &transfer_data {
+                transfer::render(&mut root, t);
             } else {
                 home::render(&mut root, &data);
+            }
+            if let Some(p) = &prompt_data {
+                prompt::render(ctx, p);
             }
             render_toasts(ctx, &toasts);
         });
 
         // Fold the frame-timing sources into one idle bound: egui's own
-        // request (animations/sizing passes), toast expiry, radar staleness.
+        // request (animations/sizing passes), toast expiry, radar staleness,
+        // and the modal's countdown animation.
         let mut delay = self.egui.repaint_delay().min(IDLE_REFRESH);
         if let Some(t) = self.toasts.next_expiry() {
             delay = delay.min(t);
         }
+        if prompt_data.is_some() {
+            delay = delay.min(PROMPT_REFRESH);
+        }
         self.repaint_delay = Some(delay);
+    }
+
+    /// Snapshot the viewed session for the renderer (per-slot locks, brief).
+    fn transfer_data(&self) -> Option<transfer::TransferData> {
+        if !self.transfer.opened {
+            return None;
+        }
+        let session = self.transfer.session.as_ref()?;
+        let rows = session
+            .files
+            .iter()
+            .map(|slot| {
+                let state = slot.state.lock().unwrap().clone();
+                let received = slot.received.load(Ordering::Relaxed);
+                transfer::FileRow {
+                    name: slot
+                        .dest
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| slot.meta.file_name.clone()),
+                    size: slot.meta.size,
+                    glyph: match state {
+                        FileState::Done => "✓",
+                        FileState::Failed(_) => "✗",
+                        FileState::Pending | FileState::Receiving => "",
+                    },
+                    frac: if slot.meta.size > 0 {
+                        (received as f32 / slot.meta.size as f32).clamp(0.0, 1.0)
+                    } else {
+                        1.0
+                    },
+                }
+            })
+            .collect();
+        Some(transfer::TransferData {
+            peer: session.peer_alias.clone(),
+            finished: session.is_finished(),
+            done: session.done_count(),
+            count: session.files.len(),
+            received: session.received_total.load(Ordering::Relaxed),
+            total: session.total_bytes,
+            speed_bps: self.transfer.speed_bps(),
+            rows,
+            confirm_cancel: self.transfer.confirm_cancel,
+        })
     }
 
     pub fn draw(&mut self, window: &AppWindow) {
@@ -130,12 +187,47 @@ impl AppUi {
     }
 }
 
+fn prompt_data(net: &NetService, config: &AppConfig) -> Option<prompt::PromptData> {
+    let pending = net.shared.pending.lock().unwrap();
+    let p = pending.as_ref()?;
+    let elapsed = p.received_at.elapsed().as_secs_f32();
+    Some(prompt::PromptData {
+        sender: p.sender.alias.clone(),
+        files: p
+            .files
+            .iter()
+            .take(prompt::SHOWN_FILES)
+            .map(|f| (f.file_name.clone(), f.size))
+            .collect(),
+        hidden: p.files.len().saturating_sub(prompt::SHOWN_FILES),
+        count: p.files.len(),
+        total_bytes: p.total_bytes,
+        dest: config.transfer.save_dir.clone(),
+        remaining: 1.0 - elapsed / DECISION_TIMEOUT.as_secs_f32(),
+    })
+}
+
 fn endpoint_line(net: &NetService) -> String {
     let port = net.http_port();
     match crate::net::local_ip() {
         Some(ip) => format!("HTTP · {ip}:{port}"),
         None => format!("HTTP · port {port} · no network"),
     }
+}
+
+/// "999 B", "12.3 KB", "1.2 GB" — one decimal above bytes.
+pub(crate) fn fmt_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 4] = ["KB", "MB", "GB", "TB"];
+    if bytes < 1000 {
+        return format!("{bytes} B");
+    }
+    let mut value = bytes as f64;
+    let mut unit = 0;
+    while value >= 1000.0 && unit < UNITS.len() - 1 {
+        value /= 1000.0;
+        unit += 1;
+    }
+    format!("{value:.1} {}", UNITS[unit])
 }
 
 fn render_toasts(ctx: &egui::Context, toasts: &[String]) {
