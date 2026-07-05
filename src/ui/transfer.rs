@@ -5,11 +5,10 @@ use super::theme;
 use egui_sdl2::egui;
 
 pub struct TransferData {
-    pub peer: String,
+    /// Built by `ui::mod` from the session's direction and phase.
+    pub title: String,
     pub finished: bool,
-    pub done: usize,
-    pub count: usize,
-    pub received: u64,
+    pub transferred: u64,
     pub total: u64,
     pub speed_bps: Option<f64>,
     pub rows: Vec<FileRow>,
@@ -28,17 +27,8 @@ pub struct FileRow {
 pub fn render(root: &mut egui::Ui, data: &TransferData) {
     egui::Panel::top("transfer_header").show_inside(root, |ui| {
         ui.add_space(6.0);
-        let title = if data.finished {
-            if data.done == data.count {
-                format!("Received {} files", data.done)
-            } else {
-                format!("Received {} of {} files", data.done, data.count)
-            }
-        } else {
-            format!("Receiving from {}", data.peer)
-        };
         ui.label(
-            egui::RichText::new(title)
+            egui::RichText::new(&data.title)
                 .size(theme::ROW_FONT + 2.0)
                 .strong(),
         );
@@ -67,7 +57,7 @@ pub fn render(root: &mut egui::Ui, data: &TransferData) {
     egui::CentralPanel::default().show_inside(root, |ui| {
         // Overall bar + the numbers line.
         let frac = if data.total > 0 {
-            data.received as f32 / data.total as f32
+            data.transferred as f32 / data.total as f32
         } else {
             1.0
         };
@@ -78,12 +68,12 @@ pub fn render(root: &mut egui::Ui, data: &TransferData) {
         );
         let mut line = format!(
             "{} / {}",
-            super::fmt_bytes(data.received),
+            super::fmt_bytes(data.transferred),
             super::fmt_bytes(data.total)
         );
         if let Some(bps) = data.speed_bps {
             line.push_str(&format!(" · {}/s", super::fmt_bytes(bps as u64)));
-            let remaining = data.total.saturating_sub(data.received);
+            let remaining = data.total.saturating_sub(data.transferred);
             if bps > 1.0 && remaining > 0 {
                 line.push_str(&format!(" · ~{}s", (remaining as f64 / bps).ceil() as u64));
             }

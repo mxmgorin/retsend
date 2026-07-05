@@ -10,9 +10,15 @@ mod transfer;
 use crate::config::AppConfig;
 use crate::net::server::DECISION_TIMEOUT;
 use crate::net::NetService;
-use crate::overlay::{home::Home, settings::Settings, toast::Toasts, transfer::TransferView};
+use crate::overlay::{
+    home::Home,
+    settings::Settings,
+    toast::Toasts,
+    transfer::{TransferView, Viewed},
+};
 use crate::platform::window::AppWindow;
 use crate::transfer::inbound::FileState;
+use crate::transfer::outbound::{OutboundPhase, OutboundSession};
 use egui_sdl2::egui;
 use egui_sdl2::EguiGlow;
 use std::sync::atomic::Ordering;
@@ -136,40 +142,55 @@ impl AppUi {
         if !self.transfer.opened {
             return None;
         }
-        let session = self.transfer.session.as_ref()?;
-        let rows = session
-            .files
-            .iter()
-            .map(|slot| {
-                let state = slot.state.lock().unwrap().clone();
-                let received = slot.received.load(Ordering::Relaxed);
-                transfer::FileRow {
-                    name: slot
-                        .dest
-                        .file_name()
-                        .map(|n| n.to_string_lossy().into_owned())
-                        .unwrap_or_else(|| slot.meta.file_name.clone()),
-                    size: slot.meta.size,
-                    glyph: match state {
-                        FileState::Done => "✓",
-                        FileState::Failed(_) => "✗",
-                        FileState::Pending | FileState::Receiving => "",
-                    },
-                    frac: if slot.meta.size > 0 {
-                        (received as f32 / slot.meta.size as f32).clamp(0.0, 1.0)
-                    } else {
-                        1.0
-                    },
-                }
-            })
-            .collect();
+        let viewed = self.transfer.viewed.as_ref()?;
+        let (title, rows, transferred, total) = match viewed {
+            Viewed::In(session) => (
+                if session.is_finished() {
+                    crate::overlay::transfer::inbound_summary(session)
+                } else {
+                    format!("Receiving from {}", session.peer_alias)
+                },
+                session
+                    .files
+                    .iter()
+                    .map(|slot| {
+                        file_row(
+                            slot.dest
+                                .file_name()
+                                .map(|n| n.to_string_lossy().into_owned())
+                                .unwrap_or_else(|| slot.meta.file_name.clone()),
+                            slot.meta.size,
+                            &slot.state.lock().unwrap(),
+                            slot.received.load(Ordering::Relaxed),
+                        )
+                    })
+                    .collect(),
+                session.received_total.load(Ordering::Relaxed),
+                session.total_bytes,
+            ),
+            Viewed::Out(session) => (
+                outbound_title(session),
+                session
+                    .files
+                    .iter()
+                    .map(|file| {
+                        file_row(
+                            file.meta.file_name.clone(),
+                            file.meta.size,
+                            &file.state.lock().unwrap(),
+                            file.sent.load(Ordering::Relaxed),
+                        )
+                    })
+                    .collect(),
+                session.sent_total.load(Ordering::Relaxed),
+                session.total_bytes,
+            ),
+        };
         Some(transfer::TransferData {
-            peer: session.peer_alias.clone(),
-            finished: session.is_finished(),
-            done: session.done_count(),
-            count: session.files.len(),
-            received: session.received_total.load(Ordering::Relaxed),
-            total: session.total_bytes,
+            title,
+            finished: viewed.is_finished(),
+            transferred,
+            total,
             speed_bps: self.transfer.speed_bps(),
             rows,
             confirm_cancel: self.transfer.confirm_cancel,
@@ -184,6 +205,42 @@ impl AppUi {
 
     pub fn destroy(&mut self) {
         self.egui.destroy();
+    }
+}
+
+fn file_row(name: String, size: u64, state: &FileState, moved: u64) -> transfer::FileRow {
+    transfer::FileRow {
+        name,
+        size,
+        glyph: match state {
+            FileState::Done => "✓",
+            FileState::Failed(_) => "✗",
+            FileState::Pending | FileState::Receiving => "",
+        },
+        frac: if size > 0 {
+            (moved as f32 / size as f32).clamp(0.0, 1.0)
+        } else {
+            1.0
+        },
+    }
+}
+
+fn outbound_title(session: &OutboundSession) -> String {
+    match session.phase() {
+        OutboundPhase::Waiting => format!("Waiting for {} to accept…", session.peer_alias),
+        OutboundPhase::Sending => format!("Sending to {}", session.peer_alias),
+        OutboundPhase::Done => {
+            let done = session.done_count();
+            let total = session.files.len();
+            if done == total {
+                format!("Sent {done} files")
+            } else {
+                format!("Sent {done} of {total} files")
+            }
+        }
+        OutboundPhase::Declined => format!("{} declined", session.peer_alias),
+        OutboundPhase::Cancelled => "Send cancelled".to_string(),
+        OutboundPhase::Failed(message) => format!("Send failed: {message}"),
     }
 }
 

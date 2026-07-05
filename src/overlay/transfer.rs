@@ -1,9 +1,10 @@
-//! Transfer-screen state machine: which session the UI is viewing, whether
-//! the screen is open, the cancel confirmation, and the speed meter. Synced
-//! against [`crate::net::NetShared::active`] once per frame; produces toast
-//! texts for transitions the user shouldn't miss.
+//! Transfer-screen state machine: which session (inbound or outbound) the UI
+//! is viewing, whether the screen is open, the cancel confirmation, and the
+//! speed meter. Synced once per frame; produces toast texts for transitions
+//! the user shouldn't miss.
 
 use crate::transfer::inbound::InboundSession;
+use crate::transfer::outbound::OutboundSession;
 use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -15,10 +16,31 @@ const SPEED_WINDOW: Duration = Duration::from_secs(2);
 /// out just as the user pressed A) closes the screen after this long.
 const ADOPTION_GRACE: Duration = Duration::from_secs(2);
 
+/// The session on the transfer screen. Held independently of the net-side
+/// slots so the summary stays visible after they're cleared.
+pub enum Viewed {
+    In(Arc<InboundSession>),
+    Out(Arc<OutboundSession>),
+}
+
+impl Viewed {
+    pub fn is_finished(&self) -> bool {
+        match self {
+            Viewed::In(s) => s.is_finished(),
+            Viewed::Out(s) => s.is_finished(),
+        }
+    }
+
+    fn moved_bytes(&self) -> u64 {
+        match self {
+            Viewed::In(s) => s.received_total.load(Ordering::Relaxed),
+            Viewed::Out(s) => s.sent_total.load(Ordering::Relaxed),
+        }
+    }
+}
+
 pub struct TransferView {
-    /// The session being viewed. Held independently of `NetShared::active` so
-    /// the summary stays on screen after the net side clears the slot.
-    pub session: Option<Arc<InboundSession>>,
+    pub viewed: Option<Viewed>,
     pub opened: bool,
     pub confirm_cancel: bool,
     opened_at: Option<Instant>,
@@ -29,7 +51,7 @@ pub struct TransferView {
 impl TransferView {
     pub fn new() -> Self {
         Self {
-            session: None,
+            viewed: None,
             opened: false,
             confirm_cancel: false,
             opened_at: None,
@@ -38,7 +60,7 @@ impl TransferView {
         }
     }
 
-    /// The user accepted the incoming request: show the screen and wait for
+    /// The user accepted an incoming request: show the screen and wait for
     /// the handler thread to install the session.
     pub fn open(&mut self) {
         self.opened = true;
@@ -46,40 +68,48 @@ impl TransferView {
         self.confirm_cancel = false;
     }
 
+    /// The user started a send: view it immediately.
+    pub fn view_outbound(&mut self, session: Arc<OutboundSession>) {
+        self.viewed = Some(Viewed::Out(session));
+        self.toasted = false;
+        self.samples.clear();
+        self.open();
+    }
+
     pub fn close(&mut self) {
         self.opened = false;
-        self.session = None;
+        self.viewed = None;
         self.confirm_cancel = false;
         self.samples.clear();
     }
 
-    /// Still receiving (cancel is meaningful).
-    pub fn is_receiving(&self) -> bool {
-        self.session.as_ref().is_some_and(|s| !s.is_finished())
+    /// Still moving bytes (cancel is meaningful).
+    pub fn is_active(&self) -> bool {
+        self.viewed.as_ref().is_some_and(|v| !v.is_finished())
     }
 
     /// Per-frame sync with the net side. Returns toast texts to show.
-    pub fn sync(&mut self, active: Option<Arc<InboundSession>>) -> Vec<String> {
+    pub fn sync(&mut self, active_in: Option<Arc<InboundSession>>) -> Vec<String> {
         let mut toasts = Vec::new();
 
-        if let Some(active) = active {
-            let same = self
-                .session
-                .as_ref()
-                .is_some_and(|s| s.session_id == active.session_id);
-            if !same {
-                // Auto-accepted sessions don't steal the screen; the user
-                // opened it via the modal when `opened` is already true.
-                self.session = Some(active);
+        // Adopt a new inbound session — unless an unfinished send owns the
+        // screen (can't happen in practice: incoming prepares answer 409
+        // while outbound_active is up).
+        if let Some(active) = active_in {
+            let viewing_live_send =
+                matches!(&self.viewed, Some(v @ Viewed::Out(_)) if !v.is_finished());
+            let same =
+                matches!(&self.viewed, Some(Viewed::In(s)) if s.session_id == active.session_id);
+            if !same && !viewing_live_send {
+                self.viewed = Some(Viewed::In(active));
                 self.toasted = false;
                 self.samples.clear();
             }
         }
 
-        if let Some(session) = &self.session {
+        if let Some(viewed) = &self.viewed {
             let now = Instant::now();
-            self.samples
-                .push_back((now, session.received_total.load(Ordering::Relaxed)));
+            self.samples.push_back((now, viewed.moved_bytes()));
             while self
                 .samples
                 .front()
@@ -88,15 +118,16 @@ impl TransferView {
                 self.samples.pop_front();
             }
 
-            if session.is_finished() && !self.toasted {
+            if viewed.is_finished() && !self.toasted {
                 self.toasted = true;
-                let summary = summary_line(session);
                 if self.opened {
                     self.confirm_cancel = false; // nothing left to cancel
                 } else {
                     // Quick-save finished in the background.
-                    toasts.push(summary);
-                    self.session = None;
+                    if let Viewed::In(session) = viewed {
+                        toasts.push(inbound_summary(session));
+                    }
+                    self.viewed = None;
                 }
             }
         } else if self.opened && self.opened_at.is_some_and(|t| t.elapsed() > ADOPTION_GRACE) {
@@ -119,7 +150,7 @@ impl TransferView {
     }
 }
 
-fn summary_line(session: &InboundSession) -> String {
+pub fn inbound_summary(session: &InboundSession) -> String {
     let done = session.done_count();
     let total = session.files.len();
     if done == total {
