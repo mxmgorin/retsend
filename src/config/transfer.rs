@@ -8,6 +8,8 @@ pub struct TransferConfig {
     pub save_dir: String,
     /// Accept incoming transfers without asking ("quick save").
     pub auto_accept: bool,
+    /// Extra file-browser roots on top of the auto-detected mount points.
+    pub browser_roots: Vec<String>,
 }
 
 impl Default for TransferConfig {
@@ -15,6 +17,7 @@ impl Default for TransferConfig {
         Self {
             save_dir: super::paths::default_save_dir(),
             auto_accept: false,
+            browser_roots: Vec::new(),
         }
     }
 }
