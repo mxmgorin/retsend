@@ -18,15 +18,15 @@ Early. Working now:
 - **Receive**: accept/decline modal with a countdown, streaming to `.part`
   with atomic rename, sanitized file names, progress screen with speed/ETA,
   cancel from either side, quick-save (auto-accept) mode.
-- **Send**: pick a device on the radar (A) to send files staged as CLI
-  arguments (`cargo run -- file1 file2`); waiting-for-accept phase, per-file
-  progress, cancel. HTTP-mode peers only for now — turn off encryption in the
-  official app's settings.
+- **Send**: pick a device on the radar (A), browse and multi-select files
+  (D-pad + A, Select cycles mount roots, Start sends); waiting-for-accept
+  phase, per-file progress, cancel. CLI arguments pre-select files. HTTP-mode
+  peers only for now — turn off encryption in the official app's settings.
 - App shell: SDL2 window + egui, D-pad/left-stick navigation with hold-repeat,
   keyboard mirror for desktop dev, TOML config, read-only settings screen.
 
-Next, in order: file browser (replaces CLI staging), settings editing +
-on-screen keyboard, PortMaster packaging, HTTPS mode.
+Next, in order: settings editing + on-screen keyboard, PortMaster packaging,
+HTTPS mode.
 
 ## Run (desktop)
 
