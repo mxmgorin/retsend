@@ -1,6 +1,7 @@
 //! egui integration and the per-frame render pass. Owns the overlay state
 //! machines; `App` drives them through commands, this module draws them.
 
+mod browser;
 mod home;
 mod prompt;
 mod settings;
@@ -11,6 +12,7 @@ use crate::config::AppConfig;
 use crate::net::server::DECISION_TIMEOUT;
 use crate::net::NetService;
 use crate::overlay::{
+    browser::FileBrowser,
     home::Home,
     settings::Settings,
     toast::Toasts,
@@ -35,6 +37,7 @@ pub struct AppUi {
     repaint_delay: Option<Duration>,
     pub home: Home,
     pub settings: Settings,
+    pub browser: FileBrowser,
     pub transfer: TransferView,
     pub toasts: Toasts,
     /// Peer count as of the last frame — the command router clamps the home
@@ -56,6 +59,7 @@ impl AppUi {
             repaint_delay: None,
             home: Home::new(),
             settings: Settings::new(),
+            browser: FileBrowser::new(),
             transfer: TransferView::new(),
             toasts: Toasts::new(),
             peer_count: 0,
@@ -113,6 +117,8 @@ impl AppUi {
             root.set_clip_rect(ctx.content_rect());
             if settings_open {
                 settings::render(&mut root, settings_state, config, actual_port);
+            } else if self.browser.open {
+                browser::render(&mut root, &self.browser, &self.browser.target_alias);
             } else if let Some(t) = &transfer_data {
                 transfer::render(&mut root, t);
             } else {

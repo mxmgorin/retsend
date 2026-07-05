@@ -29,10 +29,17 @@ pub struct App {
     wake: Arc<UserEventSender>,
     /// The running (or last) send; `outbound_active` mirrors its liveness.
     outbound: Option<Arc<OutboundSession>>,
-    /// Files queued for sending, from CLI arguments — the file browser
-    /// replaces this as the on-device source in the next milestone.
+    /// Files pre-selected in the browser, from CLI arguments.
     staged: Vec<PathBuf>,
+    /// The radar row A was pressed on; the browser's Start sends here.
+    send_target: Option<SendTarget>,
     running: bool,
+}
+
+struct SendTarget {
+    alias: String,
+    /// `http://ip:port`
+    base: String,
 }
 
 impl App {
@@ -70,6 +77,7 @@ impl App {
             wake,
             outbound: None,
             staged,
+            send_target: None,
             running: true,
         })
     }
@@ -114,6 +122,8 @@ impl App {
             Focus::Prompt
         } else if self.ui.settings.open {
             Focus::Settings
+        } else if self.ui.browser.open {
+            Focus::Browser
         } else if self.ui.transfer.opened {
             Focus::Transfer
         } else {
@@ -127,7 +137,12 @@ impl App {
         match (self.focus(), command) {
             (_, AppCommand::Shutdown) => self.running = false,
 
-            (_, AppCommand::ReAnnounce) => {
+            // Select is the browser's root-carousel; everywhere else it
+            // refreshes the radar.
+            (
+                Focus::Home | Focus::Settings | Focus::Transfer | Focus::Prompt,
+                AppCommand::ReAnnounce,
+            ) => {
                 self.net.re_announce();
                 self.ui.toasts.push("Announcing…");
             }
@@ -138,6 +153,9 @@ impl App {
                 if let Some(pending) = self.net.shared.pending.lock().unwrap().take() {
                     pending.accept(std::path::PathBuf::from(&self.config.transfer.save_dir));
                     self.ui.settings.open = false;
+                    // The transfer screen takes over; an in-progress pick is
+                    // abandoned (rare: someone sent to us mid-browse).
+                    self.ui.browser.close();
                     self.ui.transfer.open();
                 }
             }
@@ -166,6 +184,33 @@ impl App {
             }
             (Focus::Transfer, _) => {}
 
+            (Focus::Browser, AppCommand::Nav(dir)) => match dir {
+                Direction::Up => self.ui.browser.move_cursor(-1),
+                Direction::Down => self.ui.browser.move_cursor(1),
+                Direction::Left | Direction::Right => {}
+            },
+            (Focus::Browser, AppCommand::PageUp) => self.ui.browser.move_cursor(-PAGE_JUMP),
+            (Focus::Browser, AppCommand::PageDown) => self.ui.browser.move_cursor(PAGE_JUMP),
+            (Focus::Browser, AppCommand::Confirm) => {
+                if let Err(message) = self.ui.browser.activate() {
+                    self.ui.toasts.push(message);
+                }
+            }
+            (Focus::Browser, AppCommand::Back) => {
+                if !self.ui.browser.parent() {
+                    self.ui.browser.close();
+                    self.send_target = None;
+                }
+            }
+            // Start: confirm the selection and fire the send.
+            (Focus::Browser, AppCommand::ToggleSettings) => self.send_selection(),
+            // Select: jump between mount points.
+            (Focus::Browser, AppCommand::ReAnnounce) => {
+                if let Some(root) = self.ui.browser.cycle_root() {
+                    let root = root.display().to_string();
+                    self.ui.toasts.push(root);
+                }
+            }
             (Focus::Home, AppCommand::Nav(dir)) => {
                 let count = self.ui.peer_count;
                 self.ui.home.move_cursor(nav_delta(dir), count);
@@ -180,7 +225,7 @@ impl App {
             }
             (Focus::Home, AppCommand::Confirm) => {
                 if let Some(index) = self.ui.home.cursor(self.ui.peer_count) {
-                    self.start_send(index);
+                    self.open_browser_for(index);
                 }
             }
             (Focus::Home, AppCommand::ToggleSettings) => self.ui.settings.open = true,
@@ -196,14 +241,8 @@ impl App {
         }
     }
 
-    /// Send the staged files to the radar's selected peer.
-    fn start_send(&mut self, index: usize) {
-        if self.staged.is_empty() {
-            self.ui
-                .toasts
-                .push("Nothing staged — pass files as arguments (browser coming soon)");
-            return;
-        }
+    /// A on a radar row: remember the target and open the file browser.
+    fn open_browser_for(&mut self, index: usize) {
         if self.outbound.as_ref().is_some_and(|o| !o.is_finished()) {
             self.ui.toasts.push("A send is already running");
             return;
@@ -216,15 +255,32 @@ impl App {
                 .push("HTTPS peers aren't supported yet — turn off encryption on the other side");
             return;
         }
+        self.send_target = Some(SendTarget {
+            alias: peer.info.alias.clone(),
+            base: format!("http://{}:{}", peer.ip, peer.port),
+        });
+        self.ui.browser.open_for_send(
+            &peer.info.alias,
+            &self.config.transfer.browser_roots,
+            &self.staged,
+        );
+    }
+
+    /// Start (in the browser): send the selection to the remembered target.
+    fn send_selection(&mut self) {
+        let (count, _) = self.ui.browser.selection_totals();
+        if count == 0 {
+            self.ui.toasts.push("Nothing selected — A marks files");
+            return;
+        }
+        let Some(target) = self.send_target.take() else {
+            self.ui.browser.close();
+            return;
+        };
+        let files = self.ui.browser.selected_paths();
+        self.ui.browser.close();
         let me = self.net.shared.me.lock().unwrap().clone();
-        let base = format!("http://{}:{}", peer.ip, peer.port);
-        match outbound::spawn(
-            peer.info.alias.clone(),
-            base,
-            me,
-            self.staged.clone(),
-            self.wake.clone(),
-        ) {
+        match outbound::spawn(target.alias, target.base, me, files, self.wake.clone()) {
             Ok(session) => {
                 self.net
                     .shared
