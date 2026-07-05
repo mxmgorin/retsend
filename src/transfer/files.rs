@@ -64,6 +64,36 @@ pub fn unique_path(dir: &Path, name: &str, taken: &HashSet<PathBuf>) -> PathBuf 
     unreachable!("u32 exhausted searching for a free name");
 }
 
+/// MIME type by extension for outbound file metadata. Receivers use it only
+/// to pick an icon (and previews for images), so a small table plus the
+/// octet-stream default covers everything a handheld sends.
+pub fn mime_for(path: &Path) -> &'static str {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase());
+    match ext.as_deref() {
+        Some("png") => "image/png",
+        Some("jpg" | "jpeg") => "image/jpeg",
+        Some("gif") => "image/gif",
+        Some("webp") => "image/webp",
+        Some("bmp") => "image/bmp",
+        Some("txt" | "md" | "log" | "cfg" | "ini") => "text/plain",
+        Some("json") => "application/json",
+        Some("pdf") => "application/pdf",
+        Some("zip") => "application/zip",
+        Some("7z") => "application/x-7z-compressed",
+        Some("mp3") => "audio/mpeg",
+        Some("ogg") => "audio/ogg",
+        Some("wav") => "audio/wav",
+        Some("mp4") => "video/mp4",
+        Some("mkv") => "video/x-matroska",
+        Some("webm") => "video/webm",
+        // ROMs, saves, and everything else.
+        _ => "application/octet-stream",
+    }
+}
+
 /// Sibling `.part` path the file streams into before the final rename.
 pub fn part_path(path: &Path) -> PathBuf {
     let mut os = path.as_os_str().to_os_string();
