@@ -15,12 +15,18 @@ Early. Working now:
 
 - **Discovery** (LocalSend protocol v2.1): UDP multicast announce/listen on
   `224.0.0.167:53317`, TCP `/register` exchange, radar UI of nearby devices.
+- **Receive**: accept/decline modal with a countdown, streaming to `.part`
+  with atomic rename, sanitized file names, progress screen with speed/ETA,
+  cancel from either side, quick-save (auto-accept) mode.
+- **Send**: pick a device on the radar (A) to send files staged as CLI
+  arguments (`cargo run -- file1 file2`); waiting-for-accept phase, per-file
+  progress, cancel. HTTP-mode peers only for now — turn off encryption in the
+  official app's settings.
 - App shell: SDL2 window + egui, D-pad/left-stick navigation with hold-repeat,
   keyboard mirror for desktop dev, TOML config, read-only settings screen.
 
-Next, in order: receive files (accept/decline + progress), send files
-(device picker → file browser), settings editing + on-screen keyboard,
-PortMaster packaging, HTTPS mode.
+Next, in order: file browser (replaces CLI staging), settings editing +
+on-screen keyboard, PortMaster packaging, HTTPS mode.
 
 ## Run (desktop)
 
