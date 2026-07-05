@@ -199,6 +199,11 @@ fn handle_prepare_upload(
     files.sort_by(|a, b| a.file_name.cmp(&b.file_name));
     let total_bytes = files.iter().map(|f| f.size).sum();
 
+    // One transfer at a time: while we're sending, don't also receive.
+    if shared.outbound_active.load(Ordering::SeqCst) {
+        return httpd::respond_empty(reader.get_mut(), 409);
+    }
+
     // A finished or abandoned session must not block new transfers forever.
     {
         let mut active = shared.active.lock().unwrap();

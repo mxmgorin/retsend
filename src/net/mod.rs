@@ -4,6 +4,7 @@
 //! through the [`Wake`] trait — the app installs a `UserEventSender`-backed
 //! impl, while headless integration tests pass a no-op.
 
+pub mod client;
 pub mod discovery;
 pub mod httpd;
 pub mod protocol;
@@ -61,6 +62,10 @@ pub struct NetShared {
     pub pending: Mutex<Option<PendingRequest>>,
     /// The accepted transfer currently receiving files. At most one.
     pub active: Mutex<Option<Arc<InboundSession>>>,
+    /// An outbound send is in flight (set by the app around the worker's
+    /// lifetime). Incoming prepare-uploads answer 409 while it's up — one
+    /// transfer at a time keeps the UI honest on a small screen.
+    pub outbound_active: AtomicBool,
     pub wake: Arc<dyn Wake>,
     /// Set by [`NetService::stop`]; every loop polls it and exits.
     pub shutdown: AtomicBool,
@@ -102,6 +107,7 @@ impl NetService {
             transfer: Mutex::new(TransferSettings::from(transfer)),
             pending: Mutex::new(None),
             active: Mutex::new(None),
+            outbound_active: AtomicBool::new(false),
             wake,
             shutdown: AtomicBool::new(false),
         });

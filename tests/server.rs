@@ -50,6 +50,7 @@ fn start_server(auto_accept: bool) -> (Arc<NetShared>, u16, impl FnOnce()) {
         }),
         pending: Mutex::new(None),
         active: Mutex::new(None),
+        outbound_active: AtomicBool::new(false),
         wake: Arc::new(NoopWake),
         shutdown: AtomicBool::new(false),
     });
@@ -389,6 +390,32 @@ fn hostile_file_names_stay_inside_save_dir() {
     let dir = save_dir_of(&shared);
     assert_eq!(std::fs::read(dir.join("evil.sh")).unwrap(), b"boom");
     assert!(!dir.parent().unwrap().join("evil.sh").exists());
+    stop();
+}
+
+#[test]
+fn incoming_prepare_is_blocked_while_sending() {
+    let (shared, port, stop) = start_server(true);
+    shared.outbound_active.store(true, Ordering::SeqCst);
+    assert_eq!(
+        post(
+            port,
+            "/api/localsend/v2/prepare-upload",
+            &prepare_body(&[("a", "x.bin", 1)]),
+        )
+        .0,
+        409
+    );
+    shared.outbound_active.store(false, Ordering::SeqCst);
+    assert_eq!(
+        post(
+            port,
+            "/api/localsend/v2/prepare-upload",
+            &prepare_body(&[("a", "x.bin", 1)]),
+        )
+        .0,
+        200
+    );
     stop();
 }
 
