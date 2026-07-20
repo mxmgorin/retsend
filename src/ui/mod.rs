@@ -3,6 +3,7 @@
 
 mod browser;
 mod home;
+mod osk;
 mod prompt;
 mod settings;
 pub mod theme;
@@ -14,6 +15,7 @@ use crate::net::NetService;
 use crate::overlay::{
     browser::FileBrowser,
     home::Home,
+    osk::Osk,
     settings::Settings,
     toast::Toasts,
     transfer::{TransferView, Viewed},
@@ -38,6 +40,7 @@ pub struct AppUi {
     pub home: Home,
     pub settings: Settings,
     pub browser: FileBrowser,
+    pub osk: Osk,
     pub transfer: TransferView,
     pub toasts: Toasts,
     /// Peer count as of the last frame — the command router clamps the home
@@ -60,6 +63,7 @@ impl AppUi {
             home: Home::new(),
             settings: Settings::new(),
             browser: FileBrowser::new(),
+            osk: Osk::new(),
             transfer: TransferView::new(),
             toasts: Toasts::new(),
             peer_count: 0,
@@ -115,10 +119,12 @@ impl AppUi {
                 egui::UiBuilder::new().max_rect(ctx.content_rect()),
             );
             root.set_clip_rect(ctx.content_rect());
-            if settings_open {
-                settings::render(&mut root, settings_state, config, actual_port);
-            } else if self.browser.open {
+            // Base-screen precedence mirrors Focus: a browser opened from
+            // Settings draws (and gets input) above it.
+            if self.browser.open {
                 browser::render(&mut root, &self.browser, &self.browser.target_alias);
+            } else if settings_open {
+                settings::render(&mut root, settings_state, config, actual_port);
             } else if let Some(t) = &transfer_data {
                 transfer::render(&mut root, t);
             } else {
@@ -126,6 +132,9 @@ impl AppUi {
             }
             if let Some(p) = &prompt_data {
                 prompt::render(ctx, p);
+            }
+            if self.osk.active {
+                osk::render(ctx, &self.osk);
             }
             render_toasts(ctx, &toasts);
         });

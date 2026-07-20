@@ -4,19 +4,22 @@
 
 pub mod browser;
 pub mod home;
+pub mod osk;
 pub mod settings;
 pub mod toast;
 pub mod transfer;
 
 /// Which surface owns navigation input right now, in precedence order.
-/// Osk joins in a later milestone.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Focus {
-    /// The incoming-request modal — outranks everything below it.
+    /// The on-screen keyboard — finish typing before anything else.
+    Osk,
+    /// The incoming-request modal.
     Prompt,
-    Settings,
-    /// The file browser (picking files to send).
+    /// The file browser (send picks or the save-dir setting) — checked
+    /// before Settings so a browser opened *from* Settings gets the input.
     Browser,
+    Settings,
     /// The transfer progress/summary screen.
     Transfer,
     Home,

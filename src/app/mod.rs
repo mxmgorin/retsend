@@ -8,6 +8,9 @@ use crate::config::AppConfig;
 use crate::event::user::UserEventSender;
 use crate::event::AppEventHandler;
 use crate::net::NetService;
+use crate::overlay::browser::BrowserMode;
+use crate::overlay::osk::{OskEvent, OskTarget};
+use crate::overlay::settings::SettingsRow;
 use crate::overlay::transfer::Viewed;
 use crate::overlay::Focus;
 use crate::platform::window::AppWindow;
@@ -118,12 +121,14 @@ impl App {
     /// Input precedence: the incoming modal outranks everything, then the
     /// full-screen overlays, then the radar.
     fn focus(&self) -> Focus {
-        if self.net.shared.pending.lock().unwrap().is_some() {
+        if self.ui.osk.active {
+            Focus::Osk
+        } else if self.net.shared.pending.lock().unwrap().is_some() {
             Focus::Prompt
-        } else if self.ui.settings.open {
-            Focus::Settings
         } else if self.ui.browser.open {
             Focus::Browser
+        } else if self.ui.settings.open {
+            Focus::Settings
         } else if self.ui.transfer.opened {
             Focus::Transfer
         } else {
@@ -146,6 +151,33 @@ impl App {
                 self.net.re_announce();
                 self.ui.toasts.push("Announcing…");
             }
+
+            // On-screen keyboard: finish typing before anything else.
+            (Focus::Osk, AppCommand::Nav(dir)) => {
+                let (dx, dy) = match dir {
+                    Direction::Up => (0, -1),
+                    Direction::Down => (0, 1),
+                    Direction::Left => (-1, 0),
+                    Direction::Right => (1, 0),
+                };
+                self.ui.osk.move_cursor(dx, dy);
+            }
+            (Focus::Osk, AppCommand::Confirm) => {
+                if let Some(event) = self.ui.osk.press() {
+                    self.handle_osk_event(event);
+                }
+            }
+            (Focus::Osk, AppCommand::Back) => {
+                if let Some(event) = self.ui.osk.back() {
+                    self.handle_osk_event(event);
+                }
+            }
+            (Focus::Osk, AppCommand::ToggleSettings) => {
+                let event = self.ui.osk.commit();
+                self.handle_osk_event(event);
+            }
+            (Focus::Osk, AppCommand::ReAnnounce) => self.ui.osk.cycle_layer(),
+            (Focus::Osk, _) => {}
 
             // Incoming-request modal: A accepts (the parked handler answers
             // 200 and installs the session), B declines (it answers 403).
@@ -202,8 +234,11 @@ impl App {
                     self.send_target = None;
                 }
             }
-            // Start: confirm the selection and fire the send.
-            (Focus::Browser, AppCommand::ToggleSettings) => self.send_selection(),
+            // Start: confirm — send the selection, or choose the cwd.
+            (Focus::Browser, AppCommand::ToggleSettings) => match self.ui.browser.mode {
+                BrowserMode::PickFiles => self.send_selection(),
+                BrowserMode::PickDir => self.choose_save_dir(),
+            },
             // Select: jump between mount points.
             (Focus::Browser, AppCommand::ReAnnounce) => {
                 if let Some(root) = self.ui.browser.cycle_root() {
@@ -231,14 +266,122 @@ impl App {
             (Focus::Home, AppCommand::ToggleSettings) => self.ui.settings.open = true,
             (Focus::Home, AppCommand::Back) => {}
 
-            (Focus::Settings, AppCommand::Nav(dir)) => {
-                self.ui.settings.move_cursor(nav_delta(dir));
+            (Focus::Settings, AppCommand::Nav(Direction::Up | Direction::Down)) => {
+                let delta = if matches!(command, AppCommand::Nav(Direction::Up)) {
+                    -1
+                } else {
+                    1
+                };
+                self.ui.settings.move_cursor(delta);
             }
+            (Focus::Settings, AppCommand::Nav(Direction::Left | Direction::Right)) => {
+                let step = if matches!(command, AppCommand::Nav(Direction::Left)) {
+                    -1
+                } else {
+                    1
+                };
+                self.adjust_setting(step);
+            }
+            (Focus::Settings, AppCommand::PageUp) => self.adjust_setting(-100),
+            (Focus::Settings, AppCommand::PageDown) => self.adjust_setting(100),
+            (Focus::Settings, AppCommand::Confirm) => self.edit_setting(),
             (Focus::Settings, AppCommand::Back | AppCommand::ToggleSettings) => {
-                self.ui.settings.open = false;
+                self.close_settings();
             }
-            (Focus::Settings, _) => {}
         }
+    }
+
+    /// A on a settings row: open its editor or toggle it.
+    fn edit_setting(&mut self) {
+        match self.ui.settings.row() {
+            SettingsRow::Alias => {
+                self.ui
+                    .osk
+                    .open(OskTarget::Alias, &self.config.device.alias);
+            }
+            SettingsRow::SaveDir => {
+                let start = PathBuf::from(&self.config.transfer.save_dir);
+                self.ui
+                    .browser
+                    .open_for_dir(&start, &self.config.transfer.browser_roots);
+            }
+            SettingsRow::QuickSave => self.toggle_quick_save(),
+            SettingsRow::Port | SettingsRow::About => {}
+        }
+    }
+
+    /// Left/right (and L1/R1) on value rows: port stepper, toggle.
+    fn adjust_setting(&mut self, step: i32) {
+        match self.ui.settings.row() {
+            SettingsRow::Port => {
+                let port = (self.config.network.port as i32 + step).clamp(1024, u16::MAX as i32);
+                if port as u16 != self.config.network.port {
+                    self.config.network.port = port as u16;
+                    self.ui.settings.port_dirty = true;
+                }
+            }
+            SettingsRow::QuickSave => self.toggle_quick_save(),
+            _ => {}
+        }
+    }
+
+    fn toggle_quick_save(&mut self) {
+        self.config.transfer.auto_accept = !self.config.transfer.auto_accept;
+        self.net.shared.transfer.lock().unwrap().auto_accept = self.config.transfer.auto_accept;
+    }
+
+    /// B in settings: persist, and restart the net stack if the port changed.
+    fn close_settings(&mut self) {
+        self.ui.settings.open = false;
+        self.config.save();
+        if self.ui.settings.port_dirty {
+            self.ui.settings.port_dirty = false;
+            self.restart_net();
+        }
+    }
+
+    fn restart_net(&mut self) {
+        self.net.stop();
+        match NetService::spawn(
+            &self.config.device,
+            &self.config.network,
+            &self.config.transfer,
+            self.wake.clone(),
+        ) {
+            Ok(net) => {
+                self.net = net;
+                self.ui
+                    .toasts
+                    .push(format!("Now on port {}", self.net.http_port()));
+            }
+            Err(e) => self.ui.toasts.push(format!("Network restart failed: {e}")),
+        }
+    }
+
+    fn handle_osk_event(&mut self, event: OskEvent) {
+        match event {
+            OskEvent::Committed(OskTarget::Alias, value) => {
+                if value.is_empty() {
+                    self.ui.toasts.push("Alias can't be empty");
+                    return;
+                }
+                self.config.device.alias = value.clone();
+                self.net.shared.me.lock().unwrap().alias = value;
+                self.config.save();
+                self.net.re_announce();
+            }
+            OskEvent::Cancelled => {}
+        }
+    }
+
+    /// Start in PickDir mode: the cwd becomes the save directory.
+    fn choose_save_dir(&mut self) {
+        let dir = self.ui.browser.cwd.clone();
+        self.ui.browser.close();
+        self.config.transfer.save_dir = dir.display().to_string();
+        self.net.shared.transfer.lock().unwrap().save_dir = dir;
+        self.config.save();
+        self.ui.toasts.push("Save folder updated");
     }
 
     /// A on a radar row: remember the target and open the file browser.
