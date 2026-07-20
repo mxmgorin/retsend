@@ -22,11 +22,14 @@ Early. Working now:
   (D-pad + A, Select cycles mount roots, Start sends); waiting-for-accept
   phase, per-file progress, cancel. CLI arguments pre-select files. HTTP-mode
   peers only for now — turn off encryption in the official app's settings.
+- **Settings**: alias (on-screen keyboard), save folder (directory picker),
+  port (stepper; the net stack restarts on close), quick save toggle.
+- **Headless**: `localsend-retro --receive` — no screen, auto-accept into the
+  save dir, progress on stdout. For ssh sessions and scripting.
 - App shell: SDL2 window + egui, D-pad/left-stick navigation with hold-repeat,
-  keyboard mirror for desktop dev, TOML config, read-only settings screen.
+  keyboard mirror for desktop dev, TOML config, stale `.part` sweep at start.
 
-Next, in order: settings editing + on-screen keyboard, PortMaster packaging,
-HTTPS mode.
+Next: PortMaster packaging, then HTTPS mode.
 
 ## Run (desktop)
 
