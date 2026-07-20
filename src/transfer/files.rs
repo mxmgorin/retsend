@@ -94,6 +94,32 @@ pub fn mime_for(path: &Path) -> &'static str {
     }
 }
 
+/// Remove leftover `.part` files older than a day from `dir` — debris from
+/// crashes or yanked power mid-transfer. Fresh ones are left alone in case a
+/// transfer is somehow still running. Called once at startup, best-effort.
+pub fn sweep_stale_parts(dir: &Path) {
+    const MAX_AGE: std::time::Duration = std::time::Duration::from_secs(24 * 3600);
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let is_part = path.extension().is_some_and(|e| e == "part");
+        let stale = entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.elapsed().ok())
+            .is_some_and(|age| age > MAX_AGE);
+        if is_part && stale {
+            match std::fs::remove_file(&path) {
+                Ok(()) => log::info!("swept stale `{}`", path.display()),
+                Err(e) => log::warn!("could not sweep `{}`: {e}", path.display()),
+            }
+        }
+    }
+}
+
 /// Sibling `.part` path the file streams into before the final rename.
 pub fn part_path(path: &Path) -> PathBuf {
     let mut os = path.as_os_str().to_os_string();

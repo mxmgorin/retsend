@@ -28,6 +28,15 @@ pub fn run_app() {
         app_config.display.use_gles = v != "0";
     }
 
+    transfer::files::sweep_stale_parts(std::path::Path::new(&app_config.transfer.save_dir));
+
+    // Headless receiver: no SDL, no screen — auto-accept into save_dir and
+    // log to stdout. For ssh sessions on the device and scripted testing.
+    if std::env::args().any(|a| a == "--receive") {
+        run_headless(app_config);
+        return;
+    }
+
     // On a Wayland desktop SDL still often defaults to x11; align it to
     // Wayland. On the handheld (no WAYLAND_DISPLAY) this is skipped and SDL
     // falls back to its kmsdrm driver. An explicit SDL_VIDEODRIVER wins.
@@ -58,6 +67,81 @@ fn init_logging() {
         }
     }
     builder.init();
+}
+
+/// `--receive`: run just the net stack with auto-accept forced and progress
+/// on stdout, until Ctrl-C. Everything is reused; only the waker is a no-op
+/// (there is no event loop to wake — the poll loop below reads shared state).
+fn run_headless(mut config: config::AppConfig) {
+    use std::sync::atomic::Ordering;
+
+    struct NoopWake;
+    impl net::Wake for NoopWake {
+        fn wake(&self, _reason: net::WakeReason) {}
+    }
+
+    config.transfer.auto_accept = true;
+    let net = match net::NetService::spawn(
+        &config.device,
+        &config.network,
+        &config.transfer,
+        std::sync::Arc::new(NoopWake),
+    ) {
+        Ok(net) => net,
+        Err(e) => {
+            eprintln!("failed to start networking: {e}");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "receiving as `{}` on port {} into {}  (Ctrl-C to quit)",
+        config.device.alias,
+        net.http_port(),
+        config.transfer.save_dir
+    );
+
+    let mut known_peers = std::collections::HashSet::new();
+    let mut last: Option<std::sync::Arc<transfer::inbound::InboundSession>> = None;
+    loop {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
+        for peer in net.shared.peers.snapshot() {
+            if known_peers.insert(peer.info.fingerprint.clone()) {
+                println!("found `{}` at {}", peer.info.alias, peer.ip);
+            }
+        }
+
+        let active = net.shared.active.lock().unwrap().clone();
+        if let Some(session) = &active {
+            let received = session.received_total.load(Ordering::Relaxed);
+            let percent = if session.total_bytes > 0 {
+                received * 100 / session.total_bytes
+            } else {
+                100
+            };
+            println!(
+                "receiving from `{}`: {percent}% ({}/{} files)",
+                session.peer_alias,
+                session.done_count(),
+                session.files.len()
+            );
+        }
+        // The slot cleared (or was replaced): report the outcome once.
+        if let Some(session) = last.take() {
+            let gone = active
+                .as_ref()
+                .map_or(true, |a| a.session_id != session.session_id);
+            if gone && session.is_finished() {
+                println!(
+                    "done: {}/{} files from `{}`",
+                    session.done_count(),
+                    session.files.len(),
+                    session.peer_alias
+                );
+            }
+        }
+        last = active;
+    }
 }
 
 /// Mirror panics to a file in addition to stderr: `LSRETRO_PANIC_FILE` if set,
