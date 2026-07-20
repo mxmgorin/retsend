@@ -2,18 +2,20 @@
 //! selection checkboxes, and a footer with the running selection total.
 
 use super::theme;
-use crate::overlay::browser::FileBrowser;
+use crate::overlay::browser::{BrowserMode, FileBrowser};
 use egui_sdl2::egui;
 
 pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
+    let picking_dir = browser.mode == BrowserMode::PickDir;
     egui::Panel::top("browser_header").show_inside(root, |ui| {
         ui.add_space(6.0);
         ui.horizontal(|ui| {
-            ui.label(
-                egui::RichText::new(format!("Send to {target_alias}"))
-                    .size(theme::ROW_FONT)
-                    .strong(),
-            );
+            let title = if picking_dir {
+                "Choose the save folder".to_string()
+            } else {
+                format!("Send to {target_alias}")
+            };
+            ui.label(egui::RichText::new(title).size(theme::ROW_FONT).strong());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(
                     egui::RichText::new(truncate_middle(&browser.cwd.display().to_string(), 48))
@@ -40,9 +42,9 @@ pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
             super::home::hint_bar(
                 ui,
                 &[
-                    ("A", "Select/Open"),
+                    ("A", if picking_dir { "Open" } else { "Select/Open" }),
                     ("B", "Up"),
-                    ("Start", "Send"),
+                    ("Start", if picking_dir { "Choose here" } else { "Send" }),
                     ("Select", "Roots"),
                 ],
             );
@@ -79,9 +81,12 @@ pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
                 let painter = ui.painter();
                 let padding = 10.0;
 
-                // Checkbox for files, a slash marker for directories.
+                // Checkbox for files, a slash marker for directories; no
+                // checkboxes when only a directory is being picked.
                 let (marker, marker_color) = if entry.is_dir {
                     ("   /", theme::DIM)
+                } else if picking_dir {
+                    ("", theme::DIM)
                 } else if browser.selected.contains_key(&entry.path) {
                     ("[x]", theme::ACCENT)
                 } else {

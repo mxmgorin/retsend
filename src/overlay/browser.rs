@@ -23,8 +23,17 @@ pub struct Entry {
     pub size: u64,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum BrowserMode {
+    /// Multi-select files to send.
+    PickFiles,
+    /// Navigate to a directory; Start chooses the cwd (save-dir setting).
+    PickDir,
+}
+
 pub struct FileBrowser {
     pub open: bool,
+    pub mode: BrowserMode,
     /// Shown in the header: who the selection will be sent to.
     pub target_alias: String,
     pub cwd: PathBuf,
@@ -40,6 +49,7 @@ impl FileBrowser {
     pub fn new() -> Self {
         Self {
             open: false,
+            mode: BrowserMode::PickFiles,
             target_alias: String::new(),
             cwd: PathBuf::new(),
             entries: Vec::new(),
@@ -58,6 +68,7 @@ impl FileBrowser {
         extra_roots: &[String],
         initial: &[PathBuf],
     ) {
+        self.mode = BrowserMode::PickFiles;
         self.target_alias = target_alias.to_string();
         self.roots = build_roots(extra_roots);
         self.root_index = 0;
@@ -69,6 +80,27 @@ impl FileBrowser {
         self.open = true;
         if let Some(root) = self.roots.first() {
             let _ = self.change_dir(root.clone());
+        }
+    }
+
+    /// Open to choose a directory, starting at `start` when it exists.
+    pub fn open_for_dir(&mut self, start: &Path, extra_roots: &[String]) {
+        self.mode = BrowserMode::PickDir;
+        self.target_alias.clear();
+        self.roots = build_roots(extra_roots);
+        self.root_index = 0;
+        self.selected.clear();
+        self.cursor = 0;
+        self.open = true;
+        let start = if start.is_dir() {
+            start.to_path_buf()
+        } else {
+            self.roots.first().cloned().unwrap_or_else(|| "/".into())
+        };
+        if self.change_dir(start).is_err() {
+            if let Some(root) = self.roots.first() {
+                let _ = self.change_dir(root.clone());
+            }
         }
     }
 
@@ -105,13 +137,15 @@ impl FileBrowser {
         };
         if entry.is_dir {
             self.change_dir(entry.path.clone())
-        } else {
+        } else if self.mode == BrowserMode::PickFiles {
             let path = entry.path.clone();
             let size = entry.size;
             if self.selected.remove(&path).is_none() {
                 self.selected.insert(path, size);
             }
             Ok(())
+        } else {
+            Ok(()) // PickDir: files aren't selectable
         }
     }
 

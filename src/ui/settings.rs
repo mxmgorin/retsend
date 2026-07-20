@@ -1,5 +1,4 @@
-//! Settings screen renderer. Read-only in this milestone; the cursor and row
-//! layout are final so editing only swaps the value side later.
+//! Settings screen renderer: name/value rows with per-row edit hints.
 
 use super::theme;
 use crate::config::AppConfig;
@@ -7,21 +6,27 @@ use crate::overlay::settings::Settings;
 use egui_sdl2::egui;
 
 pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_port: u16) {
-    let rows: [(&str, String); crate::overlay::settings::ROW_COUNT] = [
-        ("Alias", config.device.alias.clone()),
-        ("Save to", config.transfer.save_dir.clone()),
-        ("Port", port_label(config.network.port, actual_port)),
+    let rows: [(&str, String, &str); crate::overlay::settings::ROW_COUNT] = [
+        ("Alias", config.device.alias.clone(), "A Edit"),
+        ("Save to", config.transfer.save_dir.clone(), "A Choose"),
+        (
+            "Port",
+            port_label(config.network.port, actual_port, state.port_dirty),
+            "← → Adjust · L1/R1 ±100",
+        ),
         (
             "Quick save",
             if config.transfer.auto_accept {
-                "on (accept without asking)".into()
+                "on — accept without asking".into()
             } else {
                 "off".into()
             },
+            "A Toggle",
         ),
         (
             "About",
             format!("localsend-retro {}", env!("CARGO_PKG_VERSION")),
+            "",
         ),
     ];
 
@@ -37,18 +42,12 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
 
     egui::Panel::bottom("settings_footer").show_inside(root, |ui| {
         ui.add_space(4.0);
-        super::home::hint_bar(ui, &[("B", "Back")]);
+        super::home::hint_bar(ui, &[("B", "Save & close")]);
         ui.add_space(4.0);
     });
 
     egui::CentralPanel::default().show_inside(root, |ui| {
-        ui.label(
-            egui::RichText::new("Read-only for now — edit config.toml; editing lands soon.")
-                .size(theme::DETAIL_FONT)
-                .color(theme::DIM),
-        );
-        ui.add_space(6.0);
-        for (i, (name, value)) in rows.iter().enumerate() {
+        for (i, (name, value, hint)) in rows.iter().enumerate() {
             let selected = state.cursor == i;
             let desired = egui::vec2(ui.available_width(), theme::ROW_HEIGHT);
             let (rect, _) = ui.allocate_exact_size(desired, egui::Sense::hover());
@@ -64,12 +63,21 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
             let painter = ui.painter();
             let padding = 10.0;
             painter.text(
-                rect.left_center() + egui::vec2(padding, 0.0),
-                egui::Align2::LEFT_CENTER,
+                rect.left_top() + egui::vec2(padding, 7.0),
+                egui::Align2::LEFT_TOP,
                 *name,
                 egui::FontId::proportional(theme::ROW_FONT),
                 ui.visuals().text_color(),
             );
+            if selected && !hint.is_empty() {
+                painter.text(
+                    rect.left_bottom() + egui::vec2(padding, -6.0),
+                    egui::Align2::LEFT_BOTTOM,
+                    *hint,
+                    egui::FontId::proportional(theme::DETAIL_FONT - 1.0),
+                    theme::ACCENT,
+                );
+            }
             painter.text(
                 rect.right_center() - egui::vec2(padding, 0.0),
                 egui::Align2::RIGHT_CENTER,
@@ -81,8 +89,10 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
     });
 }
 
-fn port_label(configured: u16, actual: u16) -> String {
-    if configured == actual {
+fn port_label(configured: u16, actual: u16, dirty: bool) -> String {
+    if dirty {
+        format!("{configured} (applies on close)")
+    } else if configured == actual {
         actual.to_string()
     } else {
         format!("{actual} ({configured} was busy)")

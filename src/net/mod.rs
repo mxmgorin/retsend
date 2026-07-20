@@ -145,10 +145,11 @@ impl NetService {
         let _ = self.announcer_tx.send(discovery::AnnouncerMsg::ReAnnounce);
     }
 
-    /// Stop and join all net threads. The announcer is poked via its channel,
-    /// the UDP listener notices within its 1 s read timeout, and the accept
-    /// loop is unblocked by a throwaway local connection.
-    pub fn stop(mut self) {
+    /// Stop and join all net threads (idempotent — the settings screen
+    /// restarts the stack by stopping and reassigning). The announcer is
+    /// poked via its channel, the UDP listener notices within its 1 s read
+    /// timeout, and the accept loop is unblocked by a throwaway connection.
+    pub fn stop(&mut self) {
         self.shared.shutdown.store(true, Ordering::SeqCst);
         let _ = self.announcer_tx.send(discovery::AnnouncerMsg::Shutdown);
         let port = self.http_port();
