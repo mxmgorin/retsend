@@ -1,0 +1,71 @@
+name: Linux
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    # 22.04 over latest: its glibc 2.35 keeps the binary runnable on older
+    # distros (glibc only guarantees backward compatibility).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config ca-certificates libsdl2-dev zip
+
+      - name: Rust toolchain
+        run: |
+          set -eux
+          rustup show
+          rustc --version
+
+      # System SDL2, dynamically linked — desktop distros all package it.
+      - name: Build
+        env:
+          CARGO_PROFILE_RELEASE_LTO: "fat"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+        run: |
+          set -eux
+          cargo build --release
+
+      - name: Stage binary
+        run: |
+          set -eux
+          mkdir -p dist
+          cp target/release/localsend-retro dist/
+          strip dist/localsend-retro || true
+          ls -la dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: localsend-retro-linux-x86_64
+          path: dist/localsend-retro
+
+      - name: Zip for release
+        if: github.event_name == 'release'
+        run: |
+          cd dist && zip -r ../localsend-retro-linux-x86_64.zip .
+          cd ..
+          sha256sum localsend-retro-linux-x86_64.zip > localsend-retro-linux-x86_64.zip.sha256
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            localsend-retro-linux-x86_64.zip
+            localsend-retro-linux-x86_64.zip.sha256

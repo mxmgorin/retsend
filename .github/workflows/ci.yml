@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config ca-certificates libsdl2-dev
+
+      - name: Rust toolchain
+        run: |
+          set -eux
+          rustup show
+          rustc --version
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      # The integration tests are headless (no SDL): real TCP round-trips
+      # against the receive server, plus the loopback send worker.
+      - name: Test
+        run: cargo test

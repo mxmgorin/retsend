@@ -1,0 +1,190 @@
+name: Linux ARM
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-arm:
+    # Native arm64 runner (free for public repos) — no cross-compile, no qemu.
+    # One job per target core, in parallel; a pure codegen flag (RUSTFLAGS) —
+    # the Graviton runner happily emits code for older cores.
+    runs-on: ubuntu-22.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ARMv8.0-A, in-order. RK3326. Runs on A53 too (same ISA).
+          - cpu: cortex-a35
+            suffix: a35
+          # ARMv8.0-A baseline + default fallback. H700, Allwinner A133 Plus.
+          - cpu: cortex-a53
+            suffix: a53
+          # ARMv8.2-A: LSE atomics, fp16, dotprod. SIGILLs on the v8.0 cores
+          # above — must stay a separate binary. RK3566, Allwinner A523.
+          - cpu: cortex-a55
+            suffix: a55
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config ca-certificates libsdl2-dev zip
+
+      - name: Rust toolchain
+        run: |
+          set -eux
+          # rust-toolchain.toml pins the channel; rustup honors it.
+          rustup show
+          rustc --version
+
+      - name: Build
+        env:
+          RUSTFLAGS: "-C target-cpu=${{ matrix.cpu }}"
+          # CI performance build (kept out of Cargo.toml so local release
+          # builds stay fast to compile).
+          CARGO_PROFILE_RELEASE_LTO: "fat"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+        run: |
+          set -eux
+          cargo build --release
+
+      - name: Stage binary
+        run: |
+          set -eux
+          mkdir -p dist
+          cp target/release/localsend-retro "dist/localsend-retro.${{ matrix.suffix }}"
+          strip "dist/localsend-retro.${{ matrix.suffix }}" || true
+          ls -la dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: localsend-retro-${{ matrix.suffix }}
+          path: dist/localsend-retro.${{ matrix.suffix }}
+
+  package:
+    # Collect the per-core binaries into one PortMaster port; the launcher
+    # picks the right one at runtime from /proc/cpuinfo.
+    needs: build-arm
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download per-core binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: localsend-retro-a*
+          path: bins
+          merge-multiple: true
+
+      - name: Package for PortMaster
+        run: |
+          set -eux
+          pm=portmaster-dist
+          rm -rf "$pm"
+          mkdir -p "$pm/localsend-retro"
+          # Only the launcher sits at the port root; everything else lives in
+          # the localsend-retro/ gamedir, matching installed-port layout.
+          cp "portmaster/LocalSend Retro.sh" "$pm/"
+          cp portmaster/port.json "$pm/localsend-retro/"
+          cp portmaster/gameinfo.xml "$pm/localsend-retro/"
+          cp portmaster/README.md "$pm/localsend-retro/"
+          cp portmaster/screenshot.png "$pm/localsend-retro/"
+          cp -r portmaster/localsend-retro/. "$pm/localsend-retro/"
+          rm -f "$pm/localsend-retro/.gitkeep"
+          cp bins/localsend-retro.a35 bins/localsend-retro.a53 \
+            bins/localsend-retro.a55 "$pm/localsend-retro/"
+          chmod +x "$pm/LocalSend Retro.sh" "$pm/localsend-retro/localsend-retro.a35" \
+            "$pm/localsend-retro/localsend-retro.a53" "$pm/localsend-retro/localsend-retro.a55"
+          ls -laR "$pm"
+
+      - name: Upload PortMaster artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: localsend-retro-portmaster
+          path: portmaster-dist
+
+      - name: Zip for release
+        if: github.event_name == 'release'
+        run: |
+          set -eux
+          cd portmaster-dist && zip -r ../localsend-retro-portmaster.zip .
+          cd ..
+          sha256sum localsend-retro-portmaster.zip > localsend-retro-portmaster.zip.sha256
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            localsend-retro-portmaster.zip
+            localsend-retro-portmaster.zip.sha256
+
+  build-universal:
+    # A single generic aarch64 binary for non-PortMaster installs: no
+    # -C target-cpu, so it runs on any ARMv8.0+ core.
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config ca-certificates libsdl2-dev zip
+
+      - name: Rust toolchain
+        run: |
+          set -eux
+          rustup show
+          rustc --version
+
+      - name: Build
+        env:
+          CARGO_PROFILE_RELEASE_LTO: "fat"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+        run: |
+          set -eux
+          cargo build --release
+
+      - name: Stage binary
+        run: |
+          set -eux
+          mkdir -p dist
+          cp target/release/localsend-retro dist/localsend-retro-linux-aarch64
+          strip dist/localsend-retro-linux-aarch64 || true
+          ls -la dist/
+
+      - name: Upload universal artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: localsend-retro-linux-aarch64
+          path: dist/localsend-retro-linux-aarch64
+
+      - name: Zip for release
+        if: github.event_name == 'release'
+        run: |
+          set -eux
+          cd dist && zip ../localsend-retro-linux-aarch64.zip localsend-retro-linux-aarch64
+          cd ..
+          sha256sum localsend-retro-linux-aarch64.zip > localsend-retro-linux-aarch64.zip.sha256
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            localsend-retro-linux-aarch64.zip
+            localsend-retro-linux-aarch64.zip.sha256
