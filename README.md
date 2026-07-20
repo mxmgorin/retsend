@@ -29,7 +29,9 @@ Early. Working now:
 - App shell: SDL2 window + egui, D-pad/left-stick navigation with hold-repeat,
   keyboard mirror for desktop dev, TOML config, stale `.part` sweep at start.
 
-Next: PortMaster packaging, then HTTPS mode.
+Packaging: CI builds per-CPU ARM binaries (Cortex-A35/A53/A55) and assembles
+a PortMaster zip on release; the launcher picks the right binary from
+`/proc/cpuinfo`. Next: HTTPS mode.
 
 ## Run (desktop)
 
