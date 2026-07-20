@@ -114,11 +114,9 @@ fn run_headless(mut config: config::AppConfig) {
         let active = net.shared.active.lock().unwrap().clone();
         if let Some(session) = &active {
             let received = session.received_total.load(Ordering::Relaxed);
-            let percent = if session.total_bytes > 0 {
-                received * 100 / session.total_bytes
-            } else {
-                100
-            };
+            let percent = (received * 100)
+                .checked_div(session.total_bytes)
+                .unwrap_or(100);
             println!(
                 "receiving from `{}`: {percent}% ({}/{} files)",
                 session.peer_alias,
@@ -130,7 +128,7 @@ fn run_headless(mut config: config::AppConfig) {
         if let Some(session) = last.take() {
             let gone = active
                 .as_ref()
-                .map_or(true, |a| a.session_id != session.session_id);
+                .is_none_or(|a| a.session_id != session.session_id);
             if gone && session.is_finished() {
                 println!(
                     "done: {}/{} files from `{}`",

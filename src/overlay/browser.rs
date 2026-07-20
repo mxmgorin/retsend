@@ -152,7 +152,7 @@ impl FileBrowser {
     /// B: go to the parent directory. Returns `false` at a root — the caller
     /// closes the browser.
     pub fn parent(&mut self) -> bool {
-        if self.roots.iter().any(|r| *r == self.cwd) {
+        if self.roots.contains(&self.cwd) {
             return false;
         }
         let Some(parent) = self.cwd.parent().map(Path::to_path_buf) else {
