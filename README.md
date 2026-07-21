@@ -60,8 +60,8 @@ move in both directions.
 
 Grab `localsend-retro-portmaster.zip` from
 [Releases](https://github.com/mxmgorin/localsend-retro/releases) and unpack it
-into your ports folder (e.g. `/roms/ports/`). The launcher picks the binary
-built for your CPU (Cortex-A35/A53/A55) from `/proc/cpuinfo`.
+into your ports folder (e.g. `/roms/ports/`). One ARMv8.0 baseline binary
+covers every supported device.
 
 Received files land in the ROMs root by default — change the folder in
 Settings.
