@@ -1,4 +1,6 @@
-<h1 align="center">retsend</h1>
+<h1 align="center">
+  <img src="docs/images/retsend-wordmark.png" alt="retsend" width="320">
+</h1>
 
 <p align="center">Wireless file transfer for retro handhelds.</p>
 
