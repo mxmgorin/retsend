@@ -58,6 +58,7 @@ impl App {
             &config.device,
             &config.network,
             &config.transfer,
+            std::path::Path::new(&crate::config::data_dir()),
             wake.clone(),
         )
         .map_err(|e| format!("failed to start networking: {e}"))?;
@@ -346,6 +347,7 @@ impl App {
             &self.config.device,
             &self.config.network,
             &self.config.transfer,
+            std::path::Path::new(&crate::config::data_dir()),
             self.wake.clone(),
         ) {
             Ok(net) => {
@@ -392,15 +394,9 @@ impl App {
         }
         let peers = self.net.shared.peers.snapshot();
         let Some(peer) = peers.get(index) else { return };
-        if peer.info.protocol.as_deref() == Some("https") {
-            self.ui
-                .toasts
-                .push("HTTPS peers aren't supported yet — turn off encryption on the other side");
-            return;
-        }
         self.send_target = Some(SendTarget {
             alias: peer.info.alias.clone(),
-            base: format!("http://{}:{}", peer.ip, peer.port),
+            base: peer.base_url(),
         });
         self.ui.browser.open_for_send(
             &peer.info.alias,

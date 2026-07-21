@@ -53,7 +53,7 @@ fn start_receiver(auto_accept: bool) -> (Arc<NetShared>, String, PathBuf, impl F
         wake: Arc::new(NoopWake),
         shutdown: AtomicBool::new(false),
     });
-    let (handle, port) = server::spawn(shared.clone(), 0).expect("server spawns");
+    let (handle, port) = server::spawn(shared.clone(), 0, None).expect("server spawns");
     shared.me.lock().unwrap().port = Some(port);
     let base = format!("http://127.0.0.1:{port}");
     let stop = {
@@ -143,6 +143,59 @@ fn decline_ends_the_send_as_declined() {
 
     std::fs::remove_dir_all(&src).unwrap();
     stop();
+}
+
+#[test]
+fn sends_to_an_https_receiver() {
+    use localsend_retro::net::tls;
+
+    tls::install_provider();
+    let save_dir = temp_dir("recv-tls");
+    let identity = tls::load_or_create(&save_dir).unwrap();
+    let shared = Arc::new(NetShared {
+        me: Mutex::new(DeviceInfo {
+            fingerprint: identity.fingerprint.clone(),
+            protocol: Some("https".into()),
+            ..device("Receiver")
+        }),
+        peers: PeerRegistry::new(),
+        transfer: Mutex::new(TransferSettings {
+            save_dir: save_dir.clone(),
+            auto_accept: true,
+        }),
+        pending: Mutex::new(None),
+        active: Mutex::new(None),
+        outbound_active: AtomicBool::new(false),
+        wake: Arc::new(NoopWake),
+        shutdown: AtomicBool::new(false),
+    });
+    let (handle, port) =
+        server::spawn(shared.clone(), 0, Some(identity.server_config)).expect("server spawns");
+    shared.me.lock().unwrap().port = Some(port);
+
+    let src = temp_dir("src-tls");
+    std::fs::write(src.join("rom.gbc"), b"ENCRYPTED BYTES").unwrap();
+
+    let session = outbound::spawn(
+        "Receiver".into(),
+        format!("https://127.0.0.1:{port}"),
+        device("Sender"),
+        vec![src.join("rom.gbc")],
+        Arc::new(NoopWake),
+    )
+    .unwrap();
+
+    assert_eq!(wait_finished(&session), OutboundPhase::Done);
+    assert_eq!(
+        std::fs::read(save_dir.join("rom.gbc")).unwrap(),
+        b"ENCRYPTED BYTES"
+    );
+
+    shared.shutdown.store(true, Ordering::SeqCst);
+    let _ = TcpStream::connect(("127.0.0.1", port));
+    let _ = handle.join();
+    std::fs::remove_dir_all(&src).unwrap();
+    let _ = std::fs::remove_dir_all(&save_dir);
 }
 
 #[test]

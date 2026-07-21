@@ -54,7 +54,7 @@ fn start_server(auto_accept: bool) -> (Arc<NetShared>, u16, impl FnOnce()) {
         wake: Arc::new(NoopWake),
         shutdown: AtomicBool::new(false),
     });
-    let (handle, port) = server::spawn(shared.clone(), 0).expect("server spawns");
+    let (handle, port) = server::spawn(shared.clone(), 0, None).expect("server spawns");
     shared.me.lock().unwrap().port = Some(port);
     let stop = {
         let shared = shared.clone();
@@ -391,6 +391,63 @@ fn hostile_file_names_stay_inside_save_dir() {
     assert_eq!(std::fs::read(dir.join("evil.sh")).unwrap(), b"boom");
     assert!(!dir.parent().unwrap().join("evil.sh").exists());
     stop();
+}
+
+#[test]
+fn https_serves_info_with_certificate_fingerprint() {
+    use localsend_retro::net::{client, tls};
+
+    tls::install_provider();
+    let dir = temp_save_dir();
+    let identity = tls::load_or_create(&dir).unwrap();
+    let fingerprint = identity.fingerprint.clone();
+
+    let shared = Arc::new(NetShared {
+        me: Mutex::new(DeviceInfo {
+            fingerprint: fingerprint.clone(),
+            protocol: Some("https".into()),
+            ..test_me()
+        }),
+        peers: PeerRegistry::new(),
+        transfer: Mutex::new(TransferSettings {
+            save_dir: dir.clone(),
+            auto_accept: true,
+        }),
+        pending: Mutex::new(None),
+        active: Mutex::new(None),
+        outbound_active: AtomicBool::new(false),
+        wake: Arc::new(NoopWake),
+        shutdown: AtomicBool::new(false),
+    });
+    let (handle, port) =
+        server::spawn(shared.clone(), 0, Some(identity.server_config)).expect("server spawns");
+    shared.me.lock().unwrap().port = Some(port);
+
+    // The peer-facing agent skips CA verification (trust = fingerprint).
+    let mut resp = client::agent(None)
+        .get(format!("https://127.0.0.1:{port}/api/localsend/v2/info"))
+        .call()
+        .expect("https request succeeds");
+    let mut body = String::new();
+    resp.body_mut()
+        .as_reader()
+        .read_to_string(&mut body)
+        .unwrap();
+    let info: DeviceInfo = serde_json::from_str(&body).unwrap();
+    assert_eq!(info.fingerprint, fingerprint);
+    assert_eq!(info.protocol.as_deref(), Some("https"));
+
+    // A default (verifying) client must reject the self-signed certificate.
+    assert!(
+        ureq::get(format!("https://127.0.0.1:{port}/api/localsend/v2/info"))
+            .call()
+            .is_err()
+    );
+
+    shared.shutdown.store(true, Ordering::SeqCst);
+    let _ = TcpStream::connect(("127.0.0.1", port));
+    let _ = handle.join();
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

@@ -9,6 +9,7 @@ pub mod discovery;
 pub mod httpd;
 pub mod protocol;
 pub mod server;
+pub mod tls;
 
 use crate::transfer::inbound::InboundSession;
 use discovery::PeerRegistry;
@@ -85,18 +86,28 @@ impl NetService {
         device: &crate::config::DeviceConfig,
         network: &crate::config::NetworkConfig,
         transfer: &crate::config::TransferConfig,
+        data_dir: &std::path::Path,
         wake: Arc<dyn Wake>,
     ) -> std::io::Result<Self> {
+        // HTTPS mode: the fingerprint is the SHA-256 of our persisted
+        // certificate (peers remember devices by it). HTTP mode: just a
+        // random self-ignore string, fresh per run.
+        let identity = if network.https {
+            Some(tls::load_or_create(data_dir).map_err(std::io::Error::other)?)
+        } else {
+            None
+        };
         let me = DeviceInfo {
             alias: device.alias.clone(),
             version: protocol::PROTOCOL_VERSION.to_string(),
             device_model: Some(device.device_model.clone()),
             device_type: Some(device.device_type.clone()),
-            // HTTP mode: the fingerprint is just a random string peers use to
-            // ignore their own packets (and we ours). Fresh per run.
-            fingerprint: protocol::random_token(32),
+            fingerprint: identity
+                .as_ref()
+                .map(|i| i.fingerprint.clone())
+                .unwrap_or_else(|| protocol::random_token(32)),
             port: None, // filled in below once the TCP listener binds
-            protocol: Some("http".to_string()),
+            protocol: Some(if identity.is_some() { "https" } else { "http" }.to_string()),
             download: Some(false),
             announce: None,
         };
@@ -113,7 +124,8 @@ impl NetService {
         });
 
         // Bind TCP first: the announce must carry the real port.
-        let (server_handle, actual_port) = server::spawn(shared.clone(), network.port)?;
+        let tls = identity.map(|i| i.server_config);
+        let (server_handle, actual_port) = server::spawn(shared.clone(), network.port, tls)?;
         shared.me.lock().unwrap().port = Some(actual_port);
         if actual_port != network.port {
             log::warn!(

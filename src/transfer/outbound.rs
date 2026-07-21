@@ -164,7 +164,9 @@ fn run(session: Arc<OutboundSession>, base: String, me: DeviceInfo, wake: Arc<dy
     );
     session.set_phase(OutboundPhase::Sending, wake.as_ref());
 
-    let agent: ureq::Agent = ureq::Agent::config_builder().build().into();
+    // Peer-facing agent (verification off — trust is the announced
+    // fingerprint); no global timeout, uploads run as long as they need.
+    let agent = client::agent(None);
     for file in &session.files {
         // The receiver may accept a subset; files without a token were
         // deselected on their end.

@@ -12,6 +12,10 @@ pub struct NetworkConfig {
     pub port: u16,
     /// Seconds between periodic multicast announces.
     pub announce_interval_secs: u64,
+    /// The protocol's https mode (default): serve TLS with our persisted
+    /// self-signed certificate, fingerprint = its SHA-256 — what the official
+    /// app expects with encryption on. `false` falls back to plain http.
+    pub https: bool,
 }
 
 impl Default for NetworkConfig {
@@ -19,6 +23,7 @@ impl Default for NetworkConfig {
         Self {
             port: 53317,
             announce_interval_secs: 5,
+            https: true,
         }
     }
 }

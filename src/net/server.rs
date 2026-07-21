@@ -8,7 +8,7 @@ use super::httpd;
 use super::protocol::{self, DeviceInfo, PrepareUploadRequest, PrepareUploadResponse};
 use super::{NetShared, WakeReason};
 use crate::transfer::inbound::InboundSession;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Read, Write};
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
@@ -57,13 +57,47 @@ impl PendingRequest {
     }
 }
 
+/// The transport under the HTTP parser: plain TCP or rustls (the protocol's
+/// https mode). The handshake happens lazily on first read/write.
+enum ServerStream {
+    Plain(TcpStream),
+    Tls(Box<rustls::StreamOwned<rustls::ServerConnection, TcpStream>>),
+}
+
+impl Read for ServerStream {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            ServerStream::Plain(s) => s.read(buf),
+            ServerStream::Tls(s) => s.read(buf),
+        }
+    }
+}
+
+impl Write for ServerStream {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            ServerStream::Plain(s) => s.write(buf),
+            ServerStream::Tls(s) => s.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            ServerStream::Plain(s) => s.flush(),
+            ServerStream::Tls(s) => s.flush(),
+        }
+    }
+}
+
 /// Bind the preferred port, falling back through the next 9 (the official app
 /// may hold 53317 on a dev machine). Returns the accept-loop handle and the
 /// port actually bound — the caller stores it into `me.port` before discovery
-/// starts, so announces always carry a dialable port.
+/// starts, so announces always carry a dialable port. `tls` switches every
+/// connection to the protocol's https mode.
 pub fn spawn(
     shared: Arc<NetShared>,
     preferred_port: u16,
+    tls: Option<Arc<rustls::ServerConfig>>,
 ) -> std::io::Result<(JoinHandle<()>, u16)> {
     let mut last_err = None;
     let mut bound = None;
@@ -101,9 +135,10 @@ pub fn spawn(
                 return;
             }
             let shared = shared.clone();
+            let tls = tls.clone();
             let spawned = std::thread::Builder::new()
                 .name(format!("http-{peer_addr}"))
-                .spawn(move || handle_connection(stream, &shared));
+                .spawn(move || handle_connection(stream, &shared, tls));
             if let Err(e) = spawned {
                 log::warn!("could not spawn connection thread: {e}");
             }
@@ -112,12 +147,27 @@ pub fn spawn(
     Ok((handle, port))
 }
 
-fn handle_connection(stream: TcpStream, shared: &Arc<NetShared>) {
+fn handle_connection(
+    stream: TcpStream,
+    shared: &Arc<NetShared>,
+    tls: Option<Arc<rustls::ServerConfig>>,
+) {
     let _ = stream.set_read_timeout(Some(IO_TIMEOUT));
     let _ = stream.set_write_timeout(Some(IO_TIMEOUT));
     let peer_ip = match stream.peer_addr() {
         Ok(a) => a.ip(),
         Err(_) => return, // connection already gone
+    };
+
+    let stream = match tls {
+        Some(config) => match rustls::ServerConnection::new(config) {
+            Ok(conn) => ServerStream::Tls(Box::new(rustls::StreamOwned::new(conn, stream))),
+            Err(e) => {
+                log::warn!("tls setup for {peer_ip} failed: {e}");
+                return;
+            }
+        },
+        None => ServerStream::Plain(stream),
     };
 
     let mut reader = BufReader::new(stream);
@@ -159,13 +209,13 @@ fn handle_connection(stream: TcpStream, shared: &Arc<NetShared>) {
 /// The peer POSTs its device info; we upsert it and answer with ours. This is
 /// the TCP half of discovery — it works even when multicast RX is broken on
 /// the peer's (or our) wifi chip.
-fn handle_register(
-    reader: &mut BufReader<TcpStream>,
+fn handle_register<S: Read + Write>(
+    reader: &mut BufReader<S>,
     request: &httpd::Request,
     shared: &Arc<NetShared>,
     peer_ip: std::net::IpAddr,
 ) -> std::io::Result<()> {
-    let Some(info) = read_json_body::<DeviceInfo>(reader, request, MAX_JSON_BODY)? else {
+    let Some(info) = read_json_body::<_, DeviceInfo>(reader, request, MAX_JSON_BODY)? else {
         return httpd::respond_empty(reader.get_mut(), 400);
     };
 
@@ -183,12 +233,13 @@ fn handle_register(
 /// UI as a [`PendingRequest`], and blocks on the decision channel with the
 /// HTTP response unsent — `recv_timeout` is the whole trick. `auto_accept`
 /// ("quick save") short-circuits the park entirely.
-fn handle_prepare_upload(
-    reader: &mut BufReader<TcpStream>,
+fn handle_prepare_upload<S: Read + Write>(
+    reader: &mut BufReader<S>,
     request: &httpd::Request,
     shared: &Arc<NetShared>,
 ) -> std::io::Result<()> {
-    let Some(prepare) = read_json_body::<PrepareUploadRequest>(reader, request, MAX_PREPARE_BODY)?
+    let Some(prepare) =
+        read_json_body::<_, PrepareUploadRequest>(reader, request, MAX_PREPARE_BODY)?
     else {
         return httpd::respond_empty(reader.get_mut(), 400);
     };
@@ -259,8 +310,8 @@ fn handle_prepare_upload(
 }
 
 /// Create the session, install it as active, answer 200 with the tokens.
-fn start_session(
-    stream: &mut TcpStream,
+fn start_session<S: Write>(
+    stream: &mut S,
     shared: &Arc<NetShared>,
     sender: DeviceInfo,
     files: Vec<protocol::FileMeta>,
@@ -298,8 +349,8 @@ fn start_session(
 }
 
 /// Stream one file into the active session.
-fn handle_upload(
-    reader: &mut BufReader<TcpStream>,
+fn handle_upload<S: Read + Write>(
+    reader: &mut BufReader<S>,
     request: &httpd::Request,
     shared: &Arc<NetShared>,
 ) -> std::io::Result<()> {
@@ -338,8 +389,8 @@ fn handle_upload(
 }
 
 /// Sender-side cancel: fail what hasn't arrived, abort what is streaming.
-fn handle_cancel(
-    stream: &mut TcpStream,
+fn handle_cancel<S: Write>(
+    stream: &mut S,
     request: &httpd::Request,
     shared: &Arc<NetShared>,
 ) -> std::io::Result<()> {
@@ -372,8 +423,8 @@ fn clear_active(shared: &Arc<NetShared>, session_id: &str) {
 
 /// Read and parse a JSON body up to `cap` bytes, honoring 100-continue.
 /// `Ok(None)` = malformed (caller answers 400); over-cap answers 413 inline.
-fn read_json_body<T: serde::de::DeserializeOwned>(
-    reader: &mut BufReader<TcpStream>,
+fn read_json_body<S: Read + Write, T: serde::de::DeserializeOwned>(
+    reader: &mut BufReader<S>,
     request: &httpd::Request,
     cap: u64,
 ) -> std::io::Result<Option<T>> {

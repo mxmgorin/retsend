@@ -23,6 +23,8 @@ pub fn run_app() {
 
     log::info!("init localsend-retro {}", env!("CARGO_PKG_VERSION"));
 
+    net::tls::install_provider();
+
     let mut app_config = config::AppConfig::load();
     if let Ok(v) = std::env::var("LSRETRO_GLES") {
         app_config.display.use_gles = v != "0";
@@ -85,6 +87,7 @@ fn run_headless(mut config: config::AppConfig) {
         &config.device,
         &config.network,
         &config.transfer,
+        std::path::Path::new(&config::data_dir()),
         std::sync::Arc::new(NoopWake),
     ) {
         Ok(net) => net,

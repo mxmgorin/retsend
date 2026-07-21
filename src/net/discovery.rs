@@ -31,6 +31,18 @@ pub struct Peer {
     pub last_seen: Instant,
 }
 
+impl Peer {
+    /// URL scheme this peer serves ("http"/"https"), from its announce.
+    pub fn scheme(&self) -> &str {
+        self.info.protocol.as_deref().unwrap_or("http")
+    }
+
+    /// Base URL for the peer's REST endpoints.
+    pub fn base_url(&self) -> String {
+        format!("{}://{}:{}", self.scheme(), self.ip, self.port)
+    }
+}
+
 #[derive(Default)]
 pub struct PeerRegistry {
     peers: Mutex<std::collections::HashMap<String, Peer>>,
@@ -219,15 +231,12 @@ fn reply_to_announce(shared: &Arc<NetShared>, their_info: DeviceInfo, their_ip: 
         .spawn(move || {
             let me = { shared.me.lock().unwrap().clone() };
             let body = serde_json::to_string(&me).expect("DeviceInfo serializes");
-            let agent: ureq::Agent = ureq::Agent::config_builder()
-                .timeout_global(Some(Duration::from_secs(2)))
-                .build()
-                .into();
+            let scheme = their_info.protocol.as_deref().unwrap_or("http");
             let url = format!(
-                "http://{their_ip}:{their_port}{}/register",
+                "{scheme}://{their_ip}:{their_port}{}/register",
                 protocol::API_PREFIX
             );
-            match agent
+            match super::client::agent(Some(Duration::from_secs(2)))
                 .post(&url)
                 .content_type("application/json")
                 .send(body.as_str())

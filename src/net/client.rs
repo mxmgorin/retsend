@@ -15,6 +15,20 @@ const PREPARE_TIMEOUT: Duration = Duration::from_secs(90);
 /// Cancel is fire-and-forget; don't let it hang the worker.
 const CANCEL_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// An agent for talking to LocalSend peers. Certificate verification is off:
+/// peers use self-signed certificates and the protocol's trust model is the
+/// announced fingerprint (the certificate's SHA-256), not a CA chain.
+pub fn agent(timeout: Option<Duration>) -> ureq::Agent {
+    let tls = ureq::tls::TlsConfig::builder()
+        .disable_verification(true)
+        .build();
+    ureq::Agent::config_builder()
+        .tls_config(tls)
+        .timeout_global(timeout)
+        .build()
+        .into()
+}
+
 /// Why a prepare-upload didn't yield tokens. `Finished` is the spec's 204 —
 /// the receiver already has everything, a success no-op.
 #[derive(Debug)]
@@ -41,11 +55,7 @@ pub fn prepare_upload(
     };
     let body = serde_json::to_string(&request).expect("request serializes");
 
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(PREPARE_TIMEOUT))
-        .build()
-        .into();
-    let result = agent
+    let result = agent(Some(PREPARE_TIMEOUT))
         .post(format!("{base}{API_PREFIX}/prepare-upload"))
         .content_type("application/json")
         .send(body.as_str());
@@ -102,12 +112,8 @@ pub fn upload_file(
 /// Best-effort session cancel; failures only get logged — the peer's idle
 /// timeout cleans up regardless.
 pub fn cancel(base: &str, session_id: &str) {
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(CANCEL_TIMEOUT))
-        .build()
-        .into();
     let url = format!("{base}{API_PREFIX}/cancel?sessionId={session_id}");
-    if let Err(e) = agent.post(url).send(()) {
+    if let Err(e) = agent(Some(CANCEL_TIMEOUT)).post(url).send(()) {
         log::debug!("cancel {session_id}: {e}");
     }
 }

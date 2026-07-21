@@ -280,10 +280,16 @@ fn prompt_data(net: &NetService, config: &AppConfig) -> Option<prompt::PromptDat
 }
 
 fn endpoint_line(net: &NetService) -> String {
-    let port = net.http_port();
+    let (port, scheme) = {
+        let me = net.shared.me.lock().unwrap();
+        (
+            me.port.unwrap_or(0),
+            me.protocol.as_deref().unwrap_or("http").to_uppercase(),
+        )
+    };
     match crate::net::local_ip() {
-        Some(ip) => format!("HTTP · {ip}:{port}"),
-        None => format!("HTTP · port {port} · no network"),
+        Some(ip) => format!("{scheme} · {ip}:{port}"),
+        None => format!("{scheme} · port {port} · no network"),
     }
 }
 

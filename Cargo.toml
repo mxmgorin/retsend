@@ -28,9 +28,15 @@ toml = "1.1"
 log = "0.4"
 env_logger = "0.11"
 png = "0.18"
-# Outbound HTTP (register replies now, uploads in M3). Plain-HTTP build for the
-# protocol's http mode; the rustls feature joins in the HTTPS milestone.
-ureq = { version = "3", default-features = false }
+# Outbound HTTP(S): register replies + uploads. Verification is disabled per
+# request — LocalSend's trust model is the certificate fingerprint, not a CA.
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+# The HTTPS mode of the protocol: our self-signed identity (rcgen, generated
+# once, persisted in the data dir) served via rustls; the announce fingerprint
+# is the SHA-256 of the certificate.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rcgen = "0.14"
+sha2 = "0.10"
 # Only for SO_REUSEADDR/SO_REUSEPORT before binding UDP 53317 — std can't set
 # them pre-bind, and without them we can't coexist with the official LocalSend
 # app on the dev machine. The socket converts into std::net::UdpSocket after.
