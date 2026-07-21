@@ -11,6 +11,7 @@ use crate::net::NetService;
 use crate::overlay::browser::BrowserMode;
 use crate::overlay::osk::{OskEvent, OskTarget};
 use crate::overlay::settings::SettingsRow;
+use crate::overlay::tabs::Tab;
 use crate::overlay::transfer::Viewed;
 use crate::overlay::Focus;
 use crate::platform::window::AppWindow;
@@ -120,7 +121,7 @@ impl App {
     }
 
     /// Input precedence: the incoming modal outranks everything, then the
-    /// full-screen overlays, then the radar.
+    /// full-screen overlays, then the tabs.
     fn focus(&self) -> Focus {
         if self.ui.osk.active {
             Focus::Osk
@@ -128,12 +129,10 @@ impl App {
             Focus::Prompt
         } else if self.ui.browser.open {
             Focus::Browser
-        } else if self.ui.settings.open {
-            Focus::Settings
         } else if self.ui.transfer.opened {
             Focus::Transfer
         } else {
-            Focus::Home
+            Focus::Tabs
         }
     }
 
@@ -145,10 +144,7 @@ impl App {
 
             // Select is the browser's root-carousel; everywhere else it
             // refreshes the radar.
-            (
-                Focus::Home | Focus::Settings | Focus::Transfer | Focus::Prompt,
-                AppCommand::ReAnnounce,
-            ) => {
+            (Focus::Tabs | Focus::Transfer | Focus::Prompt, AppCommand::ReAnnounce) => {
                 self.net.re_announce();
                 self.ui.toasts.push("Announcing…");
             }
@@ -185,9 +181,9 @@ impl App {
             (Focus::Prompt, AppCommand::Confirm) => {
                 if let Some(pending) = self.net.shared.pending.lock().unwrap().take() {
                     pending.accept(std::path::PathBuf::from(&self.config.transfer.save_dir));
-                    self.ui.settings.open = false;
-                    // The transfer screen takes over; an in-progress pick is
-                    // abandoned (rare: someone sent to us mid-browse).
+                    // The transfer screen takes over (it outranks the tabs); an
+                    // in-progress pick is abandoned (rare: someone sent to us
+                    // mid-browse).
                     self.ui.browser.close();
                     self.ui.transfer.open();
                 }
@@ -247,48 +243,75 @@ impl App {
                     self.ui.toasts.push(root);
                 }
             }
-            (Focus::Home, AppCommand::Nav(dir)) => {
+            // L1/R1 cycle tabs, Start toggles the Settings tab — both handled
+            // regardless of which tab is showing. The rest (Nav/Confirm/Back)
+            // branch on the active tab.
+            (Focus::Tabs, AppCommand::PageUp) => self.switch_tab(-1),
+            (Focus::Tabs, AppCommand::PageDown) => self.switch_tab(1),
+            (Focus::Tabs, AppCommand::ToggleSettings) => self.toggle_settings_tab(),
+            (Focus::Tabs, AppCommand::Nav(dir)) => self.tab_nav(dir),
+            (Focus::Tabs, AppCommand::Confirm) => self.tab_confirm(),
+            (Focus::Tabs, AppCommand::Back) => self.tab_back(),
+        }
+    }
+
+    /// L1/R1 on a tab: step to the previous/next tab, persisting settings if
+    /// we're stepping off the Settings tab.
+    fn switch_tab(&mut self, delta: i32) {
+        let leaving_settings = self.ui.tabs.active() == Tab::Settings;
+        self.ui.tabs.cycle(delta);
+        if leaving_settings {
+            self.leave_settings();
+        }
+    }
+
+    /// Start: jump to the Settings tab, or leave it (persisting) for the
+    /// previously-active tab.
+    fn toggle_settings_tab(&mut self) {
+        let leaving_settings = self.ui.tabs.active() == Tab::Settings;
+        self.ui.tabs.toggle_settings();
+        if leaving_settings {
+            self.leave_settings();
+        }
+    }
+
+    /// Nav on a tab: Send scrolls the radar, Settings moves the row cursor and
+    /// steps values with left/right, Receive has nothing to navigate.
+    fn tab_nav(&mut self, dir: Direction) {
+        match self.ui.tabs.active() {
+            Tab::Send => {
                 let count = self.ui.peer_count;
                 self.ui.home.move_cursor(nav_delta(dir), count);
             }
-            (Focus::Home, AppCommand::PageUp) => {
-                let count = self.ui.peer_count;
-                self.ui.home.move_cursor(-PAGE_JUMP, count);
-            }
-            (Focus::Home, AppCommand::PageDown) => {
-                let count = self.ui.peer_count;
-                self.ui.home.move_cursor(PAGE_JUMP, count);
-            }
-            (Focus::Home, AppCommand::Confirm) => {
+            Tab::Receive => {}
+            Tab::Settings => match dir {
+                Direction::Up => self.ui.settings.move_cursor(-1),
+                Direction::Down => self.ui.settings.move_cursor(1),
+                Direction::Left => self.adjust_setting(-1),
+                Direction::Right => self.adjust_setting(1),
+            },
+        }
+    }
+
+    /// A on a tab: Send opens the browser for the selected device, Settings
+    /// edits the current row, Receive does nothing.
+    fn tab_confirm(&mut self) {
+        match self.ui.tabs.active() {
+            Tab::Send => {
                 if let Some(index) = self.ui.home.cursor(self.ui.peer_count) {
                     self.open_browser_for(index);
                 }
             }
-            (Focus::Home, AppCommand::ToggleSettings) => self.ui.settings.open = true,
-            (Focus::Home, AppCommand::Back) => {}
+            Tab::Receive => {}
+            Tab::Settings => self.edit_setting(),
+        }
+    }
 
-            (Focus::Settings, AppCommand::Nav(Direction::Up | Direction::Down)) => {
-                let delta = if matches!(command, AppCommand::Nav(Direction::Up)) {
-                    -1
-                } else {
-                    1
-                };
-                self.ui.settings.move_cursor(delta);
-            }
-            (Focus::Settings, AppCommand::Nav(Direction::Left | Direction::Right)) => {
-                let step = if matches!(command, AppCommand::Nav(Direction::Left)) {
-                    -1
-                } else {
-                    1
-                };
-                self.adjust_setting(step);
-            }
-            (Focus::Settings, AppCommand::PageUp) => self.adjust_setting(-100),
-            (Focus::Settings, AppCommand::PageDown) => self.adjust_setting(100),
-            (Focus::Settings, AppCommand::Confirm) => self.edit_setting(),
-            (Focus::Settings, AppCommand::Back | AppCommand::ToggleSettings) => {
-                self.close_settings();
-            }
+    /// B on a tab: on Settings, step back to the previous tab (persisting);
+    /// the radar and Receive have nowhere to go back to.
+    fn tab_back(&mut self) {
+        if self.ui.tabs.active() == Tab::Settings {
+            self.toggle_settings_tab();
         }
     }
 
@@ -331,9 +354,10 @@ impl App {
         self.net.shared.transfer.lock().unwrap().auto_accept = self.config.transfer.auto_accept;
     }
 
-    /// B in settings: persist, and restart the net stack if the port changed.
-    fn close_settings(&mut self) {
-        self.ui.settings.open = false;
+    /// Leaving the Settings tab: persist, and restart the net stack if the
+    /// port changed. (The old modal-close behaviour, now triggered by
+    /// switching away from the tab.)
+    fn leave_settings(&mut self) {
         self.config.save();
         if self.ui.settings.port_dirty {
             self.ui.settings.port_dirty = false;

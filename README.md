@@ -94,9 +94,13 @@ cargo test
 | D-pad / stick| Arrows     | Navigate                                      |
 | A            | Enter      | Send to device · select file · accept · type  |
 | B            | Esc        | Back · decline · cancel · erase (keyboard)    |
-| Start        | F1         | Settings · confirm send · OK (keyboard)       |
+| Start        | F1         | Jump to Settings tab · confirm send · OK (keyboard)|
 | Select       | Tab / F5   | Refresh radar · switch roots · layer (keyboard)|
-| L1 / R1      | PgUp / PgDn| Page through lists · port ±100 (settings)     |
+| L1 / R1      | PgUp / PgDn| Switch tabs · page the file browser           |
+
+The main screen is three tabs — **Send** (radar of nearby devices → file
+browser), **Receive** (your identity and receive status), **Settings** —
+cycled with L1/R1.
 
 ## Configuration
 

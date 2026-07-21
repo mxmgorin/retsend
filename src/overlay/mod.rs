@@ -6,6 +6,7 @@ pub mod browser;
 pub mod home;
 pub mod osk;
 pub mod settings;
+pub mod tabs;
 pub mod toast;
 pub mod transfer;
 
@@ -17,10 +18,11 @@ pub enum Focus {
     /// The incoming-request modal.
     Prompt,
     /// The file browser (send picks or the save-dir setting) — checked
-    /// before Settings so a browser opened *from* Settings gets the input.
+    /// before the tabs so a browser opened *from* Settings gets the input.
     Browser,
-    Settings,
-    /// The transfer progress/summary screen.
+    /// The transfer progress/summary screen, a full-screen takeover.
     Transfer,
-    Home,
+    /// The tab base (Send / Receive / Settings); the active tab decides what
+    /// Nav/Confirm/Back mean.
+    Tabs,
 }

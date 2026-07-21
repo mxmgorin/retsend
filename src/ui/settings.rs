@@ -12,7 +12,7 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
         (
             "Port",
             port_label(config.network.port, actual_port, state.port_dirty),
-            "← → Adjust · L1/R1 ±100",
+            "← → Adjust",
         ),
         (
             "Quick save",
@@ -30,19 +30,12 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
         ),
     ];
 
-    egui::Panel::top("settings_header").show_inside(root, |ui| {
-        ui.add_space(6.0);
-        ui.label(
-            egui::RichText::new("Settings")
-                .size(theme::ROW_FONT + 2.0)
-                .strong(),
-        );
-        ui.add_space(6.0);
-    });
-
-    egui::Panel::bottom("settings_footer").show_inside(root, |ui| {
+    // No title panel: the tab bar already shows "⚙ Settings" as the active
+    // tab, and an extra top panel here (absent on Send/Receive) would shift
+    // egui's panel-id sequence and flag the footer as a changed id.
+    egui::Panel::bottom("tab_footer").show_inside(root, |ui| {
         ui.add_space(4.0);
-        super::home::hint_bar(ui, &[("B", "Save & close")]);
+        super::home::hint_bar(ui, &[("L1/R1", "Tabs"), ("B", "Back")]);
         ui.add_space(4.0);
     });
 

@@ -5,7 +5,9 @@ mod browser;
 mod home;
 mod osk;
 mod prompt;
+mod receive;
 mod settings;
+mod tabs;
 pub mod theme;
 mod transfer;
 
@@ -17,6 +19,7 @@ use crate::overlay::{
     home::Home,
     osk::Osk,
     settings::Settings,
+    tabs::{Tab, Tabs},
     toast::Toasts,
     transfer::{TransferView, Viewed},
 };
@@ -37,6 +40,7 @@ const PROMPT_REFRESH: Duration = Duration::from_millis(100);
 pub struct AppUi {
     egui: EguiGlow,
     repaint_delay: Option<Duration>,
+    pub tabs: Tabs,
     pub home: Home,
     pub settings: Settings,
     pub browser: FileBrowser,
@@ -60,6 +64,7 @@ impl AppUi {
         Self {
             egui,
             repaint_delay: None,
+            tabs: Tabs::new(),
             home: Home::new(),
             settings: Settings::new(),
             browser: FileBrowser::new(),
@@ -85,9 +90,7 @@ impl AppUi {
     pub fn update(&mut self, net: &NetService, config: &AppConfig) {
         let peers = net.shared.peers.snapshot();
         self.peer_count = peers.len();
-        let data = home::HomeData {
-            alias: config.device.alias.clone(),
-            endpoint: endpoint_line(net),
+        let send_data = home::HomeData {
             cursor: self.home.cursor(peers.len()),
             peers: peers
                 .iter()
@@ -102,10 +105,15 @@ impl AppUi {
                 })
                 .collect(),
         };
+        let receive_data = receive::ReceiveData {
+            alias: config.device.alias.clone(),
+            endpoint: endpoint_line(net),
+            quick_save: config.transfer.auto_accept,
+        };
 
         let prompt_data = prompt_data(net, config);
         let transfer_data = self.transfer_data();
-        let settings_open = self.settings.open;
+        let active_tab = self.tabs.active();
         let settings_state = &self.settings;
         let toasts: Vec<String> = self.toasts.live().map(str::to_string).collect();
         let actual_port = net.http_port();
@@ -119,16 +127,22 @@ impl AppUi {
                 egui::UiBuilder::new().max_rect(ctx.content_rect()),
             );
             root.set_clip_rect(ctx.content_rect());
-            // Base-screen precedence mirrors Focus: a browser opened from
-            // Settings draws (and gets input) above it.
+            // Base-screen precedence mirrors Focus: the browser and the
+            // transfer takeover outrank the tabs; otherwise the tab bar plus
+            // the active tab's body.
             if self.browser.open {
                 browser::render(&mut root, &self.browser, &self.browser.target_alias);
-            } else if settings_open {
-                settings::render(&mut root, settings_state, config, actual_port);
             } else if let Some(t) = &transfer_data {
                 transfer::render(&mut root, t);
             } else {
-                home::render(&mut root, &data);
+                tabs::render_bar(&mut root, active_tab);
+                match active_tab {
+                    Tab::Send => home::render(&mut root, &send_data),
+                    Tab::Receive => receive::render(&mut root, &receive_data),
+                    Tab::Settings => {
+                        settings::render(&mut root, settings_state, config, actual_port)
+                    }
+                }
             }
             if let Some(p) = &prompt_data {
                 prompt::render(ctx, p);

@@ -22,16 +22,14 @@ const ROWS: [SettingsRow; 5] = [
 pub const ROW_COUNT: usize = ROWS.len();
 
 pub struct Settings {
-    pub open: bool,
     pub cursor: usize,
-    /// The port was edited; apply (restart the net stack) on close.
+    /// The port was edited; apply (restart the net stack) when leaving the tab.
     pub port_dirty: bool,
 }
 
 impl Settings {
     pub fn new() -> Self {
         Self {
-            open: false,
             cursor: 0,
             port_dirty: false,
         }
