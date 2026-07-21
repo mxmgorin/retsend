@@ -9,21 +9,20 @@ Transfer files between this device and your phone or PC over wifi, using the
 2. Connect both devices to the same wifi network.
 3. Launch LocalSend Retro — nearby devices appear on the radar.
 
-Received files land in the ROMs root by default; change the folder in
-Settings. Sending TO this device works out of the box; sending FROM it
-currently requires turning encryption off in the official app's settings
-(HTTPS mode is on the roadmap).
+Both directions work with the official app's default settings — transfers
+are encrypted (the protocol's https mode). Received files land in the ROMs
+root by default; change the folder in Settings.
 
 ## Controls
 
-| Button  | Action                                    |
-|---------|-------------------------------------------|
-| D-pad   | Navigate                                   |
-| A       | Send to device / select file / accept      |
-| B       | Back / decline / cancel                    |
-| Start   | Settings · confirm send (in the browser)   |
-| Select  | Refresh radar · switch roots (browser)     |
-| L1/R1   | Page through lists                         |
+| Button  | Action                                                |
+|---------|--------------------------------------------------------|
+| D-pad   | Navigate                                               |
+| A       | Send to device / select file / accept / type (keyboard)|
+| B       | Back / decline / cancel / erase (keyboard)             |
+| Start   | Settings · confirm send · OK (keyboard)                |
+| Select  | Refresh radar · switch roots · layer (keyboard)        |
+| L1/R1   | Page through lists                                     |
 
 ## Support
 

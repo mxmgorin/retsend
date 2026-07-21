@@ -31,30 +31,23 @@ move in both directions.
 
 ## Features
 
-- **Discovery** (LocalSend protocol v2.1) — UDP multicast announce/listen plus
-  the TCP `/register` exchange, so devices find each other even on networks
-  that drop multicast. A radar screen lists nearby devices live.
-- **Receive** — accept/decline dialog with file list, sizes, and a countdown;
-  streaming to `.part` files with an atomic rename (an SD yank can't leave a
-  truncated file that looks complete); hostile file names sanitized; progress
-  with speed and ETA; cancel from either side. A quick-save mode auto-accepts
-  into the save folder.
-- **Send** — pick a device on the radar, multi-select files in a gamepad file
-  browser (selection survives navigating between folders, mount roots one
-  button away), watch per-file progress; the receiver declining or picking a
-  subset is handled per the protocol.
-- **Encryption** — the protocol's https mode, on by default: a self-signed TLS
-  identity generated once and persisted, announce fingerprint = its SHA-256.
-  Works with the official app's default settings in both directions.
-- **Settings on device** — alias via an on-screen keyboard, save folder via a
-  directory picker, port stepper, quick-save toggle; the network stack restarts
-  in place when needed.
-- **Headless mode** — `localsend-retro --receive` runs without a screen:
-  auto-accept into the save folder, progress on stdout. For ssh sessions and
-  scripting.
-- **Small and simple** — blocking networking (threads + channels, no async
-  runtime), a hand-rolled minimal HTTP/1.1 server, system SDL2. The protocol
-  stack is SDL-free and covered by headless integration tests over real TCP.
+- **Discovery** (LocalSend protocol v2.1) — UDP multicast plus the TCP
+  `/register` exchange; a live radar of nearby devices.
+- **Receive** — accept/decline dialog with a countdown, streaming to `.part`
+  with an atomic rename, sanitized file names, speed/ETA, cancel from either
+  side; a quick-save mode auto-accepts.
+- **Send** — gamepad file browser with multi-select that survives folder
+  navigation; per-file progress, cancel, partial accepts handled.
+- **Encryption** — the protocol's https mode, on by default: a persisted
+  self-signed identity, announce fingerprint = its SHA-256. Works with the
+  official app's default settings both ways.
+- **Settings on device** — alias (on-screen keyboard), save folder picker,
+  port; applied live.
+- **Headless** — `localsend-retro --receive`: no screen, auto-accept,
+  progress on stdout. For ssh sessions and scripting.
+- **Small and simple** — threads instead of an async runtime, a minimal
+  hand-rolled HTTP server, system SDL2; the protocol stack is SDL-free and
+  tested headless over real TCP.
 
 ## Install (PortMaster devices)
 
