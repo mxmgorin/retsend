@@ -10,6 +10,7 @@ mod settings;
 mod tabs;
 pub mod theme;
 mod transfer;
+mod wordmark;
 
 use crate::config::AppConfig;
 use crate::net::server::DECISION_TIMEOUT;

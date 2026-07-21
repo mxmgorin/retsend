@@ -2,7 +2,7 @@
 //! The tab bar above it is drawn by `super::tabs`; our identity moved to the
 //! Receive tab.
 
-use super::theme;
+use super::{theme, wordmark};
 use egui_sdl2::egui;
 
 /// A display-ready radar row. `AppUi::update` builds these from the peer
@@ -35,15 +35,18 @@ pub fn render(root: &mut egui::Ui, data: &HomeData) {
 
     egui::CentralPanel::default().show_inside(root, |ui| {
         if data.peers.is_empty() {
-            let top = (ui.available_height() / 2.0 - 40.0).max(8.0);
+            // Same branded hero as the Receive tab, with a discovery hint.
+            const HERO_H: f32 = 130.0; // wordmark + gap + hint, roughly
+            let top = ((ui.available_height() - HERO_H) / 2.0).max(8.0);
             ui.vertical_centered(|ui| {
                 ui.add_space(top);
+                let (_, rect) = ui.allocate_space(wordmark::measure(ui, wordmark::HERO_SIZE));
+                wordmark::paint(ui, rect.center(), wordmark::HERO_SIZE, 1.0);
+                ui.add_space(24.0);
                 ui.label(
-                    egui::RichText::new(
-                        "No devices found…\n\nOpen LocalSend on your phone or PC\non the same network.",
-                    )
-                    .size(theme::ROW_FONT)
-                    .color(theme::DIM),
+                    egui::RichText::new("Open LocalSend on your phone or PC\non the same network.")
+                        .size(theme::ROW_FONT)
+                        .color(theme::DIM),
                 );
             });
             return;
