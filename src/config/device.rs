@@ -29,5 +29,5 @@ fn default_alias() -> String {
         .ok()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "LocalSend Retro".to_string())
+        .unwrap_or_else(|| "retsend".to_string())
 }

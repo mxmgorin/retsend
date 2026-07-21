@@ -136,7 +136,7 @@ mod tests {
     #[test]
     fn device_info_round_trips() {
         let me = DeviceInfo {
-            alias: "LocalSend Retro".into(),
+            alias: "retsend".into(),
             version: PROTOCOL_VERSION.into(),
             device_model: Some("Retro Handheld".into()),
             device_type: Some("desktop".into()),

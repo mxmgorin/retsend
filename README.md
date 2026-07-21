@@ -1,15 +1,15 @@
-<h1 align="center">LocalSend Retro</h1>
+<h1 align="center">retsend</h1>
 
 <p align="center">Wireless file transfer for retro handhelds.</p>
 
 <div align="center">
-  <a href="https://github.com/mxmgorin/localsend-retro/actions/workflows/ci.yml"><img src="https://github.com/mxmgorin/localsend-retro/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/mxmgorin/localsend-retro/actions/workflows/build-linux-arm.yml"><img src="https://github.com/mxmgorin/localsend-retro/actions/workflows/build-linux-arm.yml/badge.svg" alt="Linux ARM"></a>
-  <a href="https://github.com/mxmgorin/localsend-retro/actions/workflows/build-linux.yml"><img src="https://github.com/mxmgorin/localsend-retro/actions/workflows/build-linux.yml/badge.svg" alt="Linux"></a>
-  <a href="https://deps.rs/repo/github/mxmgorin/localsend-retro"><img src="https://deps.rs/repo/github/mxmgorin/localsend-retro/status.svg" alt="Dependencies"></a>
+  <a href="https://github.com/mxmgorin/retsend/actions/workflows/ci.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-linux-arm.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-linux-arm.yml/badge.svg" alt="Linux ARM"></a>
+  <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-linux.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-linux.yml/badge.svg" alt="Linux"></a>
+  <a href="https://deps.rs/repo/github/mxmgorin/retsend"><img src="https://deps.rs/repo/github/mxmgorin/retsend/status.svg" alt="Dependencies"></a>
 </div>
 
-localsend-retro is a [LocalSend](https://localsend.org)-protocol file-transfer
+retsend is a [LocalSend](https://localsend.org)-protocol file-transfer
 client written in **Rust**, using **SDL2** for windowing and input and
 [**egui**](https://github.com/emilk/egui) for the UI. Push ROMs from your phone
 or PC to the device and pull saves or screenshots back over wifi — no cable, no
@@ -43,7 +43,7 @@ move in both directions.
   official app's default settings both ways.
 - **Settings on device** — alias (on-screen keyboard), save folder picker,
   port; applied live.
-- **Headless** — `localsend-retro --receive`: no screen, auto-accept,
+- **Headless** — `retsend --receive`: no screen, auto-accept,
   progress on stdout. For ssh sessions and scripting.
 - **Small and simple** — threads instead of an async runtime, a minimal
   hand-rolled HTTP server, system SDL2; the protocol stack is SDL-free and
@@ -51,8 +51,8 @@ move in both directions.
 
 ## Install (PortMaster devices)
 
-Grab `localsend-retro-portmaster.zip` from
-[Releases](https://github.com/mxmgorin/localsend-retro/releases) and unpack it
+Grab `retsend-portmaster.zip` from
+[Releases](https://github.com/mxmgorin/retsend/releases) and unpack it
 into your ports folder (e.g. `/roms/ports/`). One ARMv8.0 baseline binary
 covers every supported device.
 
@@ -75,8 +75,8 @@ Two instances on one machine discover each other (multicast loopback) — handy
 for trying both sides of a transfer without a second device:
 
 ```sh
-LSRETRO_DATA_DIR=/tmp/ls-a cargo run &
-LSRETRO_DATA_DIR=/tmp/ls-b cargo run
+RETSEND_DATA_DIR=/tmp/ls-a cargo run &
+RETSEND_DATA_DIR=/tmp/ls-b cargo run
 ```
 
 Tests are headless (no SDL, no network setup needed):
@@ -106,18 +106,10 @@ everything in it is also editable from the Settings screen, except:
 - `[transfer] browser_roots` — extra mount points for the file browser
 
 Environment variables override paths and control logging at launch:
-`LSRETRO_DATA_DIR`, `LSRETRO_CONFIG`, `LSRETRO_SAVE_DIR`, `LSRETRO_SCALE`,
-`LSRETRO_GLES=0|1`, `LSRETRO_LOG_LEVEL`, `LSRETRO_LOG_FILE`,
-`LSRETRO_PANIC_FILE`.
+`RETSEND_DATA_DIR`, `RETSEND_CONFIG`, `RETSEND_SAVE_DIR`, `RETSEND_SCALE`,
+`RETSEND_GLES=0|1`, `RETSEND_LOG_LEVEL`, `RETSEND_LOG_FILE`,
+`RETSEND_PANIC_FILE`.
 
 The TCP port defaults to 53317 and falls back to the next free one when
 something else (say, the official LocalSend app on a dev machine) already
 holds it — the announce carries the real port, so discovery keeps working.
-
-## Roadmap
-
-PIN support, favorites, manual IP entry, in-app self-update.
-
-## License
-
-GPL-3.0

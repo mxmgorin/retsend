@@ -7,7 +7,7 @@ pub struct DisplayConfig {
     pub width: u32,
     pub height: u32,
     /// Request an OpenGL ES context (required on Mali handhelds) instead of
-    /// desktop GL. Can be overridden at startup via `LSRETRO_GLES=0`.
+    /// desktop GL. Can be overridden at startup via `RETSEND_GLES=0`.
     pub use_gles: bool,
 }
 

@@ -31,7 +31,7 @@ pub fn load_or_create(data_dir: &Path) -> Result<Identity, String> {
     if let Some(identity) = load(data_dir) {
         return Ok(identity);
     }
-    let certified = rcgen::generate_simple_self_signed(vec!["localsend-retro".to_string()])
+    let certified = rcgen::generate_simple_self_signed(vec!["retsend".to_string()])
         .map_err(|e| format!("generate certificate: {e}"))?;
     let cert = certified.cert.der().to_vec();
     let key = certified.signing_key.serialize_der();

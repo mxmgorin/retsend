@@ -45,27 +45,27 @@ jobs:
         run: |
           set -eux
           mkdir -p dist
-          cp target/release/localsend-retro dist/
-          strip dist/localsend-retro || true
+          cp target/release/retsend dist/
+          strip dist/retsend || true
           ls -la dist/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: localsend-retro-linux-x86_64
-          path: dist/localsend-retro
+          name: retsend-linux-x86_64
+          path: dist/retsend
 
       - name: Zip for release
         if: github.event_name == 'release'
         run: |
-          cd dist && zip -r ../localsend-retro-linux-x86_64.zip .
+          cd dist && zip -r ../retsend-linux-x86_64.zip .
           cd ..
-          sha256sum localsend-retro-linux-x86_64.zip > localsend-retro-linux-x86_64.zip.sha256
+          sha256sum retsend-linux-x86_64.zip > retsend-linux-x86_64.zip.sha256
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            localsend-retro-linux-x86_64.zip
-            localsend-retro-linux-x86_64.zip.sha256
+            retsend-linux-x86_64.zip
+            retsend-linux-x86_64.zip.sha256

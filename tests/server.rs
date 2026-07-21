@@ -1,9 +1,9 @@
 //! Headless round-trips against the real HTTP server on an ephemeral port —
 //! no SDL involved, which is exactly what the `Wake` trait buys us.
 
-use localsend_retro::net::discovery::PeerRegistry;
-use localsend_retro::net::protocol::{self, DeviceInfo};
-use localsend_retro::net::{server, NetShared, TransferSettings, Wake, WakeReason};
+use retsend::net::discovery::PeerRegistry;
+use retsend::net::protocol::{self, DeviceInfo};
+use retsend::net::{server, NetShared, TransferSettings, Wake, WakeReason};
 use std::io::Read;
 use std::net::TcpStream;
 use std::path::PathBuf;
@@ -395,7 +395,7 @@ fn hostile_file_names_stay_inside_save_dir() {
 
 #[test]
 fn https_serves_info_with_certificate_fingerprint() {
-    use localsend_retro::net::{client, tls};
+    use retsend::net::{client, tls};
 
     tls::install_provider();
     let dir = temp_save_dir();

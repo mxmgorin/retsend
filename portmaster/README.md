@@ -1,4 +1,4 @@
-# LocalSend Retro (PortMaster port)
+# retsend
 
 Transfer files between this device and your phone or PC over wifi, using the
 [LocalSend](https://localsend.org) protocol — no cable, no SSH.
@@ -7,7 +7,7 @@ Transfer files between this device and your phone or PC over wifi, using the
 
 1. Install LocalSend on your phone or PC (localsend.org).
 2. Connect both devices to the same wifi network.
-3. Launch LocalSend Retro — nearby devices appear on the radar.
+3. Launch retsend — nearby devices appear on the radar.
 
 Both directions work with the official app's default settings — transfers
 are encrypted (the protocol's https mode). Received files land in the ROMs
@@ -24,6 +24,6 @@ root by default; change the folder in Settings.
 | Select  | Refresh radar · switch roots · layer (keyboard)        |
 | L1/R1   | Page through lists                                     |
 
-## Support
+## Credits
 
-Issues and source: https://github.com/mxmgorin/localsend-retro
+Source: https://github.com/mxmgorin/retsend

@@ -1,13 +1,13 @@
 {
     "version": 4,
-    "name": "localsend-retro.zip",
+    "name": "retsend.zip",
     "items": [
-        "LocalSend Retro.sh",
-        "localsend-retro"
+        "Retsend.sh",
+        "retsend"
     ],
     "items_opt": null,
     "attr": {
-        "title": "LocalSend Retro",
+        "title": "retsend",
         "porter": [
             "Troidem"
         ],
@@ -30,7 +30,7 @@
         "store": [
             {
                 "name": "GitHub",
-                "gameurl": "https://github.com/mxmgorin/localsend-retro",
+                "gameurl": "https://github.com/mxmgorin/retsend",
                 "developerurl": "https://github.com/mxmgorin"
             }
         ],

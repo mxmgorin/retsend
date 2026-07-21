@@ -21,12 +21,12 @@ pub fn run_app() {
 
     init_logging();
 
-    log::info!("init localsend-retro {}", env!("CARGO_PKG_VERSION"));
+    log::info!("init retsend {}", env!("CARGO_PKG_VERSION"));
 
     net::tls::install_provider();
 
     let mut app_config = config::AppConfig::load();
-    if let Ok(v) = std::env::var("LSRETRO_GLES") {
+    if let Ok(v) = std::env::var("RETSEND_GLES") {
         app_config.display.use_gles = v != "0";
     }
 
@@ -56,16 +56,16 @@ pub fn run_app() {
 
 fn init_logging() {
     let env = env_logger::Env::default()
-        .filter_or("LSRETRO_LOG_LEVEL", "info")
-        .write_style_or("LSRETRO_LOG_STYLE", "always");
+        .filter_or("RETSEND_LOG_LEVEL", "info")
+        .write_style_or("RETSEND_LOG_STYLE", "always");
     let mut builder = env_logger::Builder::from_env(env);
     // The handheld launcher discards stderr too: mirror logs to a file when asked.
-    if let Ok(path) = std::env::var("LSRETRO_LOG_FILE") {
+    if let Ok(path) = std::env::var("RETSEND_LOG_FILE") {
         match std::fs::File::create(&path) {
             Ok(file) => {
                 builder.target(env_logger::Target::Pipe(Box::new(file)));
             }
-            Err(e) => eprintln!("failed to open LSRETRO_LOG_FILE `{path}`: {e}"),
+            Err(e) => eprintln!("failed to open RETSEND_LOG_FILE `{path}`: {e}"),
         }
     }
     builder.init();
@@ -145,14 +145,14 @@ fn run_headless(mut config: config::AppConfig) {
     }
 }
 
-/// Mirror panics to a file in addition to stderr: `LSRETRO_PANIC_FILE` if set,
-/// else `localsend-retro-panic.log` in the working directory. The default
+/// Mirror panics to a file in addition to stderr: `RETSEND_PANIC_FILE` if set,
+/// else `retsend-panic.log` in the working directory. The default
 /// backtrace hook still runs after us, so desktop behavior is unchanged.
 fn install_panic_hook() {
     let default = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        let path = std::env::var("LSRETRO_PANIC_FILE")
-            .unwrap_or_else(|_| "localsend-retro-panic.log".to_string());
+        let path =
+            std::env::var("RETSEND_PANIC_FILE").unwrap_or_else(|_| "retsend-panic.log".to_string());
         let backtrace = std::backtrace::Backtrace::force_capture();
         let _ = std::fs::write(&path, format!("{info}\n\nbacktrace:\n{backtrace}\n"));
         default(info);

@@ -16,15 +16,11 @@ source "$controlfolder/control.txt"
 [ -f "${controlfolder}/mod_${CFW_NAME}.txt" ] && source "${controlfolder}/mod_${CFW_NAME}.txt"
 get_controls
 
-GAMEDIR=/$directory/ports/localsend-retro/
+GAMEDIR=/$directory/ports/retsend/
 
-# One ARMv8.0 baseline binary runs on every supported core: unlike retsurf
-# (Servo is compute-bound and profits from per-CPU builds), this app is
-# bounded by wifi and SD-card speed, and ring's crypto detects NEON/AES
-# extensions at runtime anyway.
-BINNAME="localsend-retro"
+BINNAME="retsend"
 if [ ! -x "$GAMEDIR/$BINNAME" ]; then
-  echo "ERROR: no runnable localsend-retro binary found in $GAMEDIR" >&2
+  echo "ERROR: no runnable retsend binary found in $GAMEDIR" >&2
   exit 1
 fi
 BIN="$GAMEDIR/$BINNAME"
@@ -37,12 +33,12 @@ export HOME="$GAMEDIR"
 export XDG_DATA_HOME="$GAMEDIR"
 export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"
 
-export LSRETRO_DATA_DIR="$GAMEDIR/data"
+export RETSEND_DATA_DIR="$GAMEDIR/data"
 # Received files land in the ROMs root by default; change it in Settings.
-export LSRETRO_SAVE_DIR="/$directory"
-export LSRETRO_PANIC_FILE="$GAMEDIR/localsend-retro-panic.log"
-#export LSRETRO_LOG_FILE="$GAMEDIR/localsend-retro.log"
-#export LSRETRO_LOG_LEVEL=debug
+export RETSEND_SAVE_DIR="/$directory"
+export RETSEND_PANIC_FILE="$GAMEDIR/retsend-panic.log"
+#export RETSEND_LOG_FILE="$GAMEDIR/retsend.log"
+#export RETSEND_LOG_LEVEL=debug
 
 $GPTOKEYB "$BINNAME" &
 pm_platform_helper "$BIN"

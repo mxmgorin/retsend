@@ -1,10 +1,10 @@
 [package]
-name = "localsend-retro"
+name = "retsend"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0"
 description = "LocalSend client for retro handhelds (SDL2 + egui)"
-repository = "https://github.com/mxmgorin/localsend-retro"
+repository = "https://github.com/mxmgorin/retsend"
 
 [features]
 sdl2-bundled = ["sdl2/bundled"]

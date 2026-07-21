@@ -34,7 +34,7 @@ impl AppWindow {
         }
 
         let mut window = video_subsystem
-            .window("LocalSend Retro", config.width, config.height)
+            .window("retsend", config.width, config.height)
             .opengl()
             .resizable()
             .build()

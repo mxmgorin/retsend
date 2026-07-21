@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gameList>
   <game>
-    <path>./LocalSend Retro.sh</path>
-    <name>LocalSend Retro</name>
+    <path>./Retsend.sh</path>
+    <name>retsend</name>
     <desc>A LocalSend-protocol file-transfer client: push ROMs from your phone or PC to the device and pull saves or screenshots back over wifi — no cable, no SSH. Compatible with the official LocalSend apps. Gamepad-first UI: a radar of nearby devices, accept/decline dialogs with progress, a file browser for sending, and an on-screen keyboard for settings.</desc>
     <genre>other</genre>
     <developer>mxmgorin</developer>
     <publisher>mxmgorin</publisher>
-    <image>./localsend-retro/screenshot.png</image>
+    <image>./retsend/screenshot.png</image>
   </game>
 </gameList>

@@ -50,58 +50,58 @@ jobs:
         run: |
           set -eux
           mkdir -p dist
-          cp target/release/localsend-retro dist/
-          strip dist/localsend-retro || true
+          cp target/release/retsend dist/
+          strip dist/retsend || true
           ls -la dist/
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: localsend-retro-linux-aarch64
-          path: dist/localsend-retro
+          name: retsend-linux-aarch64
+          path: dist/retsend
 
       - name: Package for PortMaster
         run: |
           set -eux
           pm=portmaster-dist
           rm -rf "$pm"
-          mkdir -p "$pm/localsend-retro"
+          mkdir -p "$pm/retsend"
           # Only the launcher sits at the port root; everything else lives in
-          # the localsend-retro/ gamedir, matching installed-port layout.
-          cp "portmaster/LocalSend Retro.sh" "$pm/"
-          cp portmaster/port.json "$pm/localsend-retro/"
-          cp portmaster/gameinfo.xml "$pm/localsend-retro/"
-          cp portmaster/README.md "$pm/localsend-retro/"
-          cp portmaster/screenshot.png "$pm/localsend-retro/"
-          cp -r portmaster/localsend-retro/. "$pm/localsend-retro/"
-          rm -f "$pm/localsend-retro/.gitkeep"
-          cp dist/localsend-retro "$pm/localsend-retro/"
-          chmod +x "$pm/LocalSend Retro.sh" "$pm/localsend-retro/localsend-retro"
+          # the retsend/ gamedir, matching installed-port layout.
+          cp "portmaster/Retsend.sh" "$pm/"
+          cp portmaster/port.json "$pm/retsend/"
+          cp portmaster/gameinfo.xml "$pm/retsend/"
+          cp portmaster/README.md "$pm/retsend/"
+          cp portmaster/screenshot.png "$pm/retsend/"
+          cp -r portmaster/retsend/. "$pm/retsend/"
+          rm -f "$pm/retsend/.gitkeep"
+          cp dist/retsend "$pm/retsend/"
+          chmod +x "$pm/Retsend.sh" "$pm/retsend/retsend"
           ls -laR "$pm"
 
       - name: Upload PortMaster artifact
         uses: actions/upload-artifact@v4
         with:
-          name: localsend-retro-portmaster
+          name: retsend-portmaster
           path: portmaster-dist
 
       - name: Zip for release
         if: github.event_name == 'release'
         run: |
           set -eux
-          cd portmaster-dist && zip -r ../localsend-retro-portmaster.zip .
+          cd portmaster-dist && zip -r ../retsend-portmaster.zip .
           cd ..
-          sha256sum localsend-retro-portmaster.zip > localsend-retro-portmaster.zip.sha256
-          cd dist && zip ../localsend-retro-linux-aarch64.zip localsend-retro
+          sha256sum retsend-portmaster.zip > retsend-portmaster.zip.sha256
+          cd dist && zip ../retsend-linux-aarch64.zip retsend
           cd ..
-          sha256sum localsend-retro-linux-aarch64.zip > localsend-retro-linux-aarch64.zip.sha256
+          sha256sum retsend-linux-aarch64.zip > retsend-linux-aarch64.zip.sha256
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            localsend-retro-portmaster.zip
-            localsend-retro-portmaster.zip.sha256
-            localsend-retro-linux-aarch64.zip
-            localsend-retro-linux-aarch64.zip.sha256
+            retsend-portmaster.zip
+            retsend-portmaster.zip.sha256
+            retsend-linux-aarch64.zip
+            retsend-linux-aarch64.zip.sha256

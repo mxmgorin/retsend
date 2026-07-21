@@ -54,7 +54,7 @@ impl AppUi {
         theme::apply(&egui.ctx);
         let scale = crate::config::device_scale();
         if scale != 1.0 {
-            log::info!("applying LSRETRO_SCALE {scale}");
+            log::info!("applying RETSEND_SCALE {scale}");
             egui.ctx.set_zoom_factor(scale);
         }
         Self {

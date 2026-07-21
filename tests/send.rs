@@ -1,10 +1,10 @@
 //! Loopback send tests: the outbound worker drives our own receive server
 //! over real TCP on 127.0.0.1 — client and server verified together, headless.
 
-use localsend_retro::net::discovery::PeerRegistry;
-use localsend_retro::net::protocol::{self, DeviceInfo};
-use localsend_retro::net::{server, NetShared, TransferSettings, Wake, WakeReason};
-use localsend_retro::transfer::outbound::{self, OutboundPhase};
+use retsend::net::discovery::PeerRegistry;
+use retsend::net::protocol::{self, DeviceInfo};
+use retsend::net::{server, NetShared, TransferSettings, Wake, WakeReason};
+use retsend::transfer::outbound::{self, OutboundPhase};
 use std::net::TcpStream;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -147,7 +147,7 @@ fn decline_ends_the_send_as_declined() {
 
 #[test]
 fn sends_to_an_https_receiver() {
-    use localsend_retro::net::tls;
+    use retsend::net::tls;
 
     tls::install_provider();
     let save_dir = temp_dir("recv-tls");
