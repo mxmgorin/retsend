@@ -46,6 +46,7 @@ fn start_receiver(auto_accept: bool) -> (Arc<NetShared>, String, PathBuf, impl F
         transfer: Mutex::new(TransferSettings {
             save_dir: save_dir.clone(),
             auto_accept,
+            routes: Default::default(),
         }),
         pending: Mutex::new(None),
         active: Mutex::new(None),
@@ -162,6 +163,7 @@ fn sends_to_an_https_receiver() {
         transfer: Mutex::new(TransferSettings {
             save_dir: save_dir.clone(),
             auto_accept: true,
+            routes: Default::default(),
         }),
         pending: Mutex::new(None),
         active: Mutex::new(None),

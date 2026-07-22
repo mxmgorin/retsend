@@ -40,6 +40,9 @@ pub enum WakeReason {
 pub struct TransferSettings {
     pub save_dir: PathBuf,
     pub auto_accept: bool,
+    /// Per-extension destination folders (`ext -> folder`); see
+    /// [`crate::transfer::route::SaveRouter`].
+    pub routes: std::collections::BTreeMap<String, String>,
 }
 
 impl From<&crate::config::TransferConfig> for TransferSettings {
@@ -47,6 +50,7 @@ impl From<&crate::config::TransferConfig> for TransferSettings {
         Self {
             save_dir: PathBuf::from(&cfg.save_dir),
             auto_accept: cfg.auto_accept,
+            routes: cfg.routes.clone(),
         }
     }
 }

@@ -136,6 +136,13 @@ fn split_extension(name: &str) -> (&str, &str) {
     }
 }
 
+/// The lowercase extension without the dot (`"foo.GBC"` → `"gbc"`), or `""`
+/// when there's none. Used to route received files to per-extension folders.
+pub fn extension_of(name: &str) -> String {
+    let (_, ext) = split_extension(name);
+    ext.trim_start_matches('.').to_ascii_lowercase()
+}
+
 fn truncate_chars(s: &str, max_bytes: usize) -> &str {
     if s.len() <= max_bytes {
         return s;

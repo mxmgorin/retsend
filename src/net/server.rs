@@ -276,6 +276,7 @@ fn handle_prepare_upload<S: Read + Write>(
             prepare.info,
             files,
             settings.save_dir,
+            &settings.routes,
         );
     }
 
@@ -302,9 +303,14 @@ fn handle_prepare_upload<S: Read + Write>(
     let decision = rx.recv_timeout(DECISION_TIMEOUT);
     shared.pending.lock().unwrap().take();
     match decision {
-        Ok(Decision::Accept { save_dir }) => {
-            start_session(reader.get_mut(), shared, prepare.info, files, save_dir)
-        }
+        Ok(Decision::Accept { save_dir }) => start_session(
+            reader.get_mut(),
+            shared,
+            prepare.info,
+            files,
+            save_dir,
+            &settings.routes,
+        ),
         Ok(Decision::Decline) | Err(_) => httpd::respond_empty(reader.get_mut(), 403),
     }
 }
@@ -316,8 +322,10 @@ fn start_session<S: Write>(
     sender: DeviceInfo,
     files: Vec<protocol::FileMeta>,
     save_dir: PathBuf,
+    routes: &std::collections::BTreeMap<String, String>,
 ) -> std::io::Result<()> {
-    let session = match InboundSession::new(sender.alias.clone(), files, &save_dir) {
+    let router = crate::transfer::route::SaveRouter::new(save_dir.clone(), routes);
+    let session = match InboundSession::new(sender.alias.clone(), files, &router) {
         Ok(s) => Arc::new(s),
         Err(e) => {
             log::error!("could not start session in `{}`: {e}", save_dir.display());

@@ -110,6 +110,21 @@ everything in it is also editable from the Settings screen, except:
 - `[network] https = false` — fall back to the protocol's plain-http mode
 - `[network] announce_interval_secs` — multicast announce cadence
 - `[transfer] browser_roots` — extra mount points for the file browser
+- `[transfer.routes]` — route received files to per-extension folders
+
+Received files land in `save_dir` by default. `[transfer.routes]` overrides
+that per file extension — handy for dropping ROMs straight into each console's
+folder:
+
+```toml
+[transfer.routes]
+gbc = "gb"                    # relative → <save_dir>/gb
+gba = "/roms/gba"             # absolute → used as-is
+png = "/roms/screenshots"
+```
+
+Extensions match case-insensitively, folders are created on demand, and
+anything without a matching route still lands in `save_dir`.
 
 Environment variables override paths and control logging at launch:
 `RETSEND_DATA_DIR`, `RETSEND_CONFIG`, `RETSEND_SAVE_DIR`, `RETSEND_SCALE`,

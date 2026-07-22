@@ -6,6 +6,7 @@
 //! a different slot from its own connection thread, so per-slot atomics need
 //! no coordination.
 
+use super::route::SaveRouter;
 use crate::net::protocol::{self, FileMeta};
 use crate::net::{Wake, WakeReason};
 use std::collections::{HashMap, HashSet};
@@ -57,23 +58,23 @@ pub struct InboundSession {
 
 impl InboundSession {
     /// Build a session for `files`, assigning destinations and per-file
-    /// tokens. `save_dir` is created on demand.
+    /// tokens. Each file's directory (per the `router`) is created on demand.
     pub fn new(
         peer_alias: String,
         files: Vec<FileMeta>,
-        save_dir: &std::path::Path,
+        router: &SaveRouter,
     ) -> std::io::Result<Self> {
-        std::fs::create_dir_all(save_dir)?;
-
         let mut slots = Vec::with_capacity(files.len());
         let mut by_id = HashMap::with_capacity(files.len());
         let mut taken = HashSet::new();
         let mut total = 0u64;
         for meta in files {
             let name = super::files::sanitize_filename(&meta.file_name);
-            let dest = super::files::unique_path(save_dir, &name, &taken);
-            // Belt and braces on top of sanitize: never outside save_dir.
-            assert_eq!(dest.parent(), Some(save_dir));
+            let dir = router.dir_for(&name);
+            std::fs::create_dir_all(dir)?;
+            let dest = super::files::unique_path(dir, &name, &taken);
+            // Belt and braces on top of sanitize: never outside its dir.
+            assert_eq!(dest.parent(), Some(dir));
             taken.insert(dest.clone());
             total += meta.size;
             by_id.insert(meta.id.clone(), slots.len());
@@ -296,11 +297,20 @@ mod tests {
         dir
     }
 
+    /// A no-routes router that lands everything in `dir`.
+    fn router(dir: &std::path::Path) -> SaveRouter {
+        SaveRouter::new(dir.to_path_buf(), &Default::default())
+    }
+
     #[test]
     fn receives_a_file_end_to_end() {
         let dir = temp_dir("ok");
-        let session =
-            InboundSession::new("Phone".into(), vec![meta("a", "game.gbc", 5)], &dir).unwrap();
+        let session = InboundSession::new(
+            "Phone".into(),
+            vec![meta("a", "game.gbc", 5)],
+            &router(&dir),
+        )
+        .unwrap();
         let token = session.tokens()["a"].clone();
 
         let status = session.receive_file("a", &token, &mut &b"hello"[..], &NoopWake);
@@ -317,7 +327,8 @@ mod tests {
     fn rejects_bad_token_and_unknown_file() {
         let dir = temp_dir("token");
         let session =
-            InboundSession::new("Phone".into(), vec![meta("a", "x.bin", 1)], &dir).unwrap();
+            InboundSession::new("Phone".into(), vec![meta("a", "x.bin", 1)], &router(&dir))
+                .unwrap();
         assert_eq!(
             session.receive_file("a", "wrong", &mut &b"x"[..], &NoopWake),
             403
@@ -334,7 +345,8 @@ mod tests {
     fn size_mismatch_fails_and_cleans_up() {
         let dir = temp_dir("short");
         let session =
-            InboundSession::new("Phone".into(), vec![meta("a", "x.bin", 10)], &dir).unwrap();
+            InboundSession::new("Phone".into(), vec![meta("a", "x.bin", 10)], &router(&dir))
+                .unwrap();
         let token = session.tokens()["a"].clone();
         let status = session.receive_file("a", &token, &mut &b"tiny"[..], &NoopWake);
         assert_eq!(status, 500);
@@ -354,7 +366,7 @@ mod tests {
         let session = InboundSession::new(
             "Phone".into(),
             vec![meta("a", "one.bin", 1), meta("b", "two.bin", 1)],
-            &dir,
+            &router(&dir),
         )
         .unwrap();
         let token = session.tokens()["a"].clone();
@@ -374,7 +386,7 @@ mod tests {
         let session = InboundSession::new(
             "Phone".into(),
             vec![meta("a", "../../evil.sh", 4), meta("b", "../../evil.sh", 4)],
-            &dir,
+            &router(&dir),
         )
         .unwrap();
         for (id, expected) in [("a", "evil.sh"), ("b", "evil (1).sh")] {
@@ -386,5 +398,30 @@ mod tests {
             assert!(dir.join(expected).exists(), "{expected}");
         }
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn routes_files_to_per_extension_folders() {
+        let base = temp_dir("route");
+        let mut routes = std::collections::BTreeMap::new();
+        routes.insert("png".to_string(), "shots".to_string()); // relative → base/shots
+        let router = SaveRouter::new(base.clone(), &routes);
+        let session = InboundSession::new(
+            "Phone".into(),
+            vec![meta("a", "grab.png", 3), meta("b", "rom.gbc", 3)],
+            &router,
+        )
+        .unwrap();
+        for id in ["a", "b"] {
+            let token = session.tokens()[id].clone();
+            assert_eq!(
+                session.receive_file(id, &token, &mut &b"abc"[..], &NoopWake),
+                200
+            );
+        }
+        // The routed dir is created on demand; the unmatched extension falls back.
+        assert!(base.join("shots").join("grab.png").exists());
+        assert!(base.join("rom.gbc").exists());
+        std::fs::remove_dir_all(&base).unwrap();
     }
 }

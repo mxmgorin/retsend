@@ -47,6 +47,7 @@ fn start_server(auto_accept: bool) -> (Arc<NetShared>, u16, impl FnOnce()) {
         transfer: Mutex::new(TransferSettings {
             save_dir: save_dir.clone(),
             auto_accept,
+            routes: Default::default(),
         }),
         pending: Mutex::new(None),
         active: Mutex::new(None),
@@ -412,6 +413,7 @@ fn https_serves_info_with_certificate_fingerprint() {
         transfer: Mutex::new(TransferSettings {
             save_dir: dir.clone(),
             auto_accept: true,
+            routes: Default::default(),
         }),
         pending: Mutex::new(None),
         active: Mutex::new(None),
