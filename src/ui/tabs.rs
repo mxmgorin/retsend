@@ -10,9 +10,10 @@ use egui_sdl2::egui;
 /// Send/receive read as upload/download arrows; the gear is the usual settings
 /// glyph. All three resolve through the Proportional fallback chain (arrows in
 /// Ubuntu, the gear in NotoEmoji).
-const TABS: [(Tab, &str, &str); 3] = [
+const TABS: [(Tab, &str, &str); 4] = [
     (Tab::Send, "↑", "Send"),
     (Tab::Receive, "↓", "Receive"),
+    (Tab::History, "🕘", "History"),
     (Tab::Settings, "⚙", "Settings"),
 ];
 

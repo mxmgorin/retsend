@@ -3,5 +3,6 @@
 //! touches SDL — sessions report through the [`crate::net::Wake`] trait.
 
 pub mod files;
+pub mod history;
 pub mod inbound;
 pub mod outbound;

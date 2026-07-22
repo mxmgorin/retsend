@@ -3,6 +3,7 @@
 //! renderers swappable.
 
 pub mod browser;
+pub mod history;
 pub mod home;
 pub mod osk;
 pub mod settings;

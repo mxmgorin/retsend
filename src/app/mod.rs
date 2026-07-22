@@ -15,6 +15,7 @@ use crate::overlay::tabs::Tab;
 use crate::overlay::transfer::Viewed;
 use crate::overlay::Focus;
 use crate::platform::window::AppWindow;
+use crate::transfer::history::History;
 use crate::transfer::outbound::{self, OutboundSession};
 use crate::ui::AppUi;
 use std::path::PathBuf;
@@ -31,6 +32,8 @@ pub struct App {
     config: AppConfig,
     net: NetService,
     wake: Arc<UserEventSender>,
+    /// The persisted transfer log shown on the History tab.
+    history: History,
     /// The running (or last) send; `outbound_active` mirrors its liveness.
     outbound: Option<Arc<OutboundSession>>,
     /// Files pre-selected in the browser, from CLI arguments.
@@ -80,6 +83,7 @@ impl App {
             config,
             net,
             wake,
+            history: History::load(&crate::config::data_dir()),
             outbound: None,
             staged,
             send_target: None,
@@ -101,10 +105,15 @@ impl App {
                 self.execute_command(command);
             }
             // Adopt/release the active inbound session and surface its
-            // transitions (quick-save finished, request expired) as toasts.
+            // transitions (quick-save finished, request expired) as toasts;
+            // log a finished transfer to the history.
             let active = self.net.shared.active.lock().unwrap().clone();
-            for toast in self.ui.transfer.sync(active) {
+            let outcome = self.ui.transfer.sync(active);
+            for toast in outcome.toasts {
                 self.ui.toasts.push(toast);
+            }
+            if let Some(entry) = outcome.recorded {
+                self.history.record(entry);
             }
             // A finished send stops blocking incoming transfers.
             if self.outbound.as_ref().is_some_and(|o| o.is_finished()) {
@@ -113,7 +122,7 @@ impl App {
                     .outbound_active
                     .store(false, Ordering::SeqCst);
             }
-            self.ui.update(&self.net, &self.config);
+            self.ui.update(&self.net, &self.config, &self.history);
             self.ui.draw(&self.window);
         }
         self.ui.destroy();
@@ -284,6 +293,10 @@ impl App {
                 self.ui.home.move_cursor(nav_delta(dir), count);
             }
             Tab::Receive => {}
+            Tab::History => {
+                let count = self.ui.history_count;
+                self.ui.history.move_cursor(nav_delta(dir), count);
+            }
             Tab::Settings => match dir {
                 Direction::Up => self.ui.settings.move_cursor(-1),
                 Direction::Down => self.ui.settings.move_cursor(1),
@@ -303,6 +316,7 @@ impl App {
                 }
             }
             Tab::Receive => {}
+            Tab::History => {}
             Tab::Settings => self.edit_setting(),
         }
     }

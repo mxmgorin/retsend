@@ -3,6 +3,7 @@
 //! speed meter. Synced once per frame; produces toast texts for transitions
 //! the user shouldn't miss.
 
+use crate::transfer::history::HistoryEntry;
 use crate::transfer::inbound::InboundSession;
 use crate::transfer::outbound::OutboundSession;
 use std::collections::VecDeque;
@@ -37,6 +38,14 @@ impl Viewed {
             Viewed::Out(s) => s.sent_total.load(Ordering::Relaxed),
         }
     }
+}
+
+/// What [`TransferView::sync`] surfaces to the app each frame.
+pub struct SyncOutcome {
+    /// Transition toasts to show the user.
+    pub toasts: Vec<String>,
+    /// Set on the frame a session finishes — the app appends it to the log.
+    pub recorded: Option<HistoryEntry>,
 }
 
 pub struct TransferView {
@@ -88,9 +97,11 @@ impl TransferView {
         self.viewed.as_ref().is_some_and(|v| !v.is_finished())
     }
 
-    /// Per-frame sync with the net side. Returns toast texts to show.
-    pub fn sync(&mut self, active_in: Option<Arc<InboundSession>>) -> Vec<String> {
+    /// Per-frame sync with the net side. Returns the toasts to show and, at the
+    /// completion edge, the entry to append to the transfer history.
+    pub fn sync(&mut self, active_in: Option<Arc<InboundSession>>) -> SyncOutcome {
         let mut toasts = Vec::new();
+        let mut recorded = None;
 
         // Adopt a new inbound session — unless an unfinished send owns the
         // screen (can't happen in practice: incoming prepares answer 409
@@ -120,6 +131,12 @@ impl TransferView {
 
             if viewed.is_finished() && !self.toasted {
                 self.toasted = true;
+                // Log it once, at the finish edge (covers foreground and
+                // background quick-save, both directions).
+                recorded = Some(match viewed {
+                    Viewed::In(s) => HistoryEntry::from_inbound(s),
+                    Viewed::Out(s) => HistoryEntry::from_outbound(s),
+                });
                 if self.opened {
                     self.confirm_cancel = false; // nothing left to cancel
                 } else {
@@ -136,7 +153,7 @@ impl TransferView {
             toasts.push("Request expired".to_string());
         }
 
-        toasts
+        SyncOutcome { toasts, recorded }
     }
 
     /// Bytes per second over the trailing window; `None` until measurable.

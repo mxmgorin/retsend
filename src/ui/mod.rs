@@ -2,6 +2,7 @@
 //! machines; `App` drives them through commands, this module draws them.
 
 mod browser;
+mod history;
 mod home;
 mod osk;
 mod prompt;
@@ -17,6 +18,7 @@ use crate::net::server::DECISION_TIMEOUT;
 use crate::net::NetService;
 use crate::overlay::{
     browser::FileBrowser,
+    history::HistoryView,
     home::Home,
     osk::Osk,
     settings::Settings,
@@ -25,6 +27,7 @@ use crate::overlay::{
     transfer::{TransferView, Viewed},
 };
 use crate::platform::window::AppWindow;
+use crate::transfer::history::History;
 use crate::transfer::inbound::FileState;
 use crate::transfer::outbound::{OutboundPhase, OutboundSession};
 use egui_sdl2::egui;
@@ -43,6 +46,7 @@ pub struct AppUi {
     repaint_delay: Option<Duration>,
     pub tabs: Tabs,
     pub home: Home,
+    pub history: HistoryView,
     pub settings: Settings,
     pub browser: FileBrowser,
     pub osk: Osk,
@@ -51,6 +55,8 @@ pub struct AppUi {
     /// Peer count as of the last frame — the command router clamps the home
     /// cursor against it without re-locking the registry.
     pub peer_count: usize,
+    /// History entry count as of the last frame — clamps the history cursor.
+    pub history_count: usize,
 }
 
 impl AppUi {
@@ -67,12 +73,14 @@ impl AppUi {
             repaint_delay: None,
             tabs: Tabs::new(),
             home: Home::new(),
+            history: HistoryView::new(),
             settings: Settings::new(),
             browser: FileBrowser::new(),
             osk: Osk::new(),
             transfer: TransferView::new(),
             toasts: Toasts::new(),
             peer_count: 0,
+            history_count: 0,
         }
     }
 
@@ -88,7 +96,7 @@ impl AppUi {
 
     /// Build the frame. Reads shared net state (brief locks) before entering
     /// the egui closure.
-    pub fn update(&mut self, net: &NetService, config: &AppConfig) {
+    pub fn update(&mut self, net: &NetService, config: &AppConfig, history: &History) {
         let peers = net.shared.peers.snapshot();
         self.peer_count = peers.len();
         let send_data = home::HomeData {
@@ -110,6 +118,17 @@ impl AppUi {
             alias: config.device.alias.clone(),
             endpoint: endpoint_line(net),
             quick_save: config.transfer.auto_accept,
+        };
+        self.history_count = history.entries().len();
+        let now = unix_now();
+        let history_data = history::HistoryData {
+            cursor: self.history.cursor(self.history_count),
+            rows: history
+                .entries()
+                .iter()
+                .rev()
+                .map(|e| history::row(e, now))
+                .collect(),
         };
 
         let prompt_data = prompt_data(net, config);
@@ -140,6 +159,7 @@ impl AppUi {
                 match active_tab {
                     Tab::Send => home::render(&mut root, &send_data),
                     Tab::Receive => receive::render(&mut root, &receive_data),
+                    Tab::History => history::render(&mut root, &history_data),
                     Tab::Settings => {
                         settings::render(&mut root, settings_state, config, actual_port)
                     }
@@ -308,13 +328,23 @@ fn endpoint_line(net: &NetService) -> String {
     }
 }
 
+/// Unix seconds now — for the history's relative-time labels.
+fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
 /// "999 B", "12.3 KB", "1.2 GB" — one decimal above bytes.
 pub(crate) fn fmt_bytes(bytes: u64) -> String {
     const UNITS: [&str; 4] = ["KB", "MB", "GB", "TB"];
     if bytes < 1000 {
         return format!("{bytes} B");
     }
-    let mut value = bytes as f64;
+    // Start in KB (the first unit above bytes) so `value` and `unit` stay in
+    // step — dividing straight from bytes would land a unit too high.
+    let mut value = bytes as f64 / 1000.0;
     let mut unit = 0;
     while value >= 1000.0 && unit < UNITS.len() - 1 {
         value /= 1000.0;
@@ -342,4 +372,19 @@ fn render_toasts(ctx: &egui::Context, toasts: &[String]) {
                     });
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fmt_bytes;
+
+    #[test]
+    fn fmt_bytes_scales_units() {
+        assert_eq!(fmt_bytes(0), "0 B");
+        assert_eq!(fmt_bytes(999), "999 B");
+        assert_eq!(fmt_bytes(1_500), "1.5 KB");
+        assert_eq!(fmt_bytes(1_048_576), "1.0 MB");
+        assert_eq!(fmt_bytes(45_678_901), "45.7 MB");
+        assert_eq!(fmt_bytes(1_000_000_000), "1.0 GB");
+    }
 }

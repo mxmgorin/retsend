@@ -6,11 +6,12 @@
 pub enum Tab {
     Send,
     Receive,
+    History,
     Settings,
 }
 
 /// Left-to-right order in the bar, and the cycle L1/R1 walks.
-const ORDER: [Tab; 3] = [Tab::Send, Tab::Receive, Tab::Settings];
+const ORDER: [Tab; 4] = [Tab::Send, Tab::Receive, Tab::History, Tab::Settings];
 
 pub struct Tabs {
     active: Tab,
@@ -64,6 +65,8 @@ mod tests {
     #[test]
     fn cycle_wraps_both_ways() {
         let mut tabs = Tabs::new(); // Receive
+        tabs.cycle(1);
+        assert_eq!(tabs.active(), Tab::History);
         tabs.cycle(1);
         assert_eq!(tabs.active(), Tab::Settings);
         tabs.cycle(1); // wrap past the end

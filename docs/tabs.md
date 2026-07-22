@@ -1,8 +1,9 @@
 # Tabs — design
 
-Status: **implemented**. Three persistent top-level tabs —
-**Send · Receive · Settings** — replacing the earlier precedence-stacked modal
-surfaces.
+Status: **implemented**. Four persistent top-level tabs —
+**Send · Receive · History · Settings** — replacing the earlier
+precedence-stacked modal surfaces. (History was added after the initial three;
+see §8.)
 
 ## 1. Motivation
 
@@ -194,3 +195,25 @@ during Browser / Transfer / Prompt / Osk takeovers.
 - **Transfer** — a full-screen takeover above the tabs; on close it returns to
   the active tab. Keeps the send/accept flow untouched.
 - **Select** — kept as refresh, not repurposed for tab switching.
+
+## 8. History tab (follow-up)
+
+A fourth tab, between Receive and Settings, showing a persisted log of finished
+transfers (both directions), newest first.
+
+- **State** — `transfer::history` owns `HistoryEntry` (direction, peer, counts,
+  bytes, outcome, unix time) and a `History` store that loads/appends/persists
+  to `history.json` in the data dir (serde_json), capped at 200 entries. `App`
+  owns the store; `overlay::history::HistoryView` is just the list cursor.
+- **Recording** — `TransferView::sync` already detects the finish edge once per
+  session; it now returns a `SyncOutcome { toasts, recorded }`, and `App`
+  appends `recorded` to the log. Covers foreground and background quick-save,
+  inbound and outbound.
+- **Rendering** — `ui::history` builds one row per entry (peer + direction,
+  a `counts · size · relative-time` detail, an outcome glyph: green ✓ / dim /
+  red ✗). Same tab-shell structure (tab_bar + central + tab_footer) so it
+  inherits the no-red-line fix.
+- **Navigation** — up/down move the cursor; L1/R1 switch tabs; A does nothing
+  (read-only). The clock icon (🕘) marks it in the bar.
+- Surfaced and fixed a pre-existing `fmt_bytes` off-by-one (it labelled every
+  size one unit high — a 45 MB transfer read "45.7 GB"); now unit-tested.
