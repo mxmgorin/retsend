@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="docs/images/retsend-wordmark.png" alt="retsend" width="320">
+  <img src="resources/retsend-wordmark.png" alt="retsend" width="320">
 </h1>
 
 <p align="center">Wireless file transfer for retro handhelds.</p>
@@ -21,15 +21,13 @@ It targets PortMaster-compatible Linux handhelds (**Knulli, muOS, ROCKNIX** —
 Anbernic/TrimUI/Miyoo class devices, gamepad-only, no compositor) and runs on
 regular desktop Linux too.
 
-> 🛠️ **Work in progress.** Early development — experimental and bugs are expected.
-
 ## Why?
 
-Getting files onto a handheld usually means pulling the SD card or setting up
-SSH/SMB. Meanwhile every phone and desktop can run LocalSend. What's missing is
-the other end: a client built for a 640×480 screen and a D-pad. This is that
-client — the device shows up next to your other LocalSend devices, and files
-move in both directions.
+Getting files onto a handheld usually means pulling the SD card, plugging in a
+cable, or setting up SSH/SMB. Meanwhile every phone and desktop can run
+LocalSend. What's missing is the other end: a client built for a gamepad and a
+screen with no desktop behind it. This is that client — files move in both
+directions.
 
 ## Features
 
@@ -55,11 +53,7 @@ move in both directions.
 
 Grab `retsend-portmaster.zip` from
 [Releases](https://github.com/mxmgorin/retsend/releases) and unpack it
-into your ports folder (e.g. `/roms/ports/`). One ARMv8.0 baseline binary
-covers every supported device.
-
-Received files land in the ROMs root by default — change the folder in
-Settings.
+into your ports folder (e.g. `/roms/ports/`). Received files land in the ROMs root by default — change the folder in Settings.
 
 ## Building & running (desktop)
 
