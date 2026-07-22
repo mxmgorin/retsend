@@ -6,6 +6,7 @@ pub mod browser;
 pub mod history;
 pub mod home;
 pub mod osk;
+pub mod routes;
 pub mod settings;
 pub mod tabs;
 pub mod toast;
@@ -18,9 +19,11 @@ pub enum Focus {
     Osk,
     /// The incoming-request modal.
     Prompt,
-    /// The file browser (send picks or the save-dir setting) — checked
-    /// before the tabs so a browser opened *from* Settings gets the input.
+    /// The file browser (send picks, the save-dir setting, or a route's
+    /// folder) — outranks the routes editor it can be opened from.
     Browser,
+    /// The routes editor (reached from the Settings tab).
+    Routes,
     /// The transfer progress/summary screen, a full-screen takeover.
     Transfer,
     /// The tab base (Send / Receive / Settings); the active tab decides what

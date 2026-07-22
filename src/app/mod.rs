@@ -138,6 +138,8 @@ impl App {
             Focus::Prompt
         } else if self.ui.browser.open {
             Focus::Browser
+        } else if self.ui.routes.open {
+            Focus::Routes
         } else if self.ui.transfer.opened {
             Focus::Transfer
         } else {
@@ -191,9 +193,10 @@ impl App {
                 if let Some(pending) = self.net.shared.pending.lock().unwrap().take() {
                     pending.accept(std::path::PathBuf::from(&self.config.transfer.save_dir));
                     // The transfer screen takes over (it outranks the tabs); an
-                    // in-progress pick is abandoned (rare: someone sent to us
-                    // mid-browse).
+                    // in-progress pick or route edit is abandoned (rare: someone
+                    // sent to us mid-browse).
                     self.ui.browser.close();
+                    self.ui.routes.close();
                     self.ui.transfer.open();
                 }
             }
@@ -238,11 +241,15 @@ impl App {
                 if !self.ui.browser.parent() {
                     self.ui.browser.close();
                     self.send_target = None;
+                    // Backing out abandons a route whose folder was being picked.
+                    self.ui.routes.pending_ext = None;
                 }
             }
-            // Start: confirm — send the selection, or choose the cwd.
+            // Start: confirm — send the selection, or choose the cwd (for the
+            // save-dir setting or a pending route's folder).
             (Focus::Browser, AppCommand::ToggleSettings) => match self.ui.browser.mode {
                 BrowserMode::PickFiles => self.send_selection(),
+                BrowserMode::PickDir if self.ui.routes.pending_ext.is_some() => self.finish_route(),
                 BrowserMode::PickDir => self.choose_save_dir(),
             },
             // Select: jump between mount points.
@@ -252,6 +259,17 @@ impl App {
                     self.ui.toasts.push(root);
                 }
             }
+
+            // Routes editor: up/down over the routes + add row; A adds or
+            // removes; B goes back to Settings.
+            (Focus::Routes, AppCommand::Nav(dir)) => {
+                let count = self.config.transfer.routes.len();
+                self.ui.routes.move_cursor(nav_delta(dir), count);
+            }
+            (Focus::Routes, AppCommand::Confirm) => self.routes_confirm(),
+            (Focus::Routes, AppCommand::Back) => self.ui.routes.close(),
+            (Focus::Routes, _) => {}
+
             // L1/R1 cycle tabs, Start toggles the Settings tab — both handled
             // regardless of which tab is showing. The rest (Nav/Confirm/Back)
             // branch on the active tab.
@@ -344,8 +362,46 @@ impl App {
                     .open_for_dir(&start, &self.config.transfer.browser_roots);
             }
             SettingsRow::QuickSave => self.toggle_quick_save(),
+            SettingsRow::Routes => self.ui.routes.open(),
             SettingsRow::Port | SettingsRow::About => {}
         }
+    }
+
+    /// A in the routes editor: on the add row, start the add flow (type an
+    /// extension, then pick a folder); on a route row, remove it.
+    fn routes_confirm(&mut self) {
+        let count = self.config.transfer.routes.len();
+        match self.ui.routes.selected_route(count) {
+            None => self.ui.osk.open(OskTarget::RouteExt, ""),
+            Some(i) => {
+                if let Some(ext) = self.config.transfer.routes.keys().nth(i).cloned() {
+                    self.config.transfer.routes.remove(&ext);
+                    self.apply_routes();
+                    self.ui.toasts.push(format!("Removed .{ext} route"));
+                }
+            }
+        }
+    }
+
+    /// Start in the folder browser with a pending route extension: the cwd
+    /// becomes that extension's destination.
+    fn finish_route(&mut self) {
+        let dir = self.ui.browser.cwd.clone();
+        self.ui.browser.close();
+        if let Some(ext) = self.ui.routes.pending_ext.take() {
+            self.config
+                .transfer
+                .routes
+                .insert(ext.clone(), dir.display().to_string());
+            self.apply_routes();
+            self.ui.toasts.push(format!(".{ext} → {}", dir.display()));
+        }
+    }
+
+    /// Persist the routes and push them to the live receiver.
+    fn apply_routes(&mut self) {
+        self.config.save();
+        self.net.shared.transfer.lock().unwrap().routes = self.config.transfer.routes.clone();
     }
 
     /// Left/right (and L1/R1) on value rows: port stepper, toggle.
@@ -409,6 +465,19 @@ impl App {
                 self.net.shared.me.lock().unwrap().alias = value;
                 self.config.save();
                 self.net.re_announce();
+            }
+            OskEvent::Committed(OskTarget::RouteExt, value) => {
+                let ext = normalize_ext(&value);
+                if ext.is_empty() {
+                    self.ui.toasts.push("Extension can't be empty");
+                    return;
+                }
+                // Capture the extension; the folder is picked next.
+                self.ui.routes.pending_ext = Some(ext);
+                let start = PathBuf::from(&self.config.transfer.save_dir);
+                self.ui
+                    .browser
+                    .open_for_dir(&start, &self.config.transfer.browser_roots);
             }
             OskEvent::Cancelled => {}
         }
@@ -505,4 +574,15 @@ fn nav_delta(dir: Direction) -> i32 {
         Direction::Down => 1,
         Direction::Left | Direction::Right => 0,
     }
+}
+
+/// A route key from typed input: lowercase, alphanumeric only, leading dot
+/// dropped — matching how `transfer::files::extension_of` reads a filename.
+fn normalize_ext(raw: &str) -> String {
+    raw.trim()
+        .trim_start_matches('.')
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .flat_map(|c| c.to_lowercase())
+        .collect()
 }

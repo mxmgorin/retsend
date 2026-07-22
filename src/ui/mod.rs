@@ -7,6 +7,7 @@ mod home;
 mod osk;
 mod prompt;
 mod receive;
+mod routes;
 mod settings;
 mod tabs;
 pub mod theme;
@@ -21,6 +22,7 @@ use crate::overlay::{
     history::HistoryView,
     home::Home,
     osk::Osk,
+    routes::RoutesView,
     settings::Settings,
     tabs::{Tab, Tabs},
     toast::Toasts,
@@ -48,6 +50,7 @@ pub struct AppUi {
     pub home: Home,
     pub history: HistoryView,
     pub settings: Settings,
+    pub routes: RoutesView,
     pub browser: FileBrowser,
     pub osk: Osk,
     pub transfer: TransferView,
@@ -75,6 +78,7 @@ impl AppUi {
             home: Home::new(),
             history: HistoryView::new(),
             settings: Settings::new(),
+            routes: RoutesView::new(),
             browser: FileBrowser::new(),
             osk: Osk::new(),
             transfer: TransferView::new(),
@@ -131,6 +135,18 @@ impl AppUi {
                 .collect(),
         };
 
+        let routes_open = self.routes.open;
+        let route_rows: Vec<(String, String)> = config
+            .transfer
+            .routes
+            .iter()
+            .map(|(ext, dir)| (ext.clone(), dir.clone()))
+            .collect();
+        let routes_data = routes::RoutesData {
+            cursor: self.routes.cursor(route_rows.len()),
+            rows: route_rows,
+        };
+
         let prompt_data = prompt_data(net, config);
         let transfer_data = self.transfer_data();
         let active_tab = self.tabs.active();
@@ -147,11 +163,13 @@ impl AppUi {
                 egui::UiBuilder::new().max_rect(ctx.content_rect()),
             );
             root.set_clip_rect(ctx.content_rect());
-            // Base-screen precedence mirrors Focus: the browser and the
-            // transfer takeover outrank the tabs; otherwise the tab bar plus
-            // the active tab's body.
+            // Base-screen precedence mirrors Focus: the browser, the routes
+            // editor, and the transfer takeover outrank the tabs; otherwise the
+            // tab bar plus the active tab's body.
             if self.browser.open {
                 browser::render(&mut root, &self.browser, &self.browser.target_alias);
+            } else if routes_open {
+                routes::render(&mut root, &routes_data);
             } else if let Some(t) = &transfer_data {
                 transfer::render(&mut root, t);
             } else {

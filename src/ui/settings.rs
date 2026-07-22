@@ -24,6 +24,15 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
             "A Toggle",
         ),
         (
+            "Routes",
+            match config.transfer.routes.len() {
+                0 => "none".into(),
+                1 => "1 extension".into(),
+                n => format!("{n} extensions"),
+            },
+            "A Edit",
+        ),
+        (
             "About",
             format!("retsend {}", env!("CARGO_PKG_VERSION")),
             "",

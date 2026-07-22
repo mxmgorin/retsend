@@ -6,6 +6,8 @@
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum OskTarget {
     Alias,
+    /// A new route's file extension; the folder is picked next in the browser.
+    RouteExt,
 }
 
 /// The user finished (or abandoned) input.
