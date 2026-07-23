@@ -42,13 +42,13 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
     // No title panel: the tab bar already shows "⚙ Settings" as the active
     // tab, and an extra top panel here (absent on Send/Receive) would shift
     // egui's panel-id sequence and flag the footer as a changed id.
-    egui::Panel::bottom("tab_footer").show_inside(root, |ui| {
+    egui::Panel::bottom("tab_footer").show(root, |ui| {
         ui.add_space(4.0);
         super::home::hint_bar(ui, &[("L1/R1", "Tabs"), ("B", "Back")]);
         ui.add_space(4.0);
     });
 
-    egui::CentralPanel::default().show_inside(root, |ui| {
+    egui::CentralPanel::default().show(root, |ui| {
         for (i, (name, value, hint)) in rows.iter().enumerate() {
             let selected = state.cursor == i;
             let desired = egui::vec2(ui.available_width(), theme::ROW_HEIGHT);

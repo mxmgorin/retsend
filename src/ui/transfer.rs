@@ -25,7 +25,7 @@ pub struct FileRow {
 }
 
 pub fn render(root: &mut egui::Ui, data: &TransferData) {
-    egui::Panel::top("transfer_header").show_inside(root, |ui| {
+    egui::Panel::top("transfer_header").show(root, |ui| {
         ui.add_space(6.0);
         ui.label(
             egui::RichText::new(&data.title)
@@ -35,7 +35,7 @@ pub fn render(root: &mut egui::Ui, data: &TransferData) {
         ui.add_space(6.0);
     });
 
-    egui::Panel::bottom("transfer_footer").show_inside(root, |ui| {
+    egui::Panel::bottom("transfer_footer").show(root, |ui| {
         ui.add_space(4.0);
         if data.confirm_cancel {
             ui.horizontal(|ui| {
@@ -54,7 +54,7 @@ pub fn render(root: &mut egui::Ui, data: &TransferData) {
         ui.add_space(4.0);
     });
 
-    egui::CentralPanel::default().show_inside(root, |ui| {
+    egui::CentralPanel::default().show(root, |ui| {
         // Overall bar + the numbers line.
         let frac = if data.total > 0 {
             data.transferred as f32 / data.total as f32

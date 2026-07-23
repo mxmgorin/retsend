@@ -21,7 +21,7 @@ const TABS: [(Tab, &str, &str); 4] = [
 const PAD: egui::Vec2 = egui::vec2(12.0, 4.0);
 
 pub fn render_bar(root: &mut egui::Ui, active: Tab) {
-    egui::Panel::top("tab_bar").show_inside(root, |ui| {
+    egui::Panel::top("tab_bar").show(root, |ui| {
         ui.add_space(6.0);
 
         // Painted directly over one reserved row (no nested layout, no

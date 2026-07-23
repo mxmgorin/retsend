@@ -15,13 +15,13 @@ pub struct ReceiveData {
 }
 
 pub fn render(root: &mut egui::Ui, data: &ReceiveData) {
-    egui::Panel::bottom("tab_footer").show_inside(root, |ui| {
+    egui::Panel::bottom("tab_footer").show(root, |ui| {
         ui.add_space(4.0);
         super::home::hint_bar(ui, &[("L1/R1", "Tabs"), ("Select", "Refresh")]);
         ui.add_space(4.0);
     });
 
-    egui::CentralPanel::default().show_inside(root, |ui| {
+    egui::CentralPanel::default().show(root, |ui| {
         const HERO_H: f32 = 190.0; // wordmark + gaps + status block, roughly
         let top = ((ui.available_height() - HERO_H) / 2.0).max(8.0);
         ui.vertical_centered(|ui| {

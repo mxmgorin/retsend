@@ -7,7 +7,7 @@ use egui_sdl2::egui;
 
 pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
     let picking_dir = browser.mode == BrowserMode::PickDir;
-    egui::Panel::top("browser_header").show_inside(root, |ui| {
+    egui::Panel::top("browser_header").show(root, |ui| {
         ui.add_space(6.0);
         ui.horizontal(|ui| {
             let title = if picking_dir {
@@ -27,7 +27,7 @@ pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
         ui.add_space(6.0);
     });
 
-    egui::Panel::bottom("browser_footer").show_inside(root, |ui| {
+    egui::Panel::bottom("browser_footer").show(root, |ui| {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             let (count, bytes) = browser.selection_totals();
@@ -52,7 +52,7 @@ pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
         ui.add_space(4.0);
     });
 
-    egui::CentralPanel::default().show_inside(root, |ui| {
+    egui::CentralPanel::default().show(root, |ui| {
         if browser.entries.is_empty() {
             ui.centered_and_justified(|ui| {
                 ui.label(

@@ -40,13 +40,13 @@ pub fn row(e: &HistoryEntry, now: u64) -> HistoryRow {
 }
 
 pub fn render(root: &mut egui::Ui, data: &HistoryData) {
-    egui::Panel::bottom("tab_footer").show_inside(root, |ui| {
+    egui::Panel::bottom("tab_footer").show(root, |ui| {
         ui.add_space(4.0);
         super::home::hint_bar(ui, &[("L1/R1", "Tabs")]);
         ui.add_space(4.0);
     });
 
-    egui::CentralPanel::default().show_inside(root, |ui| {
+    egui::CentralPanel::default().show(root, |ui| {
         if data.rows.is_empty() {
             let top = (ui.available_height() / 2.0 - 20.0).max(8.0);
             ui.vertical_centered(|ui| {

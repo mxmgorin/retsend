@@ -24,7 +24,7 @@ pub struct HomeData {
 }
 
 pub fn render(root: &mut egui::Ui, data: &HomeData) {
-    egui::Panel::bottom("tab_footer").show_inside(root, |ui| {
+    egui::Panel::bottom("tab_footer").show(root, |ui| {
         ui.add_space(4.0);
         hint_bar(
             ui,
@@ -33,7 +33,7 @@ pub fn render(root: &mut egui::Ui, data: &HomeData) {
         ui.add_space(4.0);
     });
 
-    egui::CentralPanel::default().show_inside(root, |ui| {
+    egui::CentralPanel::default().show(root, |ui| {
         if data.peers.is_empty() {
             // Same branded hero as the Receive tab, with a discovery hint.
             const HERO_H: f32 = 130.0; // wordmark + gap + hint, roughly
