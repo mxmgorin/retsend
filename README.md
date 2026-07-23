@@ -11,10 +11,10 @@
   <a href="https://deps.rs/repo/github/mxmgorin/retsend"><img src="https://deps.rs/repo/github/mxmgorin/retsend/status.svg" alt="Dependencies"></a>
 </div>
 
-retsend is a [LocalSend](https://localsend.org)-protocol file-transfer
+`retsend` (**ret**ro + **send**ing) is a [LocalSend](https://localsend.org)-protocol file-transfer
 client written in **Rust**, using **SDL2** for windowing and input and
-[**egui**](https://github.com/emilk/egui) for the UI. Push ROMs from your phone
-or PC to the device and pull saves or screenshots back over wifi — no cable, no
+[**egui**](https://github.com/emilk/egui) for the UI. Receive ROMs from your phone
+or PC to the device and send saves or screenshots back over wifi — no cable, no
 SSH. Fully compatible with the official LocalSend apps.
 
 It targets PortMaster-compatible Linux handhelds (**Knulli, muOS, ROCKNIX** —
@@ -31,18 +31,17 @@ directions.
 
 ## Features
 
-- **Discovery** (LocalSend protocol v2.1) — UDP multicast plus the TCP
+- **Discovery** (LocalSend protocol v2.1) — UDP multicast and the TCP
   `/register` exchange; a live radar of nearby devices.
-- **Receive** — accept/decline dialog with a countdown, streaming to `.part`
-  with an atomic rename, sanitized file names, speed/ETA, cancel from either
+- **Receive** — accept/decline dialog with a countdown, streaming to `.part`,
+- sanitized file names, speed/ETA, cancel from either
   side; a quick-save mode auto-accepts.
 - **Send** — gamepad file browser with multi-select that survives folder
   navigation; per-file progress, cancel, partial accepts handled.
 - **Encryption** — the protocol's https mode, on by default: a persisted
   self-signed identity, announce fingerprint = its SHA-256. Works with the
   official app's default settings both ways.
-- **Settings on device** — alias (on-screen keyboard), save folder picker,
-  port; applied live.
+- **Settings on device** — alias, save folder picker, port; applied live.
 - **Headless** — `retsend --receive`: no screen, auto-accept,
   progress on stdout. For ssh sessions and scripting.
 - **Small and simple** — threads instead of an async runtime, a minimal
@@ -92,10 +91,6 @@ cargo test
 | Select       | Tab / F5   | Refresh radar · switch roots · layer (keyboard)|
 | L1 / R1      | PgUp / PgDn| Switch tabs · page the file browser           |
 
-The main screen is three tabs — **Send** (radar of nearby devices → file
-browser), **Receive** (your identity and receive status), **Settings** —
-cycled with L1/R1.
-
 ## Configuration
 
 `config.toml` lives in the data dir (created with defaults on first run) and
@@ -124,7 +119,3 @@ Environment variables override paths and control logging at launch:
 `RETSEND_DATA_DIR`, `RETSEND_CONFIG`, `RETSEND_SAVE_DIR`, `RETSEND_SCALE`,
 `RETSEND_GLES=0|1`, `RETSEND_LOG_LEVEL`, `RETSEND_LOG_FILE`,
 `RETSEND_PANIC_FILE`.
-
-The TCP port defaults to 53317 and falls back to the next free one when
-something else (say, the official LocalSend app on a dev machine) already
-holds it — the announce carries the real port, so discovery keeps working.
