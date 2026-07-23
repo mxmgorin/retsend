@@ -149,8 +149,16 @@ fn arrow(painter: &egui::Painter, left: f32, base_y: f32, w: f32, size: f32, alp
     let uv = egui::epaint::WHITE_UV;
     for i in 0..N {
         let base = mesh.vertices.len() as u32;
-        mesh.vertices.push(egui::epaint::Vertex { pos: top[i], uv, color });
-        mesh.vertices.push(egui::epaint::Vertex { pos: bot[i], uv, color });
+        mesh.vertices.push(egui::epaint::Vertex {
+            pos: top[i],
+            uv,
+            color,
+        });
+        mesh.vertices.push(egui::epaint::Vertex {
+            pos: bot[i],
+            uv,
+            color,
+        });
         if i > 0 {
             mesh.indices
                 .extend_from_slice(&[base - 2, base - 1, base, base, base - 1, base + 1]);
@@ -158,7 +166,10 @@ fn arrow(painter: &egui::Painter, left: f32, base_y: f32, w: f32, size: f32, alp
     }
     painter.add(egui::Shape::mesh(mesh));
     let outline: Vec<egui::Pos2> = top.iter().chain(bot.iter().rev()).copied().collect();
-    painter.add(egui::Shape::closed_line(outline, egui::Stroke::new(1.0, color)));
+    painter.add(egui::Shape::closed_line(
+        outline,
+        egui::Stroke::new(1.0, color),
+    ));
     // Rounded left cap, flush with the ribbon (radius == tail half-width).
     painter.circle_filled(egui::pos2(x_l, y_l), half_tail, color);
 
