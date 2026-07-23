@@ -18,7 +18,7 @@ pub fn render(root: &mut egui::Ui, data: &RoutesData) {
     egui::Panel::top("routes_header").show_inside(root, |ui| {
         ui.add_space(6.0);
         ui.label(
-            egui::RichText::new("Routes")
+            egui::RichText::new("Save routes")
                 .size(theme::ROW_FONT + 2.0)
                 .strong(),
         );

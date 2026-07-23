@@ -107,7 +107,7 @@ everything in it is also editable from the Settings screen, except:
 
 Received files land in `save_dir` by default. `[transfer.routes]` overrides
 that per file extension — handy for dropping ROMs straight into each console's
-folder. Edit it on the device from **Settings → Routes** (type the extension,
+folder. Edit it on the device from **Settings → Save routes** (type the extension,
 pick the folder), or in the config:
 
 ```toml

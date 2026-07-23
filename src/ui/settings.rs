@@ -24,7 +24,7 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
             "A Toggle",
         ),
         (
-            "Routes",
+            "Save routes",
             match config.transfer.routes.len() {
                 0 => "none".into(),
                 1 => "1 extension".into(),
