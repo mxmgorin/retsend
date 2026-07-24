@@ -18,7 +18,7 @@ pub struct TransferData {
 pub struct FileRow {
     pub name: String,
     pub size: u64,
-    /// "✓" done, "✗" failed, "" pending/receiving.
+    /// "√" done, "×" failed, "" pending/receiving.
     pub glyph: &'static str,
     /// 0.0..=1.0 of this file.
     pub frac: f32,
@@ -89,8 +89,8 @@ pub fn render(root: &mut egui::Ui, data: &TransferData) {
             for row in &data.rows {
                 ui.horizontal(|ui| {
                     let glyph_color = match row.glyph {
-                        "✓" => theme::ACCENT,
-                        "✗" => egui::Color32::from_rgb(0xd0, 0x60, 0x60),
+                        "√" => theme::ACCENT,
+                        "×" => egui::Color32::from_rgb(0xd0, 0x60, 0x60),
                         _ => theme::DIM,
                     };
                     let glyph = if row.glyph.is_empty() {

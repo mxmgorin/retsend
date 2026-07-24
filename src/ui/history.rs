@@ -114,10 +114,10 @@ fn history_row(ui: &mut egui::Ui, row: &HistoryRow, selected: bool) -> egui::Res
 /// for a partial, a red cross for a failure/decline.
 fn glyph(outcome: Outcome) -> (&'static str, egui::Color32) {
     match outcome {
-        Outcome::Completed => ("✓", theme::ACCENT),
-        Outcome::Partial => ("✓", theme::DIM),
-        Outcome::Cancelled => ("✗", theme::DIM),
-        Outcome::Declined | Outcome::Failed => ("✗", theme::DANGER),
+        Outcome::Completed => ("√", theme::ACCENT),
+        Outcome::Partial => ("√", theme::DIM),
+        Outcome::Cancelled => ("×", theme::DIM),
+        Outcome::Declined | Outcome::Failed => ("×", theme::DANGER),
     }
 }
 

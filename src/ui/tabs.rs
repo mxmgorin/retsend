@@ -7,13 +7,13 @@ use super::theme;
 use crate::overlay::tabs::Tab;
 use egui_sdl2::egui;
 
-/// Send/receive read as upload/download arrows; the gear is the usual settings
-/// glyph. All three resolve through the Proportional fallback chain (arrows in
-/// Ubuntu, the gear in NotoEmoji).
+/// Icons limited to glyphs egui's bundled fonts actually rasterize: the arrows
+/// and history ↺ come from Hack, the gear from emoji-icon-font. Most check/clock
+/// emoji are tofu here (see tests/font_glyphs.rs), so they're avoided.
 const TABS: [(Tab, &str, &str); 4] = [
     (Tab::Send, "↑", "Send"),
     (Tab::Receive, "↓", "Receive"),
-    (Tab::History, "🕘", "History"),
+    (Tab::History, "↺", "History"),
     (Tab::Settings, "⚙", "Settings"),
 ];
 

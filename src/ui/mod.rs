@@ -281,8 +281,8 @@ fn file_row(name: String, size: u64, state: &FileState, moved: u64) -> transfer:
         name,
         size,
         glyph: match state {
-            FileState::Done => "✓",
-            FileState::Failed(_) => "✗",
+            FileState::Done => "√",
+            FileState::Failed(_) => "×",
             FileState::Pending | FileState::Receiving => "",
         },
         frac: if size > 0 {

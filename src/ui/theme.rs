@@ -16,7 +16,7 @@ pub const BACKGROUND: [f32; 4] = [0.06, 0.06, 0.07, 1.0];
 /// Secondary / label text: hints, device details, statuses.
 pub const DIM: egui::Color32 = egui::Color32::from_gray(0x99);
 
-/// Failure red — the "✗" glyph on failed/declined transfers.
+/// Failure red — the "×" glyph on failed/declined transfers.
 pub const DANGER: egui::Color32 = egui::Color32::from_rgb(0xd0, 0x60, 0x60);
 
 /// Primary row font size (logical px) — readable on a 3.5" 640×480 panel.
