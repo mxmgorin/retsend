@@ -35,13 +35,44 @@ use crate::transfer::outbound::{OutboundPhase, OutboundSession};
 use egui_sdl2::egui;
 use egui_sdl2::EguiGlow;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Radar snapshots at most this stale while idle — covers peer-expiry pruning
 /// and freshly announced ports without waking every frame.
 const IDLE_REFRESH: Duration = Duration::from_secs(1);
 /// The incoming modal's countdown bar animates at this cadence.
 const PROMPT_REFRESH: Duration = Duration::from_millis(100);
+/// Cap on how often the Receive screen re-samples IP/SSID — the probe shells
+/// out to `iw`, so not per frame.
+const NET_STATUS_TTL: Duration = Duration::from_secs(2);
+
+/// Throttled cache of the device's network status behind the Receive screen.
+struct NetStatusCache {
+    status: crate::net::NetStatus,
+    sampled_at: Option<Instant>,
+}
+
+impl NetStatusCache {
+    fn new() -> Self {
+        Self {
+            status: crate::net::NetStatus::default(),
+            sampled_at: None,
+        }
+    }
+
+    /// The current status, re-sampling only once the cache is older than
+    /// [`NET_STATUS_TTL`].
+    fn get(&mut self) -> &crate::net::NetStatus {
+        if self
+            .sampled_at
+            .is_none_or(|t| t.elapsed() >= NET_STATUS_TTL)
+        {
+            self.status = crate::net::sample_status();
+            self.sampled_at = Some(Instant::now());
+        }
+        &self.status
+    }
+}
 
 pub struct AppUi {
     egui: EguiGlow,
@@ -60,6 +91,8 @@ pub struct AppUi {
     pub peer_count: usize,
     /// History entry count as of the last frame — clamps the history cursor.
     pub history_count: usize,
+    /// Throttled IP/SSID for the Receive screen's diagnostic line.
+    net_status: NetStatusCache,
 }
 
 impl AppUi {
@@ -85,6 +118,7 @@ impl AppUi {
             toasts: Toasts::new(),
             peer_count: 0,
             history_count: 0,
+            net_status: NetStatusCache::new(),
         }
     }
 
@@ -118,9 +152,14 @@ impl AppUi {
                 })
                 .collect(),
         };
+        let (scheme, port) = endpoint_scheme_port(net);
+        let status = self.net_status.get();
         let receive_data = receive::ReceiveData {
             alias: config.device.alias.clone(),
-            endpoint: endpoint_line(net),
+            scheme,
+            port,
+            ip: status.ip.map(|ip| ip.to_string()),
+            ssid: status.ssid.clone(),
             quick_save: config.transfer.auto_accept,
         };
         self.history_count = history.entries().len();
@@ -332,18 +371,14 @@ fn prompt_data(net: &NetService, config: &AppConfig) -> Option<prompt::PromptDat
     })
 }
 
-fn endpoint_line(net: &NetService) -> String {
-    let (port, scheme) = {
-        let me = net.shared.me.lock().unwrap();
-        (
-            me.port.unwrap_or(0),
-            me.protocol.as_deref().unwrap_or("http").to_uppercase(),
-        )
-    };
-    match crate::net::local_ip() {
-        Some(ip) => format!("{scheme} · {ip}:{port}"),
-        None => format!("{scheme} · port {port} · no network"),
-    }
+/// Announced scheme (uppercased) and bound port. IP/SSID come from the
+/// throttled `NetStatusCache`, not here.
+fn endpoint_scheme_port(net: &NetService) -> (String, u16) {
+    let me = net.shared.me.lock().unwrap();
+    (
+        me.protocol.as_deref().unwrap_or("http").to_uppercase(),
+        me.port.unwrap_or(0),
+    )
 }
 
 /// Unix seconds now — for the history's relative-time labels.

@@ -183,3 +183,71 @@ pub fn local_ip() -> Option<IpAddr> {
     socket.connect("8.8.8.8:80").ok()?;
     Some(socket.local_addr().ok()?.ip())
 }
+
+/// A snapshot of the device's reachability for the Receive screen's diagnostic
+/// line. Both fields are best-effort and independently optional.
+#[derive(Clone, Default)]
+pub struct NetStatus {
+    /// Our LAN address, or None when offline.
+    pub ip: Option<IpAddr>,
+    /// Connected Wi-Fi SSID, or None on ethernet/desktop or when neither
+    /// `iwgetid` nor `iw` is present.
+    pub ssid: Option<String>,
+}
+
+/// Sample the current network status. Not free — opens a probe socket and may
+/// shell out to `iw` — so callers should throttle rather than call per frame.
+pub fn sample_status() -> NetStatus {
+    NetStatus {
+        ip: local_ip(),
+        ssid: wifi_ssid(),
+    }
+}
+
+/// Best-effort connected Wi-Fi SSID. Tries `iwgetid -r`, then `iw dev <iface>
+/// link` for each wireless interface under `/sys/class/net`. None if no
+/// wireless link is up or neither tool exists (e.g. desktop on ethernet).
+pub fn wifi_ssid() -> Option<String> {
+    if let Some(out) = run_stdout("iwgetid", &["-r"]) {
+        let ssid = out.trim();
+        if !ssid.is_empty() {
+            return Some(ssid.to_string());
+        }
+    }
+    for iface in wireless_interfaces() {
+        let Some(out) = run_stdout("iw", &["dev", &iface, "link"]) else {
+            continue;
+        };
+        for line in out.lines() {
+            if let Some(rest) = line.trim().strip_prefix("SSID:") {
+                let ssid = rest.trim();
+                if !ssid.is_empty() {
+                    return Some(ssid.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Run a command, returning its stdout on a zero exit (None if it can't spawn
+/// or fails). Used only for the optional Wi-Fi probes above.
+fn run_stdout(cmd: &str, args: &[&str]) -> Option<String> {
+    let out = std::process::Command::new(cmd).args(args).output().ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// Wireless interface names: `/sys/class/net` entries exposing a `wireless`
+/// subdirectory.
+fn wireless_interfaces() -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir("/sys/class/net") else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter(|e| e.path().join("wireless").is_dir())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect()
+}

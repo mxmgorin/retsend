@@ -158,6 +158,15 @@ fn announce_once(socket: &UdpSocket, shared: &NetShared) {
 /// delivered to every joined socket, unlike unicast.
 pub fn spawn_listener(shared: Arc<NetShared>) -> std::io::Result<JoinHandle<()>> {
     let socket = bind_multicast(protocol::MULTICAST_PORT)?;
+    // Join if the network is up; else defer and let the loop retry, so the app
+    // starts offline and discovery recovers when wifi appears.
+    let mut joined = match join_multicast(&socket) {
+        Ok(()) => true,
+        Err(e) => {
+            log::warn!("multicast join deferred (no network yet?): {e}");
+            false
+        }
+    };
 
     std::thread::Builder::new()
         .name("discovery".into())
@@ -166,6 +175,10 @@ pub fn spawn_listener(shared: Arc<NetShared>) -> std::io::Result<JoinHandle<()>>
             loop {
                 if shared.shutdown.load(Ordering::SeqCst) {
                     return;
+                }
+                if !joined && join_multicast(&socket).is_ok() {
+                    log::info!("multicast group joined");
+                    joined = true;
                 }
                 let (len, src) = match socket.recv_from(&mut buf) {
                     Ok(r) => r,
@@ -208,13 +221,16 @@ fn bind_multicast(port: u16) -> std::io::Result<UdpSocket> {
     socket.set_reuse_port(true)?;
     socket.bind(&SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)).into())?;
     let udp: UdpSocket = socket.into();
-    // INADDR_ANY picks the default-route interface; handhelds have a single
-    // wifi NIC, so that's always right there. `set_multicast_if_v4` is the
-    // knob if multi-NIC desktops ever misbehave.
-    udp.join_multicast_v4(&protocol::MULTICAST_GROUP, &Ipv4Addr::UNSPECIFIED)?;
     udp.set_multicast_loop_v4(true)?;
     udp.set_read_timeout(Some(Duration::from_secs(1)))?;
     Ok(udp)
+}
+
+/// Join the multicast group — the one step needing a live network (errors with
+/// wifi down), so it's split from the bind and retried by the listener.
+/// INADDR_ANY picks the default-route interface (the handheld's sole wifi NIC).
+fn join_multicast(socket: &UdpSocket) -> std::io::Result<()> {
+    socket.join_multicast_v4(&protocol::MULTICAST_GROUP, &Ipv4Addr::UNSPECIFIED)
 }
 
 /// Answer an announce: POST our info to the announcer's `/register` (a
