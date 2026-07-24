@@ -76,6 +76,8 @@ impl App {
             log::info!("{} files staged for sending", staged.len());
         }
 
+        let history = History::load(&crate::config::data_dir(), config.transfer.history_limit);
+
         Ok(Self {
             window,
             ui,
@@ -83,7 +85,7 @@ impl App {
             config,
             net,
             wake,
-            history: History::load(&crate::config::data_dir()),
+            history,
             outbound: None,
             staged,
             send_target: None,

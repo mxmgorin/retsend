@@ -99,6 +99,7 @@ everything in it is also editable from the Settings screen, except:
 - `[network] https = false` — fall back to the protocol's plain-http mode
 - `[network] announce_interval_secs` — multicast announce cadence
 - `[transfer] browser_roots` — extra mount points for the file browser
+- `[transfer] history_limit` — max transfers kept in the History tab (default 200)
 
 Received files land in `save_dir` by default. `[transfer.routes]` overrides
 that per file extension — handy for dropping ROMs straight into each console's

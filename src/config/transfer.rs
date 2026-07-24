@@ -11,6 +11,8 @@ pub struct TransferConfig {
     pub auto_accept: bool,
     /// Extra file-browser roots on top of the auto-detected mount points.
     pub browser_roots: Vec<String>,
+    /// Max transfers kept in the History tab; oldest are dropped past this.
+    pub history_limit: usize,
     /// Route received files to per-extension folders, e.g. `gbc = "gb"` or
     /// `png = "/roms/screenshots"`. Extensions match case-insensitively; a
     /// relative folder resolves under `save_dir`, an absolute one is used as
@@ -25,6 +27,7 @@ impl Default for TransferConfig {
             save_dir: super::paths::default_save_dir(),
             auto_accept: false,
             browser_roots: Vec::new(),
+            history_limit: crate::transfer::history::DEFAULT_MAX_ENTRIES,
             routes: BTreeMap::new(),
         }
     }

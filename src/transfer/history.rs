@@ -8,8 +8,8 @@ use super::outbound::{OutboundPhase, OutboundSession};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 
-/// Keep the log bounded — the tail is dropped on write.
-const MAX_ENTRIES: usize = 200;
+/// Default cap on retained entries when the config omits `transfer.history_limit`.
+pub const DEFAULT_MAX_ENTRIES: usize = 200;
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
@@ -98,28 +98,39 @@ fn counts_outcome(done: usize, total: usize) -> Outcome {
 pub struct History {
     path: String,
     entries: Vec<HistoryEntry>,
+    /// Max retained entries; the oldest are dropped past this (`transfer.history_limit`).
+    limit: usize,
 }
 
 impl History {
     /// Load `history.json` from the data dir; a missing or corrupt file yields
-    /// an empty log (best-effort, like the config).
-    pub fn load(data_dir: &str) -> Self {
+    /// an empty log (best-effort, like the config). `limit` caps retained
+    /// entries — a file over the (possibly lowered) cap is trimmed on load.
+    pub fn load(data_dir: &str, limit: usize) -> Self {
         let path = format!("{data_dir}history.json");
-        let entries = match std::fs::read_to_string(&path) {
+        let mut entries: Vec<HistoryEntry> = match std::fs::read_to_string(&path) {
             Ok(text) => serde_json::from_str(&text).unwrap_or_else(|e| {
                 log::warn!("invalid history `{path}`: {e}; starting empty");
                 Vec::new()
             }),
             Err(_) => Vec::new(),
         };
-        Self { path, entries }
+        let overflow = entries.len().saturating_sub(limit);
+        if overflow > 0 {
+            entries.drain(..overflow);
+        }
+        Self {
+            path,
+            entries,
+            limit,
+        }
     }
 
     /// Append and persist. Best-effort write — a read-only SD degrades to an
     /// in-memory log, not a crash.
     pub fn record(&mut self, entry: HistoryEntry) {
         self.entries.push(entry);
-        let overflow = self.entries.len().saturating_sub(MAX_ENTRIES);
+        let overflow = self.entries.len().saturating_sub(self.limit);
         if overflow > 0 {
             self.entries.drain(..overflow);
         }
@@ -144,4 +155,59 @@ fn now_unix() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_dir(tag: &str) -> String {
+        let dir =
+            std::env::temp_dir().join(format!("retsend-history-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        format!("{}/", dir.display())
+    }
+
+    fn entry(peer: &str) -> HistoryEntry {
+        HistoryEntry {
+            direction: Direction::Sent,
+            peer: peer.to_string(),
+            done: 1,
+            total: 1,
+            bytes: 1,
+            outcome: Outcome::Completed,
+            at: 0,
+        }
+    }
+
+    fn peers(h: &History) -> Vec<String> {
+        h.entries().iter().map(|e| e.peer.clone()).collect()
+    }
+
+    #[test]
+    fn record_drops_oldest_past_limit() {
+        let dir = temp_dir("record");
+        let mut h = History::load(&dir, 3);
+        for i in 0..5 {
+            h.record(entry(&format!("p{i}")));
+        }
+        assert_eq!(peers(&h), ["p2", "p3", "p4"]);
+        std::fs::remove_dir_all(dir.trim_end_matches('/')).unwrap();
+    }
+
+    #[test]
+    fn load_trims_to_a_lowered_limit() {
+        let dir = temp_dir("load");
+        {
+            let mut h = History::load(&dir, 100);
+            for i in 0..5 {
+                h.record(entry(&format!("p{i}")));
+            }
+        }
+        // Re-open under a lower cap: the persisted file is trimmed on load.
+        let h = History::load(&dir, 2);
+        assert_eq!(peers(&h), ["p3", "p4"]);
+        std::fs::remove_dir_all(dir.trim_end_matches('/')).unwrap();
+    }
 }

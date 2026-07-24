@@ -98,6 +98,12 @@ impl AppConfig {
             30,
             1000,
         );
+        fix(
+            "transfer.history_limit",
+            &mut self.transfer.history_limit,
+            1,
+            10_000,
+        );
         if self.device.alias.trim().is_empty() {
             log::warn!("config: device.alias is empty; using default");
             self.device.alias = DeviceConfig::default().alias;
