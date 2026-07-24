@@ -182,7 +182,7 @@ impl App {
                     self.handle_osk_event(event);
                 }
             }
-            (Focus::Osk, AppCommand::ToggleSettings) => {
+            (Focus::Osk, AppCommand::Start) => {
                 let event = self.ui.osk.commit();
                 self.handle_osk_event(event);
             }
@@ -249,7 +249,7 @@ impl App {
             }
             // Start: confirm — send the selection, or choose the cwd (for the
             // save-dir setting or a pending route's folder).
-            (Focus::Browser, AppCommand::ToggleSettings) => match self.ui.browser.mode {
+            (Focus::Browser, AppCommand::Start) => match self.ui.browser.mode {
                 BrowserMode::PickFiles => self.send_selection(),
                 BrowserMode::PickDir if self.ui.routes.pending_ext.is_some() => self.finish_route(),
                 BrowserMode::PickDir => self.choose_save_dir(),
@@ -272,15 +272,13 @@ impl App {
             (Focus::Routes, AppCommand::Back) => self.ui.routes.close(),
             (Focus::Routes, _) => {}
 
-            // L1/R1 cycle tabs, Start toggles the Settings tab — both handled
-            // regardless of which tab is showing. The rest (Nav/Confirm/Back)
-            // branch on the active tab.
+            // L1/R1 cycle tabs (Settings is just another tab). Nav/Confirm
+            // branch on the active tab; Start and Back do nothing here.
             (Focus::Tabs, AppCommand::PageUp) => self.switch_tab(-1),
             (Focus::Tabs, AppCommand::PageDown) => self.switch_tab(1),
-            (Focus::Tabs, AppCommand::ToggleSettings) => self.toggle_settings_tab(),
             (Focus::Tabs, AppCommand::Nav(dir)) => self.tab_nav(dir),
             (Focus::Tabs, AppCommand::Confirm) => self.tab_confirm(),
-            (Focus::Tabs, AppCommand::Back) => self.tab_back(),
+            (Focus::Tabs, AppCommand::Start | AppCommand::Back) => {}
         }
     }
 
@@ -289,16 +287,6 @@ impl App {
     fn switch_tab(&mut self, delta: i32) {
         let leaving_settings = self.ui.tabs.active() == Tab::Settings;
         self.ui.tabs.cycle(delta);
-        if leaving_settings {
-            self.leave_settings();
-        }
-    }
-
-    /// Start: jump to the Settings tab, or leave it (persisting) for the
-    /// previously-active tab.
-    fn toggle_settings_tab(&mut self) {
-        let leaving_settings = self.ui.tabs.active() == Tab::Settings;
-        self.ui.tabs.toggle_settings();
         if leaving_settings {
             self.leave_settings();
         }
@@ -338,14 +326,6 @@ impl App {
             Tab::Receive => {}
             Tab::History => {}
             Tab::Settings => self.edit_setting(),
-        }
-    }
-
-    /// B on a tab: on Settings, step back to the previous tab (persisting);
-    /// the radar and Receive have nowhere to go back to.
-    fn tab_back(&mut self) {
-        if self.ui.tabs.active() == Tab::Settings {
-            self.toggle_settings_tab();
         }
     }
 

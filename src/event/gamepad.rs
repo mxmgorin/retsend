@@ -55,7 +55,7 @@ impl Gamepad {
         match button {
             Button::A => commands.push(AppCommand::Confirm),
             Button::B => commands.push(AppCommand::Back),
-            Button::Start => commands.push(AppCommand::ToggleSettings),
+            Button::Start => commands.push(AppCommand::Start),
             Button::Back => commands.push(AppCommand::ReAnnounce),
             Button::LeftShoulder => commands.push(AppCommand::PageUp),
             Button::RightShoulder => commands.push(AppCommand::PageDown),

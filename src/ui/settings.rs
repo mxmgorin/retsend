@@ -44,7 +44,7 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
     // egui's panel-id sequence and flag the footer as a changed id.
     egui::Panel::bottom("tab_footer").show(root, |ui| {
         ui.add_space(4.0);
-        super::home::hint_bar(ui, &[("L1/R1", "Tabs"), ("B", "Back")]);
+        super::home::hint_bar(ui, &[("L1/R1", "Tabs")]);
         ui.add_space(4.0);
     });
 
