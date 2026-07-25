@@ -35,7 +35,7 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
         (
             "About",
             format!("retsend {}", env!("CARGO_PKG_VERSION")),
-            "",
+            "A Open",
         ),
     ];
 

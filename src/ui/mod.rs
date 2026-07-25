@@ -1,6 +1,7 @@
 //! egui integration and the per-frame render pass. Owns the overlay state
 //! machines; `App` drives them through commands, this module draws them.
 
+mod about;
 mod browser;
 mod history;
 mod home;
@@ -18,6 +19,7 @@ use crate::config::AppConfig;
 use crate::net::server::DECISION_TIMEOUT;
 use crate::net::NetService;
 use crate::overlay::{
+    about::AboutView,
     browser::FileBrowser,
     history::HistoryView,
     home::Home,
@@ -82,6 +84,7 @@ pub struct AppUi {
     pub history: HistoryView,
     pub settings: Settings,
     pub routes: RoutesView,
+    pub about: AboutView,
     pub browser: FileBrowser,
     pub osk: Osk,
     pub transfer: TransferView,
@@ -112,6 +115,7 @@ impl AppUi {
             history: HistoryView::new(),
             settings: Settings::new(),
             routes: RoutesView::new(),
+            about: AboutView::new(),
             browser: FileBrowser::new(),
             osk: Osk::new(),
             transfer: TransferView::new(),
@@ -203,12 +207,14 @@ impl AppUi {
             );
             root.set_clip_rect(ctx.content_rect());
             // Base-screen precedence mirrors Focus: the browser, the routes
-            // editor, and the transfer takeover outrank the tabs; otherwise the
-            // tab bar plus the active tab's body.
+            // editor, the About screen, and the transfer takeover outrank the
+            // tabs; otherwise the tab bar plus the active tab's body.
             if self.browser.open {
                 browser::render(&mut root, &self.browser, &self.browser.target_alias);
             } else if routes_open {
                 routes::render(&mut root, &routes_data);
+            } else if self.about.open {
+                about::render(&mut root);
             } else if let Some(t) = &transfer_data {
                 transfer::render(&mut root, t);
             } else {

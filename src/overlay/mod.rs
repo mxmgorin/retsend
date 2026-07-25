@@ -2,6 +2,7 @@
 //! split (retsurf's convention) keeps navigation logic unit-testable and the
 //! renderers swappable.
 
+pub mod about;
 pub mod browser;
 pub mod history;
 pub mod home;
@@ -24,6 +25,8 @@ pub enum Focus {
     Browser,
     /// The routes editor (reached from the Settings tab).
     Routes,
+    /// The About screen (reached from the Settings tab): read-only build info.
+    About,
     /// The transfer progress/summary screen, a full-screen takeover.
     Transfer,
     /// The tab base (Send / Receive / Settings); the active tab decides what

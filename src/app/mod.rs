@@ -142,6 +142,8 @@ impl App {
             Focus::Browser
         } else if self.ui.routes.open {
             Focus::Routes
+        } else if self.ui.about.open {
+            Focus::About
         } else if self.ui.transfer.opened {
             Focus::Transfer
         } else {
@@ -195,10 +197,11 @@ impl App {
                 if let Some(pending) = self.net.shared.pending.lock().unwrap().take() {
                     pending.accept(std::path::PathBuf::from(&self.config.transfer.save_dir));
                     // The transfer screen takes over (it outranks the tabs); an
-                    // in-progress pick or route edit is abandoned (rare: someone
-                    // sent to us mid-browse).
+                    // in-progress pick, route edit, or About view is abandoned
+                    // (rare: someone sent to us mid-browse).
                     self.ui.browser.close();
                     self.ui.routes.close();
+                    self.ui.about.close();
                     self.ui.transfer.open();
                 }
             }
@@ -271,6 +274,11 @@ impl App {
             (Focus::Routes, AppCommand::Confirm) => self.routes_confirm(),
             (Focus::Routes, AppCommand::Back) => self.ui.routes.close(),
             (Focus::Routes, _) => {}
+
+            // About screen: read-only, so B backs out to Settings and nothing
+            // else does anything.
+            (Focus::About, AppCommand::Back) => self.ui.about.close(),
+            (Focus::About, _) => {}
 
             // L1/R1 cycle tabs (Settings is just another tab). Nav/Confirm
             // branch on the active tab; Start and Back do nothing here.
@@ -345,7 +353,8 @@ impl App {
             }
             SettingsRow::QuickSave => self.toggle_quick_save(),
             SettingsRow::Routes => self.ui.routes.open(),
-            SettingsRow::Port | SettingsRow::About => {}
+            SettingsRow::About => self.ui.about.open(),
+            SettingsRow::Port => {}
         }
     }
 
