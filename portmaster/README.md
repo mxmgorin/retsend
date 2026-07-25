@@ -9,9 +9,8 @@ Transfer files between this device and your phone or PC over wifi, using the
 2. Connect both devices to the same wifi network.
 3. Launch retsend — nearby devices appear on the radar.
 
-Both directions work with the official app's default settings — transfers
-are encrypted (the protocol's https mode). Received files land in the ROMs
-root by default; change the folder in Settings.
+Both directions work with the official app's default settings.
+Received files land in the ROMs root by default; change the folder in Settings.
 
 ## Controls
 
@@ -26,4 +25,6 @@ root by default; change the folder in Settings.
 
 ## Credits
 
-Source: https://github.com/mxmgorin/retsend
+- Developed and ported by mxmgorin
+- Implements the [LocalSend](https://localsend.org) protocol
+- Source and issues: https://github.com/mxmgorin/retsend

@@ -11,48 +11,36 @@
   <a href="https://deps.rs/repo/github/mxmgorin/retsend"><img src="https://deps.rs/repo/github/mxmgorin/retsend/status.svg" alt="Dependencies"></a>
 </div>
 
-`retsend` (**ret**ro + **send**ing) is a [LocalSend](https://localsend.org)-protocol file-transfer
-client written in **Rust**, using **SDL2** for windowing and input and
-[**egui**](https://github.com/emilk/egui) for the UI. Receive ROMs from your phone
-or PC to the device and send saves or screenshots back over wifi — no cable, no
-SSH. Fully compatible with the official LocalSend apps.
+`retsend` (**ret**ro + **send**ing) is a Rust [LocalSend](https://localsend.org)
+client for retro handhelds: send and receive files with your phone
+or PC over Wi-Fi, no cable or SSH. Compatible with the official LocalSend apps.
 
 It targets PortMaster-compatible Linux handhelds (**Knulli, muOS, ROCKNIX** —
-Anbernic/TrimUI/Miyoo class devices, gamepad-only, no compositor) and runs on
+Anbernic/TrimUI class devices, gamepad-only, no compositor) and runs on
 regular desktop Linux too.
 
 ## Why?
 
-Getting files onto a handheld usually means pulling the SD card, plugging in a
-cable, or setting up SSH/SMB. Meanwhile every phone and desktop can run
-LocalSend. What's missing is the other end: a client built for a gamepad and a
-screen with no desktop behind it. This is that client — files move in both
-directions.
+Getting files onto a handheld usually means pulling the SD card or
+setting up SSH/SMB. Phones and desktops already have LocalSend —
+this is the missing end: a client built for a gamepad and screen, moving files both ways.
 
 ## Features
 
-- **Discovery** (LocalSend protocol v2.1) — UDP multicast and the TCP
-  `/register` exchange; a live radar of nearby devices.
-- **Receive** — accept/decline dialog with a countdown, streaming to `.part`,
-- sanitized file names, speed/ETA, cancel from either
-  side; a quick-save mode auto-accepts.
-- **Send** — gamepad file browser with multi-select that survives folder
-  navigation; per-file progress, cancel, partial accepts handled.
-- **Encryption** — the protocol's https mode, on by default: a persisted
-  self-signed identity, announce fingerprint = its SHA-256. Works with the
-  official app's default settings both ways.
-- **Settings on device** — alias, save folder picker, port; applied live.
-- **Headless** — `retsend --receive`: no screen, auto-accept,
-  progress on stdout. For ssh sessions and scripting.
-- **Small and simple** — threads instead of an async runtime, a minimal
-  hand-rolled HTTP server, system SDL2; the protocol stack is SDL-free and
-  tested headless over real TCP.
+- **Discovery** — a live radar of nearby devices (LocalSend protocol v2.1).
+- **Receive** — accept/decline dialog with countdown, speed/ETA, and cancel from either side; quick-save mode auto-accepts.
+- **Send** — gamepad file browser with multi-select and per-file progress.
+- **Save routes** — sort received files into folders by extension, e.g. ROMs straight into each console's folder.
+- **Encryption** — the protocol's HTTPS mode, on by default; works with the official app's default settings both ways.
+- **Settings on device** — alias, save folder, and port, applied live.
+- **Headless** — `retsend --receive` runs with no screen, for SSH and scripting.
+- **Small and simple** — no async runtime, a minimal HTTP server, system SDL2.
 
 ## Install (PortMaster devices)
 
 Grab `retsend-portmaster.zip` from
 [Releases](https://github.com/mxmgorin/retsend/releases) and unpack it
-into your ports folder (e.g. `/roms/ports/`). Received files land in the ROMs root by default — change the folder in Settings.
+into your ports folder (e.g. `/roms/ports/`).
 
 ## Building & running (desktop)
 
