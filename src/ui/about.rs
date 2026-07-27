@@ -7,7 +7,20 @@ use super::{theme, wordmark};
 use egui_sdl2::egui;
 
 pub fn render(root: &mut egui::Ui) {
-    egui::Panel::bottom("about_footer").show(root, |ui| {
+    // Otherwise-decorative header so About carries the shared top panel like
+    // every other base screen; see [`super::TOP_PANEL_ID`] for why every screen
+    // must draw one top and one bottom panel under the same ids.
+    egui::Panel::top(super::TOP_PANEL_ID).show(root, |ui| {
+        ui.add_space(6.0);
+        ui.label(
+            egui::RichText::new("About")
+                .size(theme::ROW_FONT + 2.0)
+                .strong(),
+        );
+        ui.add_space(6.0);
+    });
+
+    egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
         super::home::hint_bar(ui, &[("B", "Back")]);
         ui.add_space(4.0);

@@ -15,7 +15,7 @@ pub struct RoutesData {
 pub fn render(root: &mut egui::Ui, data: &RoutesData) {
     let on_add = data.cursor >= data.rows.len();
 
-    egui::Panel::top("routes_header").show(root, |ui| {
+    egui::Panel::top(super::TOP_PANEL_ID).show(root, |ui| {
         ui.add_space(6.0);
         ui.label(
             egui::RichText::new("Save routes")
@@ -30,7 +30,7 @@ pub fn render(root: &mut egui::Ui, data: &RoutesData) {
         ui.add_space(6.0);
     });
 
-    egui::Panel::bottom("routes_footer").show(root, |ui| {
+    egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
         let action = if on_add { "New route" } else { "Remove" };
         super::home::hint_bar(ui, &[("B", "Back"), ("A", action)]);

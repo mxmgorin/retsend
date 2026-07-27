@@ -48,6 +48,15 @@ const PROMPT_REFRESH: Duration = Duration::from_millis(100);
 /// out to `iw`, so not per frame.
 const NET_STATUS_TTL: Duration = Duration::from_secs(2);
 
+/// Shared ids for the one top and one bottom panel every base screen draws.
+/// egui paints a red seam at a panel edge whenever a panel id changes between
+/// frames (its changed-id-between-passes check — see the tab-bar painter note
+/// in `tabs.rs`). Reusing a single id per slot keeps the panel sequence
+/// identical across screen switches, so opening a takeover (Browser / Routes /
+/// About / Transfer) from a tab never reshuffles the ids and never flashes.
+pub(crate) const TOP_PANEL_ID: &str = "screen_top";
+pub(crate) const BOTTOM_PANEL_ID: &str = "screen_bottom";
+
 /// Throttled cache of the device's network status behind the Receive screen.
 struct NetStatusCache {
     status: crate::net::NetStatus,

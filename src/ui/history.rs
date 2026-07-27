@@ -40,7 +40,7 @@ pub fn row(e: &HistoryEntry, now: u64) -> HistoryRow {
 }
 
 pub fn render(root: &mut egui::Ui, data: &HistoryData) {
-    egui::Panel::bottom("tab_footer").show(root, |ui| {
+    egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
         super::home::hint_bar(ui, &[("L1/R1", "Tabs")]);
         ui.add_space(4.0);

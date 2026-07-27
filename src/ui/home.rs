@@ -24,7 +24,7 @@ pub struct HomeData {
 }
 
 pub fn render(root: &mut egui::Ui, data: &HomeData) {
-    egui::Panel::bottom("tab_footer").show(root, |ui| {
+    egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
         hint_bar(
             ui,
