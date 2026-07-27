@@ -33,7 +33,7 @@ pub fn render(root: &mut egui::Ui, data: &RoutesData) {
     egui::Panel::bottom("routes_footer").show(root, |ui| {
         ui.add_space(4.0);
         let action = if on_add { "New route" } else { "Remove" };
-        super::home::hint_bar(ui, &[("A", action), ("B", "Back")]);
+        super::home::hint_bar(ui, &[("B", "Back"), ("A", action)]);
         ui.add_space(4.0);
     });
 

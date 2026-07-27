@@ -44,7 +44,7 @@ pub fn render(root: &mut egui::Ui, data: &TransferData) {
                         .size(theme::DETAIL_FONT)
                         .strong(),
                 );
-                super::home::hint_bar(ui, &[("A", "Yes, cancel"), ("B", "Keep going")]);
+                super::home::hint_bar(ui, &[("B", "Keep going"), ("A", "Yes, cancel")]);
             });
         } else if data.finished {
             super::home::hint_bar(ui, &[("B", "Back")]);
