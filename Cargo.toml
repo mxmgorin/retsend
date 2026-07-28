@@ -36,7 +36,9 @@ ureq = { version = "3", default-features = false, features = ["rustls"] }
 # The HTTPS mode of the protocol: our self-signed identity (rcgen, generated
 # once, persisted in the data dir) served via rustls; the announce fingerprint
 # is the SHA-256 of the certificate.
-rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+# Patch floor, not a pin: bare "0.23" also admits 0.23.13..=0.23.17, which panic
+# in Acceptor::accept (RUSTSEC-2024-0399, fixed in 0.23.18).
+rustls = { version = "0.23.42", default-features = false, features = ["ring", "std"] }
 rcgen = "0.14"
 sha2 = "0.11"
 # Only for SO_REUSEADDR/SO_REUSEPORT before binding UDP 53317 — std can't set
