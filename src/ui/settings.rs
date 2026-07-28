@@ -24,12 +24,8 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
             "A Toggle",
         ),
         (
-            "Auto routes",
-            if config.transfer.auto_routes {
-                "on — sort ROMs into console folders".into()
-            } else {
-                "off".into()
-            },
+            "Auto save routes",
+            auto_routes_value(config.transfer.auto_routes, state.auto_route_count),
             "A Toggle",
         ),
         (
@@ -107,5 +103,30 @@ fn port_label(configured: u16, actual: u16, dirty: bool) -> String {
         actual.to_string()
     } else {
         format!("{actual} ({configured} was busy)")
+    }
+}
+
+/// "on" with nothing detected has to say so: that is the desktop case, where the
+/// setting is live but no console folder exists to route into.
+fn auto_routes_value(on: bool, folders: usize) -> String {
+    match (on, folders) {
+        (false, _) => "off".to_string(),
+        (true, 0) => "on — no console folders found".to_string(),
+        (true, n) => format!("on — save ROMs into {n} console folders"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auto_routes_value_spells_out_each_state() {
+        assert_eq!(auto_routes_value(false, 12), "off");
+        assert_eq!(auto_routes_value(true, 0), "on — no console folders found");
+        assert_eq!(
+            auto_routes_value(true, 12),
+            "on — save ROMs into 12 console folders"
+        );
     }
 }

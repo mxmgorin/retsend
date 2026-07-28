@@ -98,7 +98,7 @@ SD-card templates that rename folders to `Nintendo Game Boy Advance (GBA)` are
 matched through the code in parentheses. Nothing is created for you: a console
 folder that isn't there gets no route, so on desktop this does nothing. Only
 extensions that name exactly one console take part — `.zip`, `.iso`, `.bin`, and
-`.md` never do. Turn it off with **Settings → Auto routes** or
+`.md` never do. Turn it off with **Settings → Auto save routes** or
 `[transfer] auto_routes = false`.
 
 `[transfer.routes]` overrides all of that per file extension, and wins over the

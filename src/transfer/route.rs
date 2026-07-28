@@ -8,6 +8,13 @@ use super::files::extension_of;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+/// Config keys are hand-editable, so `.GBC` and `gbc` must land on the same
+/// route. Shared with the routes editor, which hides an auto route the config
+/// already claims.
+pub fn normalize_ext(ext: &str) -> String {
+    ext.trim().trim_start_matches('.').to_ascii_lowercase()
+}
+
 /// Resolves each received file to the directory it should land in.
 #[derive(Clone)]
 pub struct SaveRouter {
@@ -26,7 +33,7 @@ impl SaveRouter {
         let mut routes: Vec<(String, PathBuf)> = routes
             .iter()
             .filter_map(|(ext, dir)| {
-                let ext = ext.trim().trim_start_matches('.').to_ascii_lowercase();
+                let ext = normalize_ext(ext);
                 let dir = dir.trim();
                 if ext.is_empty() || dir.is_empty() {
                     return None;

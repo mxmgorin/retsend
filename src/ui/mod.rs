@@ -197,6 +197,8 @@ impl AppUi {
         let routes_data = routes::RoutesData {
             cursor: self.routes.cursor(route_rows.len()),
             rows: route_rows,
+            auto_rows: self.routes.auto_rows(&config.transfer.routes),
+            auto_on: config.transfer.auto_routes,
         };
 
         let prompt_data = prompt_data(net, config);

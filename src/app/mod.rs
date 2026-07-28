@@ -298,6 +298,9 @@ impl App {
         if leaving_settings {
             self.leave_settings();
         }
+        if self.ui.tabs.active() == Tab::Settings {
+            self.refresh_auto_route_count();
+        }
     }
 
     /// Nav on a tab: Send scrolls the radar, Settings moves the row cursor and
@@ -353,7 +356,10 @@ impl App {
             }
             SettingsRow::QuickSave => self.toggle_quick_save(),
             SettingsRow::AutoRoutes => self.toggle_auto_routes(),
-            SettingsRow::Routes => self.ui.routes.open(),
+            SettingsRow::Routes => {
+                let auto = self.detected_auto_routes();
+                self.ui.routes.open(auto);
+            }
             SettingsRow::About => self.ui.about.open(),
             SettingsRow::Port => {}
         }
@@ -424,15 +430,29 @@ impl App {
         self.config.transfer.auto_routes = on;
         self.net.shared.transfer.lock().unwrap().auto_routes = on;
         self.config.save();
+        self.refresh_auto_route_count();
         if on {
-            let save_dir = PathBuf::from(&self.config.transfer.save_dir);
-            let found = crate::config::routes::detect(&save_dir).len();
+            let found = self.ui.settings.auto_route_count;
             self.ui
                 .toasts
-                .push(format!("Auto routes on — {found} console folders"));
+                .push(format!("Auto save routes on — {found} console folders"));
         } else {
-            self.ui.toasts.push("Auto routes off".to_string());
+            self.ui.toasts.push("Auto save routes off".to_string());
         }
+    }
+
+    fn refresh_auto_route_count(&mut self) {
+        self.ui.settings.auto_route_count = self.detected_auto_routes().len();
+    }
+
+    /// What the receiver would route automatically right now; empty when the
+    /// setting is off. Walks the save directory, so callers take a snapshot
+    /// instead of asking per frame.
+    fn detected_auto_routes(&self) -> std::collections::BTreeMap<String, String> {
+        if !self.config.transfer.auto_routes {
+            return std::collections::BTreeMap::new();
+        }
+        crate::config::routes::detect(&PathBuf::from(&self.config.transfer.save_dir))
     }
 
     /// Leaving the Settings tab: persist, and restart the net stack if the
@@ -501,6 +521,8 @@ impl App {
         self.config.transfer.save_dir = dir.display().to_string();
         self.net.shared.transfer.lock().unwrap().save_dir = dir;
         self.config.save();
+        // The new folder has its own console folders, so the old count is stale.
+        self.refresh_auto_route_count();
         self.ui.toasts.push("Save folder updated");
     }
 

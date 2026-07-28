@@ -1,6 +1,7 @@
 //! The routes editor: one row per configured `ext → folder` route plus a
-//! trailing "add route" row. A on the add row starts the add flow (type an
-//! extension, then pick a folder); A on a route removes it; B goes back.
+//! trailing "add route" row, then the auto routes as a read-only list. A on the
+//! add row starts the add flow (type an extension, then pick a folder); A on a
+//! route removes it; B goes back.
 
 use super::theme;
 use egui_sdl2::egui;
@@ -10,6 +11,10 @@ pub struct RoutesData {
     pub rows: Vec<(String, String)>,
     /// 0..=rows.len(); `== rows.len()` is the add row.
     pub cursor: usize,
+    /// Detected `(extension, folder)` pairs; not reachable by the cursor.
+    pub auto_rows: Vec<(String, String)>,
+    /// The `auto_routes` setting, to tell "found nothing" from "switched off".
+    pub auto_on: bool,
 }
 
 pub fn render(root: &mut egui::Ui, data: &RoutesData) {
@@ -40,7 +45,7 @@ pub fn render(root: &mut egui::Ui, data: &RoutesData) {
     egui::CentralPanel::default().show(root, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| {
             for (i, (ext, folder)) in data.rows.iter().enumerate() {
-                let resp = route_row(ui, ext, folder, data.cursor == i);
+                let resp = route_row(ui, ext, folder, data.cursor == i, false);
                 if data.cursor == i {
                     resp.scroll_to_me(None);
                 }
@@ -49,11 +54,30 @@ pub fn render(root: &mut egui::Ui, data: &RoutesData) {
             if on_add {
                 resp.scroll_to_me(None);
             }
+            if data.auto_on {
+                ui.add_space(10.0);
+                ui.label(
+                    egui::RichText::new(auto_header(data.auto_rows.len()))
+                        .size(theme::DETAIL_FONT)
+                        .color(theme::DIM),
+                );
+                for (ext, folder) in &data.auto_rows {
+                    route_row(ui, ext, folder, false, true);
+                }
+            }
         });
     });
 }
 
-fn route_row(ui: &mut egui::Ui, ext: &str, folder: &str, selected: bool) -> egui::Response {
+/// One `ext → folder` line. `dim` marks an auto route: it has nothing to edit,
+/// so its extension is muted like the folder already is.
+fn route_row(
+    ui: &mut egui::Ui,
+    ext: &str,
+    folder: &str,
+    selected: bool,
+    dim: bool,
+) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(
         egui::vec2(ui.available_width(), theme::ROW_HEIGHT),
         egui::Sense::hover(),
@@ -61,6 +85,11 @@ fn route_row(ui: &mut egui::Ui, ext: &str, folder: &str, selected: bool) -> egui
     if selected {
         highlight(ui, rect);
     }
+    let ext_color = if dim {
+        theme::DIM
+    } else {
+        ui.visuals().text_color()
+    };
     let painter = ui.painter();
     let padding = 10.0;
     painter.text(
@@ -68,7 +97,7 @@ fn route_row(ui: &mut egui::Ui, ext: &str, folder: &str, selected: bool) -> egui
         egui::Align2::LEFT_CENTER,
         format!(".{ext}"),
         egui::FontId::proportional(theme::ROW_FONT),
-        ui.visuals().text_color(),
+        ext_color,
     );
     painter.text(
         rect.right_center() - egui::vec2(padding, 0.0),
@@ -98,6 +127,15 @@ fn add_row(ui: &mut egui::Ui, selected: bool) -> egui::Response {
     response
 }
 
+/// Heading for the auto-routes list. An empty list is the interesting case: the
+/// setting is on, so the reason for the silence belongs on screen.
+fn auto_header(rows: usize) -> String {
+    match rows {
+        0 => "Auto save routes — no console folders in the save folder".to_string(),
+        n => format!("Auto save routes ({n})"),
+    }
+}
+
 fn highlight(ui: &egui::Ui, rect: egui::Rect) {
     ui.painter().rect(
         rect,
@@ -106,4 +144,18 @@ fn highlight(ui: &egui::Ui, rect: egui::Rect) {
         egui::Stroke::new(1.0, theme::ACCENT),
         egui::StrokeKind::Inside,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auto_header_explains_an_empty_list() {
+        assert_eq!(
+            auto_header(0),
+            "Auto save routes — no console folders in the save folder"
+        );
+        assert_eq!(auto_header(12), "Auto save routes (12)");
+    }
 }

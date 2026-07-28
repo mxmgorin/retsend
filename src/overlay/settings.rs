@@ -29,6 +29,10 @@ pub struct Settings {
     pub cursor: usize,
     /// The port was edited; apply (restart the net stack) when leaving the tab.
     pub port_dirty: bool,
+    /// Console folders the save dir currently offers, so the row can say what
+    /// "on" actually amounts to. Refreshed on entering the tab and after the
+    /// edits that change it; detecting walks the save dir, too much per frame.
+    pub auto_route_count: usize,
 }
 
 impl Settings {
@@ -36,6 +40,7 @@ impl Settings {
         Self {
             cursor: 0,
             port_dirty: false,
+            auto_route_count: 0,
         }
     }
 

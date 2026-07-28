@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic save routes: received ROMs are sorted into the console folders that
   already exist in the save directory, using the folder names KNULLI, ROCKNIX,
   and muOS each actually use. Nothing is created, and only extensions that name
-  exactly one console take part. Toggled from Settings → Auto routes
+  exactly one console take part. Toggled from Settings → Auto save routes
   (`[transfer] auto_routes`, on by default); explicit `[transfer.routes]` entries
   still win.
 

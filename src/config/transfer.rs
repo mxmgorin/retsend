@@ -15,7 +15,7 @@ pub struct TransferConfig {
     pub history_limit: usize,
     /// Sort received ROMs into the console folders that already exist in
     /// `save_dir` (see [`super::routes`]). Only fills extensions `routes`
-    /// doesn't already claim; toggled from Settings → Auto routes.
+    /// doesn't already claim; toggled from Settings → Auto save routes.
     pub auto_routes: bool,
     /// Route received files to per-extension folders, e.g. `gbc = "gb"` or
     /// `png = "/roms/screenshots"`. Extensions match case-insensitively; a
