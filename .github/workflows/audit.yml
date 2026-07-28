@@ -1,0 +1,38 @@
+name: Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/audit.yml"
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/audit.yml"
+  # New advisories land against unchanged lockfiles, so the weekly run is the
+  # one that actually catches things.
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  audit:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # cargo-audit reads Cargo.lock only — no SDL2, no build.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      # --deny warnings also fails on unmaintained/yanked crates. Silence a
+      # reviewed one with --ignore RUSTSEC-0000-0000 rather than dropping the flag.
+      - name: Audit
+        run: |
+          set -eux
+          cargo audit --deny warnings
