@@ -13,6 +13,7 @@ mod display;
 mod input;
 mod network;
 mod paths;
+pub mod routes;
 mod transfer;
 
 pub use device::DeviceConfig;

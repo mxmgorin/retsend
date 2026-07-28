@@ -277,6 +277,7 @@ fn handle_prepare_upload<S: Read + Write>(
             files,
             settings.save_dir,
             &settings.routes,
+            settings.auto_routes,
         );
     }
 
@@ -310,6 +311,7 @@ fn handle_prepare_upload<S: Read + Write>(
             files,
             save_dir,
             &settings.routes,
+            settings.auto_routes,
         ),
         Ok(Decision::Decline) | Err(_) => httpd::respond_empty(reader.get_mut(), 403),
     }
@@ -323,8 +325,9 @@ fn start_session<S: Write>(
     files: Vec<protocol::FileMeta>,
     save_dir: PathBuf,
     routes: &std::collections::BTreeMap<String, String>,
+    auto_routes: bool,
 ) -> std::io::Result<()> {
-    let router = crate::transfer::route::SaveRouter::new(save_dir.clone(), routes);
+    let router = crate::transfer::route::SaveRouter::new(save_dir.clone(), routes, auto_routes);
     let session = match InboundSession::new(sender.alias.clone(), files, &router) {
         Ok(s) => Arc::new(s),
         Err(e) => {

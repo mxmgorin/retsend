@@ -24,6 +24,15 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
             "A Toggle",
         ),
         (
+            "Auto routes",
+            if config.transfer.auto_routes {
+                "on — sort ROMs into console folders".into()
+            } else {
+                "off".into()
+            },
+            "A Toggle",
+        ),
+        (
             "Save routes",
             match config.transfer.routes.len() {
                 0 => "none".into(),

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Automatic save routes: received ROMs are sorted into the console folders that
+  already exist in the save directory, using the folder names KNULLI, ROCKNIX,
+  and muOS each actually use. Nothing is created, and only extensions that name
+  exactly one console take part. Toggled from Settings → Auto routes
+  (`[transfer] auto_routes`, on by default); explicit `[transfer.routes]` entries
+  still win.
+
 ## [0.1.0] - 2026-07-28
 
 Initial release. A Rust LocalSend client built for handheld and gamepad-first

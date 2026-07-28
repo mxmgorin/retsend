@@ -352,6 +352,7 @@ impl App {
                     .open_for_dir(&start, &self.config.transfer.browser_roots);
             }
             SettingsRow::QuickSave => self.toggle_quick_save(),
+            SettingsRow::AutoRoutes => self.toggle_auto_routes(),
             SettingsRow::Routes => self.ui.routes.open(),
             SettingsRow::About => self.ui.about.open(),
             SettingsRow::Port => {}
@@ -406,6 +407,7 @@ impl App {
                 }
             }
             SettingsRow::QuickSave => self.toggle_quick_save(),
+            SettingsRow::AutoRoutes => self.toggle_auto_routes(),
             _ => {}
         }
     }
@@ -413,6 +415,24 @@ impl App {
     fn toggle_quick_save(&mut self) {
         self.config.transfer.auto_accept = !self.config.transfer.auto_accept;
         self.net.shared.transfer.lock().unwrap().auto_accept = self.config.transfer.auto_accept;
+    }
+
+    /// The toast reports the folder count because "on" alone cannot say whether
+    /// this card has any console folders to route into.
+    fn toggle_auto_routes(&mut self) {
+        let on = !self.config.transfer.auto_routes;
+        self.config.transfer.auto_routes = on;
+        self.net.shared.transfer.lock().unwrap().auto_routes = on;
+        self.config.save();
+        if on {
+            let save_dir = PathBuf::from(&self.config.transfer.save_dir);
+            let found = crate::config::routes::detect(&save_dir).len();
+            self.ui
+                .toasts
+                .push(format!("Auto routes on — {found} console folders"));
+        } else {
+            self.ui.toasts.push("Auto routes off".to_string());
+        }
     }
 
     /// Leaving the Settings tab: persist, and restart the net stack if the

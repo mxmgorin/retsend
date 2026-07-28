@@ -8,15 +8,17 @@ pub enum SettingsRow {
     SaveDir,
     Port,
     QuickSave,
+    AutoRoutes,
     Routes,
     About,
 }
 
-const ROWS: [SettingsRow; 6] = [
+const ROWS: [SettingsRow; 7] = [
     SettingsRow::Alias,
     SettingsRow::SaveDir,
     SettingsRow::Port,
     SettingsRow::QuickSave,
+    SettingsRow::AutoRoutes,
     SettingsRow::Routes,
     SettingsRow::About,
 ];

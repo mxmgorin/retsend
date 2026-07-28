@@ -13,10 +13,15 @@ pub struct TransferConfig {
     pub browser_roots: Vec<String>,
     /// Max transfers kept in the History tab; oldest are dropped past this.
     pub history_limit: usize,
+    /// Sort received ROMs into the console folders that already exist in
+    /// `save_dir` (see [`super::routes`]). Only fills extensions `routes`
+    /// doesn't already claim; toggled from Settings → Auto routes.
+    pub auto_routes: bool,
     /// Route received files to per-extension folders, e.g. `gbc = "gb"` or
     /// `png = "/roms/screenshots"`. Extensions match case-insensitively; a
     /// relative folder resolves under `save_dir`, an absolute one is used as
-    /// is; unknown extensions fall back to `save_dir`. Config-file-only.
+    /// is; unknown extensions fall back to `save_dir`. Takes precedence over
+    /// `auto_routes`; editable from Settings → Save routes.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub routes: BTreeMap<String, String>,
 }
@@ -28,6 +33,7 @@ impl Default for TransferConfig {
             auto_accept: false,
             browser_roots: Vec::new(),
             history_limit: crate::transfer::history::DEFAULT_MAX_ENTRIES,
+            auto_routes: true,
             routes: BTreeMap::new(),
         }
     }
@@ -44,6 +50,7 @@ mod tests {
         // survive a load.
         let cfg = TransferConfig {
             browser_roots: vec!["/roms".into()],
+            auto_routes: false,
             routes: BTreeMap::from([("gbc".to_string(), "gb".to_string())]),
             ..Default::default()
         };
@@ -51,5 +58,12 @@ mod tests {
         let back: TransferConfig = toml::from_str(&text).expect("deserialize");
         assert_eq!(back.routes.get("gbc").map(String::as_str), Some("gb"));
         assert_eq!(back.browser_roots, vec!["/roms".to_string()]);
+        assert!(!back.auto_routes);
+    }
+
+    #[test]
+    fn auto_routes_defaults_on_for_configs_written_before_it_existed() {
+        let back: TransferConfig = toml::from_str("save_dir = \"/roms\"").expect("deserialize");
+        assert!(back.auto_routes);
     }
 }

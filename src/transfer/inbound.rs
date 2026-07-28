@@ -299,7 +299,7 @@ mod tests {
 
     /// A no-routes router that lands everything in `dir`.
     fn router(dir: &std::path::Path) -> SaveRouter {
-        SaveRouter::new(dir.to_path_buf(), &Default::default())
+        SaveRouter::new(dir.to_path_buf(), &Default::default(), false)
     }
 
     #[test]
@@ -405,7 +405,7 @@ mod tests {
         let base = temp_dir("route");
         let mut routes = std::collections::BTreeMap::new();
         routes.insert("png".to_string(), "shots".to_string()); // relative → base/shots
-        let router = SaveRouter::new(base.clone(), &routes);
+        let router = SaveRouter::new(base.clone(), &routes, false);
         let session = InboundSession::new(
             "Phone".into(),
             vec![meta("a", "grab.png", 3), meta("b", "rom.gbc", 3)],

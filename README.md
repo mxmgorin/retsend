@@ -30,7 +30,7 @@ this is the missing end: a client built for a gamepad and screen, moving files b
 - **Discovery** — a live radar of nearby devices (LocalSend protocol v2.1).
 - **Receive** — accept/decline dialog with countdown, speed/ETA, and cancel from either side; quick-save mode auto-accepts.
 - **Send** — gamepad file browser with multi-select and per-file progress.
-- **Save routes** — sort received files into folders by extension, e.g. ROMs straight into each console's folder.
+- **Save routes** — received ROMs land in the console folder they belong to, detected from the card; per-extension overrides on top.
 - **Encryption** — the protocol's HTTPS mode, on by default; works with the official app's default settings both ways.
 - **Settings on device** — alias, save folder, and port, applied live.
 - **Headless** — `retsend --receive` runs with no screen, for SSH and scripting.
@@ -89,10 +89,21 @@ everything in it is also editable from the Settings screen, except:
 - `[transfer] browser_roots` — extra mount points for the file browser
 - `[transfer] history_limit` — max transfers kept in the History tab (default 200)
 
-Received files land in `save_dir` by default. `[transfer.routes]` overrides
-that per file extension — handy for dropping ROMs straight into each console's
-folder. Edit it on the device from **Settings → Save routes** (type the extension,
-pick the folder), or in the config:
+Received files land in `save_dir` by default, but ROMs are sorted on their own:
+retsend looks for the console folders already present in `save_dir` and routes by
+extension — `.gba` into `gba`, `.sfc` into `snes`, `.ws` into `wswan`. The folder
+names come from KNULLI, ROCKNIX, and muOS themselves, which disagree (Mega Drive
+is `megadrive`, `genesis`, and `md` respectively — all three are recognized), and
+SD-card templates that rename folders to `Nintendo Game Boy Advance (GBA)` are
+matched through the code in parentheses. Nothing is created for you: a console
+folder that isn't there gets no route, so on desktop this does nothing. Only
+extensions that name exactly one console take part — `.zip`, `.iso`, `.bin`, and
+`.md` never do. Turn it off with **Settings → Auto routes** or
+`[transfer] auto_routes = false`.
+
+`[transfer.routes]` overrides all of that per file extension, and wins over the
+detected routes. Edit it on the device from **Settings → Save routes** (type the
+extension, pick the folder), or in the config:
 
 ```toml
 [transfer.routes]
