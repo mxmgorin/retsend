@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- X in the send browser selects every file of the current folder (and clears them
+  again), so a folder full of saves goes out without walking the list. Subfolders
+  stay out: the protocol only carries a flat list of files.
 - Pinned paths: Y in the file browser pins the folder or file under the cursor,
   and pinned rows lead every listing — a pinned folder is one press away from
   anywhere in the tree, a pinned file can be sent without navigating

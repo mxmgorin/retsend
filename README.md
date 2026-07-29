@@ -75,7 +75,7 @@ cargo test
 | D-pad / stick| Arrows     | Navigate                                      |
 | A            | Enter      | Send to device · select file · accept · type  |
 | B            | Esc        | Back · decline · cancel · leave the keyboard  |
-| X            | X / Bksp   | Erase a character (on-screen keyboard)        |
+| X            | X / Bksp   | Erase a character · take every file in the folder |
 | Y            | Y          | Pin / unpin the row under the cursor          |
 | Start        | F1         | Confirm send · OK (keyboard)                  |
 | Select       | Tab / F5   | Refresh radar · switch roots · layer (keyboard)|
@@ -116,6 +116,11 @@ png = "/roms/screenshots"
 
 Extensions match case-insensitively, folders are created on demand, and
 anything without a matching route still lands in `save_dir`.
+
+**X** in the send browser takes every file of the folder you are looking at into
+the selection, and gives them back on a second press. Subfolders are left alone:
+the protocol has no notion of a directory, so a send is always a flat list of
+files — see `sanitize_filename` for what that means on the receiving end.
 
 **Y** pins whatever the cursor is on — a folder you send from often, or a single
 file. Pinned rows lead every listing, so a pinned folder is one press away from

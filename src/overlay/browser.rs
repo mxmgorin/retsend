@@ -201,6 +201,38 @@ impl FileBrowser {
         Some(&self.roots[self.root_index])
     }
 
+    /// X: select every file of the folder being looked at, or clear them when
+    /// they are all selected already. Returns `(count, bytes, selected)`, or
+    /// `None` when the folder holds no file to take.
+    ///
+    /// Pinned rows are skipped on purpose: they lead the listing but belong to
+    /// other folders, and "everything here" must not reach into them.
+    pub fn toggle_folder_files(&mut self) -> Option<(usize, u64, bool)> {
+        if self.mode != BrowserMode::PickFiles {
+            return None;
+        }
+        let here: Vec<(PathBuf, u64)> = self
+            .entries
+            .iter()
+            .filter(|e| !e.is_dir && !e.pinned)
+            .map(|e| (e.path.clone(), e.size))
+            .collect();
+        if here.is_empty() {
+            return None;
+        }
+        let all_selected = here.iter().all(|(p, _)| self.selected.contains_key(p));
+        let mut bytes = 0;
+        for (path, size) in &here {
+            if all_selected {
+                self.selected.remove(path);
+            } else {
+                self.selected.insert(path.clone(), *size);
+            }
+            bytes += size;
+        }
+        Some((here.len(), bytes, !all_selected))
+    }
+
     /// What Y acts on: the row under the cursor, or the folder being looked at
     /// when there is no row to point at (an empty listing).
     pub fn pin_target(&self) -> Option<PathBuf> {
@@ -525,6 +557,65 @@ mod tests {
         assert!(change.pinned);
         assert_eq!(change.path, empty);
 
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn x_takes_every_file_of_the_folder_and_gives_them_back() {
+        let root = temp_tree();
+        let mut b = browser_at(&root);
+
+        let (count, bytes, selected) = b.toggle_folder_files().expect("readme.txt is here");
+        assert!(selected);
+        assert_eq!(count, 1, "only files; games/ and saves/ are not sent");
+        assert_eq!(bytes, 2);
+        assert!(b.selected.contains_key(&root.join("readme.txt")));
+
+        // Pressing it again on a fully selected folder clears it.
+        let (count, _, selected) = b.toggle_folder_files().expect("readme.txt is here");
+        assert!(!selected);
+        assert_eq!(count, 1);
+        assert!(b.selected.is_empty());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn x_completes_a_partial_selection_instead_of_clearing_it() {
+        let root = temp_tree();
+        let mut b = browser_at(&root);
+        b.change_dir(root.join("games")).unwrap();
+        b.activate().unwrap(); // mario.gb, the first row
+        assert_eq!(b.selected.len(), 1);
+
+        let (count, _, selected) = b.toggle_folder_files().expect("two roms here");
+        assert!(selected, "one of two was selected, so X takes the rest");
+        assert_eq!(count, 2);
+        assert_eq!(b.selected.len(), 2);
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn x_leaves_pinned_rows_alone() {
+        let root = temp_tree();
+        let pinned_file = root.join("games/zelda.gbc");
+        let mut b = browser_with_pins(&root, &[pinned_file.to_str().unwrap()]);
+
+        let (count, _, _) = b.toggle_folder_files().expect("readme.txt is here");
+        assert_eq!(count, 1, "the pinned row belongs to games/, not here");
+        assert!(!b.selected.contains_key(&pinned_file));
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn x_does_nothing_when_a_folder_is_being_chosen() {
+        let root = temp_tree();
+        let mut b = FileBrowser::new();
+        b.roots = vec![root.to_path_buf()];
+        b.open_for_dir(&root, &[], &[]);
+        assert!(b.toggle_folder_files().is_none());
         std::fs::remove_dir_all(&root).unwrap();
     }
 

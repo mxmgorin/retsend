@@ -18,7 +18,7 @@ pub fn on_key_down(kc: Keycode, repeat: bool, commands: &mut Vec<AppCommand>) {
         Keycode::Return | Keycode::KpEnter => AppCommand::Confirm,
         Keycode::Escape => AppCommand::Back,
         // Both the pad's label and the key a desktop hand reaches for.
-        Keycode::X | Keycode::Backspace => AppCommand::Erase,
+        Keycode::X | Keycode::Backspace => AppCommand::Alt,
         Keycode::F1 => AppCommand::Start,
         Keycode::Tab | Keycode::F5 => AppCommand::ReAnnounce,
         Keycode::Y => AppCommand::TogglePin,
@@ -39,7 +39,7 @@ mod tests {
         on_key_down(Keycode::Escape, false, &mut commands);
         assert_eq!(
             commands,
-            vec![AppCommand::Erase, AppCommand::Erase, AppCommand::Back]
+            vec![AppCommand::Alt, AppCommand::Alt, AppCommand::Back]
         );
     }
 

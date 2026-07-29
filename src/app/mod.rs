@@ -183,7 +183,7 @@ impl App {
                 let event = self.ui.osk.cancel();
                 self.handle_osk_event(event);
             }
-            (Focus::Osk, AppCommand::Erase) => self.ui.osk.erase(),
+            (Focus::Osk, AppCommand::Alt) => self.ui.osk.erase(),
             (Focus::Osk, AppCommand::Start) => {
                 let event = self.ui.osk.commit();
                 self.handle_osk_event(event);
@@ -265,7 +265,7 @@ impl App {
                 }
             }
             (Focus::Browser, AppCommand::TogglePin) => self.toggle_pin(),
-            (Focus::Browser, AppCommand::Erase) => {}
+            (Focus::Browser, AppCommand::Alt) => self.select_folder_contents(),
 
             // Routes editor: up/down over the routes + add row; A adds or
             // removes; B goes back to Settings.
@@ -290,7 +290,7 @@ impl App {
             (Focus::Tabs, AppCommand::Confirm) => self.tab_confirm(),
             (
                 Focus::Tabs,
-                AppCommand::Start | AppCommand::Back | AppCommand::TogglePin | AppCommand::Erase,
+                AppCommand::Start | AppCommand::Back | AppCommand::TogglePin | AppCommand::Alt,
             ) => {}
         }
     }
@@ -446,6 +446,24 @@ impl App {
         } else {
             self.ui.toasts.push("Auto save routes off".to_string());
         }
+    }
+
+    /// X in the browser: take every file of this folder into the selection (or
+    /// drop them again). Subfolders are left alone — the protocol has no notion
+    /// of a directory, so a send is always a flat list of files.
+    fn select_folder_contents(&mut self) {
+        let Some((count, bytes, selected)) = self.ui.browser.toggle_folder_files() else {
+            if self.ui.browser.mode == BrowserMode::PickFiles {
+                self.ui.toasts.push("No files in this folder");
+            }
+            return;
+        };
+        let size = crate::ui::fmt_bytes(bytes);
+        self.ui.toasts.push(if selected {
+            format!("Selected {count} files · {size}")
+        } else {
+            format!("Cleared {count} files")
+        });
     }
 
     /// Persist where this send came from, so the next one opens there. Only on

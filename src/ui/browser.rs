@@ -39,23 +39,26 @@ pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
                 );
                 ui.label(egui::RichText::new("·").color(theme::DIM));
             }
-            super::home::hint_bar(
-                ui,
-                &[
-                    ("Select", "Roots"),
-                    ("Start", if picking_dir { "Choose here" } else { "Send" }),
-                    (
-                        "Y",
-                        if browser.target_is_pinned() {
-                            "Unpin"
-                        } else {
-                            "Pin"
-                        },
-                    ),
-                    ("B", "Up"),
-                    ("A", if picking_dir { "Open" } else { "Select/Open" }),
-                ],
-            );
+            // Built rather than a literal: X has nothing to do while a folder is
+            // being chosen, and six hints is already tight on a 320px screen.
+            let mut hints: Vec<(&str, &str)> = vec![
+                ("Select", "Roots"),
+                ("Start", if picking_dir { "Choose here" } else { "Send" }),
+            ];
+            if !picking_dir {
+                hints.push(("X", "Dir"));
+            }
+            hints.push((
+                "Y",
+                if browser.target_is_pinned() {
+                    "Unpin"
+                } else {
+                    "Pin"
+                },
+            ));
+            hints.push(("B", "Up"));
+            hints.push(("A", if picking_dir { "Open" } else { "Select/Open" }));
+            super::home::hint_bar(ui, &hints);
         });
         ui.add_space(4.0);
     });
