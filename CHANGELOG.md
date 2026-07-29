@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   all screens: the Send tab and the on-screen keyboard used to lead with it.
 - The on-screen keyboard erases with X; B now just leaves it, instead of erasing
   and then closing once the buffer ran empty.
+- The routes editor scrolls through the auto save routes: the cursor carries on
+  past the add row into them, so a list longer than the screen no longer hides
+  its last rows. They stay read-only — A does nothing there.
 
 ### Added
 

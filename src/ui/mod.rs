@@ -194,10 +194,11 @@ impl AppUi {
             .iter()
             .map(|(ext, dir)| (ext.clone(), dir.clone()))
             .collect();
+        let auto_rows = self.routes.auto_rows(&config.transfer.routes);
         let routes_data = routes::RoutesData {
-            cursor: self.routes.cursor(route_rows.len()),
+            cursor: self.routes.cursor(route_rows.len(), auto_rows.len()),
             rows: route_rows,
-            auto_rows: self.routes.auto_rows(&config.transfer.routes),
+            auto_rows,
             auto_on: config.transfer.auto_routes,
         };
 

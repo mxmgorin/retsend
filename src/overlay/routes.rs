@@ -1,10 +1,23 @@
-//! Routes-editor state: a cursor over the configured `ext → folder` routes
-//! plus a trailing "add" row, and the extension captured mid-add while the
-//! folder is picked in the browser. The routes themselves live in the config;
-//! this holds only the editing cursor, the pending extension, and a snapshot of
-//! the auto routes to list below the editable ones.
+//! Routes-editor state: a cursor over the configured `ext → folder` routes,
+//! a trailing "add" row and the read-only auto routes, plus the extension
+//! captured mid-add while the folder is picked in the browser. The routes
+//! themselves live in the config; this holds only the editing cursor, the
+//! pending extension, and a snapshot of the auto routes to list below the
+//! editable ones.
 
 use std::collections::BTreeMap;
+
+/// The single "add route" row between the configured routes and the auto ones.
+const ADD_ROWS: usize = 1;
+
+/// Where the cursor sits. Auto routes have nothing to edit; they take cursor
+/// positions only so a list longer than the screen can be scrolled into view.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RouteCursor {
+    Route(usize),
+    Add,
+    Auto(usize),
+}
 
 pub struct RoutesView {
     pub open: bool,
@@ -54,20 +67,24 @@ impl RoutesView {
         self.pending_ext = None;
     }
 
-    /// Cursor over `routes + 1` rows — the last is the "add" row. Clamped so a
-    /// removed route doesn't strand it past the end.
-    pub fn cursor(&self, routes: usize) -> usize {
-        self.cursor.min(routes)
+    /// Cursor over the routes, the "add" row, then the auto routes. Clamped so
+    /// a removed route doesn't strand it past the end.
+    pub fn cursor(&self, routes: usize, auto: usize) -> RouteCursor {
+        match self.cursor.min(Self::last(routes, auto)) {
+            c if c < routes => RouteCursor::Route(c),
+            c if c == routes => RouteCursor::Add,
+            c => RouteCursor::Auto(c - routes - ADD_ROWS),
+        }
     }
 
-    pub fn move_cursor(&mut self, delta: i32, routes: usize) {
-        self.cursor = (self.cursor as i32 + delta).clamp(0, routes as i32) as usize;
+    pub fn move_cursor(&mut self, delta: i32, routes: usize, auto: usize) {
+        let last = Self::last(routes, auto) as i32;
+        let current = (self.cursor as i32).min(last);
+        self.cursor = (current + delta).clamp(0, last) as usize;
     }
 
-    /// The route the cursor is on, or `None` when it's on the add row.
-    pub fn selected_route(&self, routes: usize) -> Option<usize> {
-        let c = self.cursor(routes);
-        (c < routes).then_some(c)
+    fn last(routes: usize, auto: usize) -> usize {
+        routes + ADD_ROWS + auto - 1
     }
 }
 
@@ -98,6 +115,34 @@ mod tests {
         // A hand-written `.GBA` claims the same extension the router would.
         let rows = v.auto_rows(&configured(&[(".GBA", "/elsewhere")]));
         assert_eq!(rows, vec![("sfc".to_string(), "snes".to_string())]);
+    }
+
+    #[test]
+    fn cursor_runs_past_the_add_row_into_the_auto_routes() {
+        let mut v = view(&[]);
+        assert_eq!(v.cursor(1, 2), RouteCursor::Route(0));
+        v.move_cursor(1, 1, 2);
+        assert_eq!(v.cursor(1, 2), RouteCursor::Add);
+        v.move_cursor(1, 1, 2);
+        assert_eq!(v.cursor(1, 2), RouteCursor::Auto(0));
+        v.move_cursor(1, 1, 2);
+        assert_eq!(v.cursor(1, 2), RouteCursor::Auto(1));
+        v.move_cursor(1, 1, 2);
+        assert_eq!(
+            v.cursor(1, 2),
+            RouteCursor::Auto(1),
+            "stops at the last row"
+        );
+    }
+
+    #[test]
+    fn cursor_clamps_onto_a_shrunken_list() {
+        let mut v = view(&[]);
+        v.move_cursor(9, 3, 1);
+        // Two routes removed: the stranded cursor lands on the last auto row.
+        assert_eq!(v.cursor(1, 1), RouteCursor::Auto(0));
+        v.move_cursor(-1, 1, 1);
+        assert_eq!(v.cursor(1, 1), RouteCursor::Add);
     }
 
     #[test]

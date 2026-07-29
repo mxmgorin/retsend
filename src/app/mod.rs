@@ -10,6 +10,7 @@ use crate::event::AppEventHandler;
 use crate::net::NetService;
 use crate::overlay::browser::BrowserMode;
 use crate::overlay::osk::{OskEvent, OskTarget};
+use crate::overlay::routes::RouteCursor;
 use crate::overlay::settings::SettingsRow;
 use crate::overlay::tabs::Tab;
 use crate::overlay::transfer::Viewed;
@@ -267,11 +268,11 @@ impl App {
             (Focus::Browser, AppCommand::TogglePin) => self.toggle_pin(),
             (Focus::Browser, AppCommand::Alt) => self.select_folder_contents(),
 
-            // Routes editor: up/down over the routes + add row; A adds or
-            // removes; B goes back to Settings.
+            // Routes editor: up/down over the routes, the add row and the auto
+            // routes; A adds or removes; B goes back to Settings.
             (Focus::Routes, AppCommand::Nav(dir)) => {
-                let count = self.config.transfer.routes.len();
-                self.ui.routes.move_cursor(nav_delta(dir), count);
+                let (routes, auto) = self.route_counts();
+                self.ui.routes.move_cursor(nav_delta(dir), routes, auto);
             }
             (Focus::Routes, AppCommand::Confirm) => self.routes_confirm(),
             (Focus::Routes, AppCommand::Back) => self.ui.routes.close(),
@@ -375,17 +376,26 @@ impl App {
     /// A in the routes editor: on the add row, start the add flow (type an
     /// extension, then pick a folder); on a route row, remove it.
     fn routes_confirm(&mut self) {
-        let count = self.config.transfer.routes.len();
-        match self.ui.routes.selected_route(count) {
-            None => self.ui.osk.open(OskTarget::RouteExt, ""),
-            Some(i) => {
+        let (routes, auto) = self.route_counts();
+        match self.ui.routes.cursor(routes, auto) {
+            RouteCursor::Add => self.ui.osk.open(OskTarget::RouteExt, ""),
+            RouteCursor::Route(i) => {
                 if let Some(ext) = self.config.transfer.routes.keys().nth(i).cloned() {
                     self.config.transfer.routes.remove(&ext);
                     self.apply_routes();
                     self.ui.toasts.push(format!("Removed .{ext} route"));
                 }
             }
+            // Auto routes are detected, not configured — nothing to remove.
+            RouteCursor::Auto(_) => {}
         }
+    }
+
+    /// Cursor bounds for the routes editor: the configured routes, then the
+    /// auto routes actually listed.
+    fn route_counts(&self) -> (usize, usize) {
+        let auto = self.ui.routes.auto_rows(&self.config.transfer.routes).len();
+        (self.config.transfer.routes.len(), auto)
     }
 
     /// Start in the folder browser with a pending route extension: the cwd
