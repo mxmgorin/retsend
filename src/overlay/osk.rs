@@ -111,13 +111,16 @@ impl Osk {
     }
 
     /// B: erase; on an empty buffer, cancel out.
-    pub fn back(&mut self) -> Option<OskEvent> {
-        if self.buffer.is_empty() {
-            self.active = false;
-            return Some(OskEvent::Cancelled);
-        }
+    /// X: drop the last character. Leaving the keyboard is B's job, so an empty
+    /// buffer simply has nothing to erase.
+    pub fn erase(&mut self) {
         self.buffer.pop();
-        None
+    }
+
+    /// B: leave without committing, whatever has been typed.
+    pub fn cancel(&mut self) -> OskEvent {
+        self.active = false;
+        OskEvent::Cancelled
     }
 
     /// Start: commit regardless of cursor position.
@@ -148,7 +151,7 @@ mod tests {
         osk.open(OskTarget::Alias, "ab");
         osk.press(); // 'q' at 0,0
         assert_eq!(osk.buffer, "abq");
-        osk.back();
+        osk.erase();
         assert_eq!(osk.buffer, "ab");
         match osk.commit() {
             OskEvent::Committed(OskTarget::Alias, s) => assert_eq!(s, "ab"),
@@ -158,10 +161,19 @@ mod tests {
     }
 
     #[test]
-    fn back_on_empty_cancels() {
+    fn erase_on_empty_does_not_cancel() {
         let mut osk = Osk::new();
         osk.open(OskTarget::Alias, "");
-        assert!(matches!(osk.back(), Some(OskEvent::Cancelled)));
+        osk.erase();
+        assert!(osk.active, "leaving is B's job now, not the erase key's");
+        assert_eq!(osk.buffer, "");
+    }
+
+    #[test]
+    fn cancel_leaves_whatever_was_typed_behind() {
+        let mut osk = Osk::new();
+        osk.open(OskTarget::Alias, "abc");
+        assert!(matches!(osk.cancel(), OskEvent::Cancelled));
         assert!(!osk.active);
     }
 

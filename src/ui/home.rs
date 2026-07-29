@@ -28,7 +28,7 @@ pub fn render(root: &mut egui::Ui, data: &HomeData) {
         ui.add_space(4.0);
         hint_bar(
             ui,
-            &[("A", "Send"), ("L1/R1", "Tabs"), ("Select", "Refresh")],
+            &[("L1/R1", "Tabs"), ("Select", "Refresh"), ("A", "Send")],
         );
         ui.add_space(4.0);
     });

@@ -74,7 +74,8 @@ cargo test
 |--------------|------------|-----------------------------------------------|
 | D-pad / stick| Arrows     | Navigate                                      |
 | A            | Enter      | Send to device · select file · accept · type  |
-| B            | Esc        | Back · decline · cancel · erase (keyboard)    |
+| B            | Esc        | Back · decline · cancel · leave the keyboard  |
+| X            | X / Bksp   | Erase a character (on-screen keyboard)        |
 | Y            | Y          | Pin / unpin the row under the cursor          |
 | Start        | F1         | Confirm send · OK (keyboard)                  |
 | Select       | Tab / F5   | Refresh radar · switch roots · layer (keyboard)|

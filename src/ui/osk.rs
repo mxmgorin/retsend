@@ -84,10 +84,11 @@ pub fn render(ctx: &egui::Context, osk: &Osk) {
                     super::home::hint_bar(
                         ui,
                         &[
-                            ("A", "Type"),
-                            ("B", "Erase"),
-                            ("Start", "OK"),
                             ("Select", "Layer"),
+                            ("Start", "OK"),
+                            ("X", "Erase"),
+                            ("B", "Back"),
+                            ("A", "Type"),
                         ],
                     );
                 });

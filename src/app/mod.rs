@@ -180,10 +180,10 @@ impl App {
                 }
             }
             (Focus::Osk, AppCommand::Back) => {
-                if let Some(event) = self.ui.osk.back() {
-                    self.handle_osk_event(event);
-                }
+                let event = self.ui.osk.cancel();
+                self.handle_osk_event(event);
             }
+            (Focus::Osk, AppCommand::Erase) => self.ui.osk.erase(),
             (Focus::Osk, AppCommand::Start) => {
                 let event = self.ui.osk.commit();
                 self.handle_osk_event(event);
@@ -265,6 +265,7 @@ impl App {
                 }
             }
             (Focus::Browser, AppCommand::TogglePin) => self.toggle_pin(),
+            (Focus::Browser, AppCommand::Erase) => {}
 
             // Routes editor: up/down over the routes + add row; A adds or
             // removes; B goes back to Settings.
@@ -287,7 +288,10 @@ impl App {
             (Focus::Tabs, AppCommand::PageDown) => self.switch_tab(1),
             (Focus::Tabs, AppCommand::Nav(dir)) => self.tab_nav(dir),
             (Focus::Tabs, AppCommand::Confirm) => self.tab_confirm(),
-            (Focus::Tabs, AppCommand::Start | AppCommand::Back | AppCommand::TogglePin) => {}
+            (
+                Focus::Tabs,
+                AppCommand::Start | AppCommand::Back | AppCommand::TogglePin | AppCommand::Erase,
+            ) => {}
         }
     }
 

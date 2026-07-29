@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Every footer now ends with A, so the confirm hint sits under the same thumb on
+  all screens: the Send tab and the on-screen keyboard used to lead with it.
+- The on-screen keyboard erases with X; B now just leaves it, instead of erasing
+  and then closing once the buffer ran empty.
+
 ### Added
 
 - Pinned paths: Y in the file browser pins the folder or file under the cursor,

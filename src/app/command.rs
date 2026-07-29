@@ -13,6 +13,8 @@ pub enum AppCommand {
     PageDown,
     /// The Y button: pin or unpin the browser's current folder.
     TogglePin,
+    /// The X button: rub out a character on the on-screen keyboard.
+    Erase,
     Shutdown,
 }
 

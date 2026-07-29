@@ -16,7 +16,9 @@ pub fn on_key_down(kc: Keycode, repeat: bool, commands: &mut Vec<AppCommand>) {
         // re-confirm and a held Esc must not unwind several screens.
         _ if repeat => return,
         Keycode::Return | Keycode::KpEnter => AppCommand::Confirm,
-        Keycode::Escape | Keycode::Backspace => AppCommand::Back,
+        Keycode::Escape => AppCommand::Back,
+        // Both the pad's label and the key a desktop hand reaches for.
+        Keycode::X | Keycode::Backspace => AppCommand::Erase,
         Keycode::F1 => AppCommand::Start,
         Keycode::Tab | Keycode::F5 => AppCommand::ReAnnounce,
         Keycode::Y => AppCommand::TogglePin,
@@ -28,6 +30,18 @@ pub fn on_key_down(kc: Keycode, repeat: bool, commands: &mut Vec<AppCommand>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn x_and_backspace_erase_while_escape_backs_out() {
+        let mut commands = Vec::new();
+        on_key_down(Keycode::X, false, &mut commands);
+        on_key_down(Keycode::Backspace, false, &mut commands);
+        on_key_down(Keycode::Escape, false, &mut commands);
+        assert_eq!(
+            commands,
+            vec![AppCommand::Erase, AppCommand::Erase, AppCommand::Back]
+        );
+    }
 
     #[test]
     fn y_pins_and_does_not_repeat() {
