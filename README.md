@@ -29,7 +29,7 @@ this is the missing end: a client built for a gamepad and screen, moving files b
 
 - **Discovery** — a live radar of nearby devices (LocalSend protocol v2.1).
 - **Receive** — accept/decline dialog with countdown, speed/ETA, and cancel from either side; quick-save mode auto-accepts.
-- **Send** — gamepad file browser with multi-select and per-file progress.
+- **Send** — gamepad file browser with multi-select and per-file progress; pin the folders and files you send often and they lead every listing.
 - **Save routes** — received ROMs land in the console folder they belong to, detected from the card; per-extension overrides on top.
 - **Encryption** — the protocol's HTTPS mode, on by default; works with the official app's default settings both ways.
 - **Settings on device** — alias, save folder, and port, applied live.
@@ -75,6 +75,7 @@ cargo test
 | D-pad / stick| Arrows     | Navigate                                      |
 | A            | Enter      | Send to device · select file · accept · type  |
 | B            | Esc        | Back · decline · cancel · erase (keyboard)    |
+| Y            | Y          | Pin / unpin the row under the cursor          |
 | Start        | F1         | Confirm send · OK (keyboard)                  |
 | Select       | Tab / F5   | Refresh radar · switch roots · layer (keyboard)|
 | L1 / R1      | PgUp / PgDn| Switch tabs · page the file browser           |
@@ -114,6 +115,14 @@ png = "/roms/screenshots"
 
 Extensions match case-insensitively, folders are created on demand, and
 anything without a matching route still lands in `save_dir`.
+
+**Y** pins whatever the cursor is on — a folder you send from often, or a single
+file. Pinned rows lead every listing, so a pinned folder is one press away from
+anywhere in the tree, and a pinned file can be selected and sent without
+navigating at all. Pins live in `[transfer] pinned_paths`; the folder pickers list
+only the pinned folders, and a pin on a card that isn't in the slot is skipped
+rather than shown dead. The send browser also reopens in the folder your last send
+came from (`[transfer] last_send_dir`).
 
 Environment variables override paths and control logging at launch:
 `RETSEND_DATA_DIR`, `RETSEND_CONFIG`, `RETSEND_SAVE_DIR`, `RETSEND_SCALE`,

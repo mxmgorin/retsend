@@ -11,6 +11,14 @@ pub struct TransferConfig {
     pub auto_accept: bool,
     /// Extra file-browser roots on top of the auto-detected mount points.
     pub browser_roots: Vec<String>,
+    /// Folders and files pinned to the top of the file browser, in the order
+    /// shown. Toggled on the device with Y on the row itself.
+    pub pinned_paths: Vec<String>,
+    /// Folder the last send started from; the browser reopens there instead of
+    /// the first root. Written on send, not while browsing — every write hits
+    /// the SD card.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub last_send_dir: String,
     /// Max transfers kept in the History tab; oldest are dropped past this.
     pub history_limit: usize,
     /// Sort received ROMs into the console folders that already exist in
@@ -32,6 +40,8 @@ impl Default for TransferConfig {
             save_dir: super::paths::default_save_dir(),
             auto_accept: false,
             browser_roots: Vec::new(),
+            pinned_paths: Vec::new(),
+            last_send_dir: String::new(),
             history_limit: crate::transfer::history::DEFAULT_MAX_ENTRIES,
             auto_routes: true,
             routes: BTreeMap::new(),

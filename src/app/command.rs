@@ -11,6 +11,8 @@ pub enum AppCommand {
     ReAnnounce,
     PageUp,
     PageDown,
+    /// The Y button: pin or unpin the browser's current folder.
+    TogglePin,
     Shutdown,
 }
 

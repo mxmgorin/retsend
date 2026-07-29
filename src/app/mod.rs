@@ -264,6 +264,7 @@ impl App {
                     self.ui.toasts.push(root);
                 }
             }
+            (Focus::Browser, AppCommand::TogglePin) => self.toggle_pin(),
 
             // Routes editor: up/down over the routes + add row; A adds or
             // removes; B goes back to Settings.
@@ -286,7 +287,7 @@ impl App {
             (Focus::Tabs, AppCommand::PageDown) => self.switch_tab(1),
             (Focus::Tabs, AppCommand::Nav(dir)) => self.tab_nav(dir),
             (Focus::Tabs, AppCommand::Confirm) => self.tab_confirm(),
-            (Focus::Tabs, AppCommand::Start | AppCommand::Back) => {}
+            (Focus::Tabs, AppCommand::Start | AppCommand::Back | AppCommand::TogglePin) => {}
         }
     }
 
@@ -350,9 +351,11 @@ impl App {
             }
             SettingsRow::SaveDir => {
                 let start = PathBuf::from(&self.config.transfer.save_dir);
-                self.ui
-                    .browser
-                    .open_for_dir(&start, &self.config.transfer.browser_roots);
+                self.ui.browser.open_for_dir(
+                    &start,
+                    &self.config.transfer.browser_roots,
+                    &self.config.transfer.pinned_paths,
+                );
             }
             SettingsRow::QuickSave => self.toggle_quick_save(),
             SettingsRow::AutoRoutes => self.toggle_auto_routes(),
@@ -441,6 +444,36 @@ impl App {
         }
     }
 
+    /// Persist where this send came from, so the next one opens there. Only on
+    /// send: doing it per directory step would write the config on every step.
+    fn remember_send_dir(&mut self) {
+        let dir = self.ui.browser.cwd.display().to_string();
+        if dir != self.config.transfer.last_send_dir {
+            self.config.transfer.last_send_dir = dir;
+            self.config.save();
+        }
+    }
+
+    /// X in the browser: pin or unpin the folder being looked at, and persist —
+    /// a pin is worth nothing if it doesn't survive a restart.
+    fn toggle_pin(&mut self) {
+        let Some(change) = self.ui.browser.toggle_pin() else {
+            return;
+        };
+        self.config.transfer.pinned_paths = change.paths;
+        self.config.save();
+        let name = change
+            .path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| change.path.display().to_string());
+        self.ui.toasts.push(if change.pinned {
+            format!("★ {name}")
+        } else {
+            format!("Unpinned {name}")
+        });
+    }
+
     fn refresh_auto_route_count(&mut self) {
         self.ui.settings.auto_route_count = self.detected_auto_routes().len();
     }
@@ -506,9 +539,11 @@ impl App {
                 // Capture the extension; the folder is picked next.
                 self.ui.routes.pending_ext = Some(ext);
                 let start = PathBuf::from(&self.config.transfer.save_dir);
-                self.ui
-                    .browser
-                    .open_for_dir(&start, &self.config.transfer.browser_roots);
+                self.ui.browser.open_for_dir(
+                    &start,
+                    &self.config.transfer.browser_roots,
+                    &self.config.transfer.pinned_paths,
+                );
             }
             OskEvent::Cancelled => {}
         }
@@ -541,7 +576,9 @@ impl App {
         self.ui.browser.open_for_send(
             &peer.info.alias,
             &self.config.transfer.browser_roots,
+            &self.config.transfer.pinned_paths,
             &self.staged,
+            &PathBuf::from(&self.config.transfer.last_send_dir),
         );
     }
 
@@ -557,6 +594,7 @@ impl App {
             return;
         };
         let files = self.ui.browser.selected_paths();
+        self.remember_send_dir();
         self.ui.browser.close();
         let me = self.net.shared.me.lock().unwrap().clone();
         match outbound::spawn(target.alias, target.base, me, files, self.wake.clone()) {

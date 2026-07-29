@@ -19,7 +19,25 @@ pub fn on_key_down(kc: Keycode, repeat: bool, commands: &mut Vec<AppCommand>) {
         Keycode::Escape | Keycode::Backspace => AppCommand::Back,
         Keycode::F1 => AppCommand::Start,
         Keycode::Tab | Keycode::F5 => AppCommand::ReAnnounce,
+        Keycode::Y => AppCommand::TogglePin,
         _ => return,
     };
     commands.push(cmd);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn y_pins_and_does_not_repeat() {
+        let mut commands = Vec::new();
+        on_key_down(Keycode::Y, false, &mut commands);
+        assert_eq!(commands, vec![AppCommand::TogglePin]);
+
+        // Holding it must not toggle over and over.
+        commands.clear();
+        on_key_down(Keycode::Y, true, &mut commands);
+        assert!(commands.is_empty());
+    }
 }

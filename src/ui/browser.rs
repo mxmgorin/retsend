@@ -42,10 +42,18 @@ pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
             super::home::hint_bar(
                 ui,
                 &[
-                    ("A", if picking_dir { "Open" } else { "Select/Open" }),
-                    ("B", "Up"),
-                    ("Start", if picking_dir { "Choose here" } else { "Send" }),
                     ("Select", "Roots"),
+                    ("Start", if picking_dir { "Choose here" } else { "Send" }),
+                    (
+                        "Y",
+                        if browser.target_is_pinned() {
+                            "Unpin"
+                        } else {
+                            "Pin"
+                        },
+                    ),
+                    ("B", "Up"),
+                    ("A", if picking_dir { "Open" } else { "Select/Open" }),
                 ],
             );
         });
@@ -81,16 +89,19 @@ pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
                 let painter = ui.painter();
                 let padding = 10.0;
 
-                // Checkbox for files, a slash marker for directories; no
-                // checkboxes when only a directory is being picked.
-                let (marker, marker_color) = if entry.is_dir {
-                    ("   /", theme::DIM)
-                } else if picking_dir {
-                    ("", theme::DIM)
-                } else if browser.selected.contains_key(&entry.path) {
-                    ("[x]", theme::ACCENT)
-                } else {
-                    ("[ ]", theme::DIM)
+                // A star for pinned rows, a slash for directories, a checkbox
+                // for files — and both for a pinned file, whose selection state
+                // still has to be readable. No checkboxes when only a directory
+                // is being picked.
+                let checked = browser.selected.contains_key(&entry.path);
+                let (marker, marker_color) = match (entry.pinned, entry.is_dir) {
+                    (true, true) => ("  ★", theme::ACCENT),
+                    (true, false) if checked => ("★[x]", theme::ACCENT),
+                    (true, false) => ("★[ ]", theme::ACCENT),
+                    (false, true) => ("   /", theme::DIM),
+                    (false, false) if picking_dir => ("", theme::DIM),
+                    (false, false) if checked => ("[x]", theme::ACCENT),
+                    (false, false) => ("[ ]", theme::DIM),
                 };
                 painter.text(
                     rect.left_center() + egui::vec2(padding, 0.0),
@@ -106,11 +117,20 @@ pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
                     egui::FontId::proportional(theme::ROW_FONT),
                     ui.visuals().text_color(),
                 );
-                if !entry.is_dir {
+                // Pinned rows show where they lead: two cards can carry folders
+                // with the same name.
+                let trailing = if entry.pinned {
+                    truncate_middle(&entry.path.display().to_string(), 40)
+                } else if entry.is_dir {
+                    String::new()
+                } else {
+                    super::fmt_bytes(entry.size)
+                };
+                if !trailing.is_empty() {
                     painter.text(
                         rect.right_center() - egui::vec2(padding, 0.0),
                         egui::Align2::RIGHT_CENTER,
-                        super::fmt_bytes(entry.size),
+                        trailing,
                         egui::FontId::proportional(theme::DETAIL_FONT),
                         theme::DIM,
                     );

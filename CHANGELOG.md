@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Pinned paths: Y in the file browser pins the folder or file under the cursor,
+  and pinned rows lead every listing — a pinned folder is one press away from
+  anywhere in the tree, a pinned file can be sent without navigating
+  (`[transfer] pinned_paths`). The send browser also reopens where the last send
+  came from (`[transfer] last_send_dir`).
+
 - Automatic save routes: received ROMs are sorted into the console folders that
   already exist in the save directory, using the folder names KNULLI, ROCKNIX,
   and muOS each actually use. Nothing is created, and only extensions that name

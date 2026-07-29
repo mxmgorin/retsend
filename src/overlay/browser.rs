@@ -21,6 +21,19 @@ pub struct Entry {
     pub is_dir: bool,
     /// Files only; 0 for directories.
     pub size: u64,
+    /// A pinned folder rather than a child of the cwd. Being ordinary rows
+    /// keeps the cursor, paging, and `activate` untouched: a pin is just a
+    /// directory that happens to sit above the listing.
+    pub pinned: bool,
+}
+
+/// Outcome of a [`FileBrowser::toggle_pin`]: the new list for the config, and
+/// which path went in or out (for the toast).
+pub struct PinChange {
+    pub paths: Vec<String>,
+    /// `true` when it was pinned, `false` when it was unpinned.
+    pub pinned: bool,
+    pub path: PathBuf,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -43,6 +56,9 @@ pub struct FileBrowser {
     pub selected: BTreeMap<PathBuf, u64>,
     roots: Vec<PathBuf>,
     root_index: usize,
+    /// Pinned folders, shown above every listing so the jump is one press from
+    /// wherever the cursor happens to be.
+    pinned: Vec<PathBuf>,
 }
 
 impl FileBrowser {
@@ -57,20 +73,25 @@ impl FileBrowser {
             selected: BTreeMap::new(),
             roots: Vec::new(),
             root_index: 0,
+            pinned: Vec::new(),
         }
     }
 
-    /// Open for picking files to send. `extra_roots` come from the config;
-    /// `initial` pre-selects files (the CLI staging list).
+    /// Open for picking files to send. `extra_roots` and `pinned_paths` come
+    /// from the config; `initial` pre-selects files (the CLI staging list); `start`
+    /// is where the last send began, empty on a first run.
     pub fn open_for_send(
         &mut self,
         target_alias: &str,
         extra_roots: &[String],
+        pinned_paths: &[String],
         initial: &[PathBuf],
+        start: &Path,
     ) {
         self.mode = BrowserMode::PickFiles;
         self.target_alias = target_alias.to_string();
         self.roots = build_roots(extra_roots);
+        self.pinned = existing_paths(pinned_paths);
         self.root_index = 0;
         self.selected = initial
             .iter()
@@ -78,29 +99,30 @@ impl FileBrowser {
             .collect();
         self.cursor = 0;
         self.open = true;
-        if let Some(root) = self.roots.first() {
-            let _ = self.change_dir(root.clone());
-        }
+        self.start_at(start);
     }
 
     /// Open to choose a directory, starting at `start` when it exists.
-    pub fn open_for_dir(&mut self, start: &Path, extra_roots: &[String]) {
+    pub fn open_for_dir(&mut self, start: &Path, extra_roots: &[String], pinned_paths: &[String]) {
         self.mode = BrowserMode::PickDir;
         self.target_alias.clear();
         self.roots = build_roots(extra_roots);
+        self.pinned = existing_paths(pinned_paths);
         self.root_index = 0;
         self.selected.clear();
         self.cursor = 0;
         self.open = true;
-        let start = if start.is_dir() {
-            start.to_path_buf()
-        } else {
-            self.roots.first().cloned().unwrap_or_else(|| "/".into())
-        };
-        if self.change_dir(start).is_err() {
-            if let Some(root) = self.roots.first() {
-                let _ = self.change_dir(root.clone());
-            }
+        self.start_at(start);
+    }
+
+    /// Land in `start`, falling back to the first root when it is gone — a
+    /// remembered folder can live on a card that is no longer in the slot.
+    fn start_at(&mut self, start: &Path) {
+        if start.is_dir() && self.change_dir(start.to_path_buf()).is_ok() {
+            return;
+        }
+        if let Some(root) = self.roots.first() {
+            let _ = self.change_dir(root.clone());
         }
     }
 
@@ -179,12 +201,87 @@ impl FileBrowser {
         Some(&self.roots[self.root_index])
     }
 
+    /// What Y acts on: the row under the cursor, or the folder being looked at
+    /// when there is no row to point at (an empty listing).
+    pub fn pin_target(&self) -> Option<PathBuf> {
+        if let Some(entry) = self.entries.get(self.cursor) {
+            return Some(entry.path.clone());
+        }
+        (!self.cwd.as_os_str().is_empty()).then(|| self.cwd.clone())
+    }
+
+    pub fn target_is_pinned(&self) -> bool {
+        self.pin_target().is_some_and(|p| self.pinned.contains(&p))
+    }
+
+    /// Y: pin or unpin [`Self::pin_target`]. `None` when there is nothing to
+    /// act on at all.
+    pub fn toggle_pin(&mut self) -> Option<PinChange> {
+        let target = self.pin_target()?;
+        let added = match self.pinned.iter().position(|p| *p == target) {
+            Some(i) => {
+                self.pinned.remove(i);
+                false
+            }
+            None => {
+                self.pinned.push(target.clone());
+                true
+            }
+        };
+        // The listing carries the pins, so it has to be rebuilt for the row to
+        // appear or go away. Pinned rows lead the listing, so the change is
+        // always above the cursor: move with it to keep the highlight put.
+        let cursor = self.cursor;
+        let _ = self.change_dir(self.cwd.clone());
+        let shifted = if added {
+            cursor + 1
+        } else {
+            cursor.saturating_sub(1)
+        };
+        self.cursor = shifted.min(self.entries.len().saturating_sub(1));
+        Some(PinChange {
+            paths: self
+                .pinned
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect(),
+            pinned: added,
+            path: target,
+        })
+    }
+
     fn change_dir(&mut self, dir: PathBuf) -> Result<(), String> {
         let entries = read_entries(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         self.cwd = dir;
-        self.entries = entries;
+        self.entries = self.pinned_entries().into_iter().chain(entries).collect();
         self.cursor = 0;
         Ok(())
+    }
+
+    /// Pinned rows for the top of the listing. The name shown is the entry's own
+    /// name; the renderer puts the full path beside it, since two cards can hold
+    /// the same name. Pinned files are dropped in [`BrowserMode::PickDir`] —
+    /// there is nothing to do with a file when a folder is being chosen.
+    fn pinned_entries(&self) -> Vec<Entry> {
+        self.pinned
+            .iter()
+            .filter_map(|path| {
+                let meta = std::fs::metadata(path).ok()?;
+                if !meta.is_dir() && self.mode == BrowserMode::PickDir {
+                    return None;
+                }
+                Some(Entry {
+                    name: path
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| path.display().to_string()),
+                    path: path.clone(),
+                    is_dir: meta.is_dir(),
+                    size: if meta.is_dir() { 0 } else { meta.len() },
+                    pinned: true,
+                })
+            })
+            .collect()
     }
 }
 
@@ -208,6 +305,7 @@ fn read_entries(dir: &Path) -> std::io::Result<Vec<Entry>> {
             is_dir: meta.is_dir(),
             size: if meta.is_dir() { 0 } else { meta.len() },
             name,
+            pinned: false,
         });
     }
     entries.sort_by(|a, b| {
@@ -216,6 +314,19 @@ fn read_entries(dir: &Path) -> std::io::Result<Vec<Entry>> {
             .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
     Ok(entries)
+}
+
+/// Config paths that exist right now, folders or files, deduplicated, order
+/// kept. A pin on a removed SD card is skipped rather than shown as a dead row.
+fn existing_paths(paths: &[String]) -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = Vec::new();
+    for path in paths {
+        let path = PathBuf::from(path.trim());
+        if path.exists() && !out.contains(&path) {
+            out.push(path);
+        }
+    }
+    out
 }
 
 fn build_roots(extra: &[String]) -> Vec<PathBuf> {
@@ -266,6 +377,209 @@ mod tests {
         b.open = true;
         b.change_dir(root.to_path_buf()).unwrap();
         b
+    }
+
+    /// As the app opens it: roots from the config plus pinned folders.
+    fn browser_with_pins(root: &Path, pinned: &[&str]) -> FileBrowser {
+        let mut b = FileBrowser::new();
+        b.roots = vec![root.to_path_buf()];
+        b.pinned = existing_paths(
+            &pinned
+                .iter()
+                .map(|p| p.to_string())
+                .collect::<Vec<String>>(),
+        );
+        b.open = true;
+        b.change_dir(root.to_path_buf()).unwrap();
+        b
+    }
+
+    #[test]
+    fn pinned_paths_lead_the_listing() {
+        let root = temp_tree();
+        let games = root.join("games");
+        let b = browser_with_pins(&root, &[games.to_str().unwrap()]);
+
+        let names: Vec<&str> = b.entries.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, ["games", "games", "saves", "readme.txt"]);
+        // The first row is the pinned one, the second the real child directory.
+        assert!(b.entries[0].pinned);
+        assert!(!b.entries[1].pinned);
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_pinned_row_navigates_like_a_directory() {
+        let root = temp_tree();
+        let games = root.join("games");
+        let mut b = browser_with_pins(&root, &[games.to_str().unwrap()]);
+
+        b.activate().unwrap();
+        assert_eq!(b.cwd, games);
+        // And it is still reachable from in there, since it leads the listing.
+        assert!(b.entries[0].pinned);
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn toggle_pin_acts_on_the_row_under_the_cursor() {
+        let root = temp_tree();
+        let mut b = browser_at(&root);
+        let games = root.join("games");
+        assert!(!b.target_is_pinned());
+
+        let change = b.toggle_pin().expect("the cursor is on a row");
+        assert!(change.pinned);
+        assert_eq!(change.path, games, "the row, not the folder we stand in");
+        assert_eq!(change.paths, vec![games.display().to_string()]);
+        assert!(b.entries[0].pinned, "the row shows up without a reopen");
+
+        // The cursor followed its row down, so Y now unpins from the real row.
+        let change = b.toggle_pin().expect("the cursor is on a row");
+        assert!(!change.pinned);
+        assert_eq!(change.path, games);
+        assert!(change.paths.is_empty());
+        assert!(!b.entries[0].pinned, "and goes away again");
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_pinned_row_can_be_unpinned_from_the_top_of_the_listing() {
+        let root = temp_tree();
+        let games = root.join("games");
+        let mut b = browser_with_pins(&root, &[games.to_str().unwrap()]);
+        assert!(b.target_is_pinned(), "cursor starts on the pinned row");
+
+        let change = b.toggle_pin().expect("the cursor is on a row");
+        assert!(!change.pinned);
+        assert!(change.paths.is_empty());
+        assert!(!b.entries.iter().any(|e| e.pinned));
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn files_can_be_pinned_and_keep_their_size() {
+        let root = temp_tree();
+        let mut b = browser_at(&root);
+        b.move_cursor(2); // games, saves, readme.txt
+
+        let change = b.toggle_pin().expect("the cursor is on a row");
+        assert!(change.pinned);
+        assert_eq!(change.path, root.join("readme.txt"));
+
+        let pinned = &b.entries[0];
+        assert!(pinned.pinned && !pinned.is_dir);
+        assert_eq!(pinned.size, 2, "\"hi\"");
+
+        // A on it selects the file for sending, as any file row would.
+        b.cursor = 0;
+        b.activate().unwrap();
+        assert!(b.selected.contains_key(&root.join("readme.txt")));
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn pinned_files_stay_out_of_the_folder_picker() {
+        let root = temp_tree();
+        let file = root.join("readme.txt");
+        let games = root.join("games");
+        let mut b = FileBrowser::new();
+        b.roots = vec![root.to_path_buf()];
+        b.open_for_dir(
+            &root,
+            &[],
+            &[file.display().to_string(), games.display().to_string()],
+        );
+
+        let pinned: Vec<&PathBuf> = b
+            .entries
+            .iter()
+            .filter(|e| e.pinned)
+            .map(|e| &e.path)
+            .collect();
+        assert_eq!(
+            pinned,
+            vec![&games],
+            "a file cannot answer \"choose a folder\""
+        );
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn an_empty_listing_pins_the_folder_being_looked_at() {
+        let root = temp_tree();
+        let empty = root.join("saves");
+        let mut b = browser_at(&root);
+        b.change_dir(empty.clone()).unwrap();
+        assert!(b.entries.is_empty());
+
+        let change = b
+            .toggle_pin()
+            .expect("the cwd stands in for the missing row");
+        assert!(change.pinned);
+        assert_eq!(change.path, empty);
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn pinning_keeps_the_highlight_on_the_same_row() {
+        let root = temp_tree();
+        let mut b = browser_at(&root);
+        b.move_cursor(1); // "saves", with "games" above it
+        let before = b.entries[b.cursor].path.clone();
+
+        b.toggle_pin().expect("the cursor is on a row");
+        assert_eq!(
+            b.entries[b.cursor].path, before,
+            "pinned row pushed it down"
+        );
+
+        b.toggle_pin().expect("the cursor is on a row");
+        assert_eq!(
+            b.entries[b.cursor].path, before,
+            "and unpinning pulled it back"
+        );
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn pinned_paths_that_no_longer_exist_are_skipped() {
+        let root = temp_tree();
+        let b = browser_with_pins(
+            &root,
+            &[
+                root.join("games").to_str().unwrap(),
+                "/nonexistent/card/roms",
+                root.join("readme.txt").to_str().unwrap(),
+            ],
+        );
+        // The folder and the file survive; only the missing card's path is gone.
+        let pinned: Vec<&str> = b
+            .entries
+            .iter()
+            .filter(|e| e.pinned)
+            .map(|e| e.name.as_str())
+            .collect();
+        assert_eq!(pinned, ["games", "readme.txt"]);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn start_at_falls_back_when_the_remembered_folder_is_gone() {
+        let root = temp_tree();
+        let mut b = FileBrowser::new();
+        b.roots = vec![root.to_path_buf()];
+        b.start_at(Path::new("/nonexistent/card/roms"));
+        assert_eq!(b.cwd, root);
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
