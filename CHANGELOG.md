@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- PortMaster: received files default to the ROMs folder on muOS too. The launcher
+  took PortMaster's `$directory` for the ROMs root, which on muOS is the card root
+  (`/mnt/mmc`) one level above `ROMS`. Installs that already have a config keep
+  their folder — change it in Settings.
+
 ## [0.2.0] - 2026-07-30
 
 ### Changed

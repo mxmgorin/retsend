@@ -34,8 +34,19 @@ export XDG_DATA_HOME="$GAMEDIR"
 export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"
 
 export RETSEND_DATA_DIR="$GAMEDIR/data"
+
 # Received files land in the ROMs root by default; change it in Settings.
-export RETSEND_SAVE_DIR="/$directory"
+# $directory is the card root holding ports/ — the ROMs root itself on most CFW
+# (/roms, /userdata/roms), but muOS keeps ROMs one level down (/mnt/mmc/ROMS).
+savedir="/$directory"
+for romsdir in ROMS roms Roms; do
+  if [ -d "$savedir/$romsdir" ]; then
+    savedir="$savedir/$romsdir"
+    break
+  fi
+done
+export RETSEND_SAVE_DIR="$savedir"
+
 export RETSEND_PANIC_FILE="$GAMEDIR/retsend-panic.log"
 #export RETSEND_LOG_FILE="$GAMEDIR/retsend.log"
 #export RETSEND_LOG_LEVEL=debug
