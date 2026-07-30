@@ -7,6 +7,10 @@ use egui_sdl2::egui;
 
 /// Files shown by name before collapsing into "…and N more".
 pub(crate) const SHOWN_FILES: usize = 8;
+/// Destination folders shown before collapsing into "…and N more folders".
+/// Save routes can spread one request over as many folders as it has
+/// extensions, and the modal still has to fit on a 480 px screen.
+pub(crate) const SHOWN_DESTS: usize = 4;
 
 pub struct PromptData {
     pub sender: String,
@@ -15,7 +19,9 @@ pub struct PromptData {
     pub hidden: usize,
     pub count: usize,
     pub total_bytes: u64,
-    pub dest: String,
+    /// Distinct destination folders — first [`SHOWN_DESTS`] of them.
+    pub dests: Vec<String>,
+    pub hidden_dests: usize,
     /// 1.0 → fresh, 0.0 → deadline; drives the countdown bar.
     pub remaining: f32,
 }
@@ -77,11 +83,29 @@ pub fn render(ctx: &egui::Context, data: &PromptData) {
                     }
 
                     ui.add_space(8.0);
-                    ui.label(
-                        egui::RichText::new(format!("→ {}", data.dest))
+                    // One line per folder the save routes picked. Truncated, not
+                    // wrapped: a wrapped path pushes the arrow onto a line of
+                    // its own.
+                    for dest in &data.dests {
+                        ui.label(
+                            egui::RichText::new(format!(
+                                "→ {}",
+                                super::truncate_middle(dest, super::PATH_CHARS)
+                            ))
                             .size(theme::DETAIL_FONT)
                             .color(theme::DIM),
-                    );
+                        );
+                    }
+                    if data.hidden_dests > 0 {
+                        ui.label(
+                            egui::RichText::new(format!(
+                                "…and {}",
+                                plural(data.hidden_dests, "more folder")
+                            ))
+                            .size(theme::DETAIL_FONT)
+                            .color(theme::DIM),
+                        );
+                    }
                     ui.add_space(8.0);
 
                     // Countdown to auto-decline.

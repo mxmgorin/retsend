@@ -303,6 +303,46 @@ fn manual_accept_parks_until_the_user_agrees() {
     stop();
 }
 
+/// The modal promises destinations with the save routes already applied: a
+/// routed extension shows its folder, and a request the routes split up names
+/// every folder it will use.
+#[test]
+fn the_parked_request_names_the_routed_destinations() {
+    let (shared, port, stop) = start_server(false);
+    let save_dir = save_dir_of(&shared);
+    shared.transfer.lock().unwrap().routes = [("gbc".to_string(), "gb".to_string())].into();
+
+    let posted = std::thread::spawn(move || {
+        post(
+            port,
+            "/api/localsend/v2/prepare-upload",
+            // Name-sorted, so the routed `.gbc` leads and `notes.txt` falls
+            // back to the save dir itself.
+            &prepare_body(&[("a", "Zelda.gbc", 4), ("b", "notes.txt", 1)]),
+        )
+    });
+
+    let dests = wait_for(|| {
+        shared
+            .pending
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|p| p.dests.clone())
+    });
+    assert_eq!(
+        dests,
+        [
+            save_dir.join("gb").display().to_string(),
+            save_dir.display().to_string(),
+        ]
+    );
+
+    shared.pending.lock().unwrap().take().unwrap().decline();
+    assert_eq!(posted.join().unwrap().0, 403);
+    stop();
+}
+
 #[test]
 fn decline_answers_403() {
     let (shared, port, stop) = start_server(false);

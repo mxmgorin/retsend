@@ -1,15 +1,21 @@
 //! The History tab: the persisted transfer log, newest first. Rows show the
-//! peer + direction, a counts/size/relative-time detail line, and an outcome
-//! glyph. Read-only; the cursor just scrolls.
+//! peer + direction, a counts/size/relative-time detail line, the directory the
+//! files landed in (or came from), and an outcome glyph. Read-only; the cursor
+//! just scrolls.
 
-use super::{fmt_bytes, theme};
+use super::{fmt_bytes, theme, truncate_middle, PATH_CHARS};
 use crate::transfer::history::{Direction, HistoryEntry, Outcome};
 use egui_sdl2::egui;
+
+/// Height the path line adds to a row that has one.
+const PATH_LINE: f32 = 16.0;
 
 /// A display-ready history row, built by `AppUi::update` from a [`HistoryEntry`].
 pub struct HistoryRow {
     pub title: String,
     pub detail: String,
+    /// Arrow-prefixed save/source directory; empty when the entry has none.
+    pub path: String,
     pub outcome: Outcome,
 }
 
@@ -21,9 +27,9 @@ pub struct HistoryData {
 /// Build a row from an entry, resolving the relative time against `now`
 /// (unix seconds).
 pub fn row(e: &HistoryEntry, now: u64) -> HistoryRow {
-    let (verb, prep) = match e.direction {
-        Direction::Received => ("Received", "from"),
-        Direction::Sent => ("Sent", "to"),
+    let (verb, prep, arrow) = match e.direction {
+        Direction::Received => ("Received", "from", "→"),
+        Direction::Sent => ("Sent", "to", "←"),
     };
     let what = match e.outcome {
         Outcome::Completed => plural(e.total),
@@ -32,9 +38,15 @@ pub fn row(e: &HistoryEntry, now: u64) -> HistoryRow {
         Outcome::Declined => "declined".to_string(),
         Outcome::Failed => "failed".to_string(),
     };
+    let path = if e.path.is_empty() {
+        String::new()
+    } else {
+        format!("{arrow} {}", truncate_middle(&e.path, PATH_CHARS))
+    };
     HistoryRow {
         title: format!("{verb} {prep} {}", e.peer),
         detail: format!("{what} · {} · {}", fmt_bytes(e.bytes), ago(now, e.at)),
+        path,
         outcome: e.outcome,
     }
 }
@@ -72,7 +84,8 @@ pub fn render(root: &mut egui::Ui, data: &HistoryData) {
 }
 
 fn history_row(ui: &mut egui::Ui, row: &HistoryRow, selected: bool) -> egui::Response {
-    let desired = egui::vec2(ui.available_width(), theme::ROW_HEIGHT);
+    let extra = if row.path.is_empty() { 0.0 } else { PATH_LINE };
+    let desired = egui::vec2(ui.available_width(), theme::ROW_HEIGHT + extra);
     let (rect, response) = ui.allocate_exact_size(desired, egui::Sense::hover());
     if selected {
         ui.painter().rect(
@@ -93,15 +106,26 @@ fn history_row(ui: &mut egui::Ui, row: &HistoryRow, selected: bool) -> egui::Res
         egui::FontId::proportional(theme::ROW_FONT),
         ui.visuals().text_color(),
     );
+    // Title and detail keep their places in the first ROW_HEIGHT; the path line
+    // hangs below it.
     painter.text(
-        rect.left_bottom() + egui::vec2(padding, -7.0),
+        rect.left_top() + egui::vec2(padding, theme::ROW_HEIGHT - 7.0),
         egui::Align2::LEFT_BOTTOM,
         &row.detail,
         egui::FontId::proportional(theme::DETAIL_FONT),
         theme::DIM,
     );
+    if !row.path.is_empty() {
+        painter.text(
+            rect.left_bottom() + egui::vec2(padding, -4.0),
+            egui::Align2::LEFT_BOTTOM,
+            &row.path,
+            egui::FontId::proportional(theme::DETAIL_FONT),
+            theme::DIM,
+        );
+    }
     painter.text(
-        rect.right_center() - egui::vec2(padding, 0.0),
+        egui::pos2(rect.right() - padding, rect.top() + theme::ROW_HEIGHT / 2.0),
         egui::Align2::RIGHT_CENTER,
         glyph,
         egui::FontId::proportional(theme::ROW_FONT),

@@ -3,8 +3,9 @@
 //! survives restarts. Recorded from [`crate::overlay::transfer::TransferView`]
 //! at the completion edge; owned and persisted by `App`.
 
-use super::inbound::InboundSession;
+use super::inbound::{FileState, InboundSession};
 use super::outbound::{OutboundPhase, OutboundSession};
+use super::route::dirs_label;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 
@@ -40,6 +41,10 @@ pub struct HistoryEntry {
     pub outcome: Outcome,
     /// Unix seconds when it finished (for the relative "…ago" label).
     pub at: u64,
+    /// Directory the done files landed in (received) or came from (sent).
+    /// Empty when nothing moved, or for entries written before this field.
+    #[serde(default)]
+    pub path: String,
 }
 
 impl HistoryEntry {
@@ -59,6 +64,12 @@ impl HistoryEntry {
             bytes: s.received_total.load(Ordering::Relaxed),
             outcome,
             at: now_unix(),
+            path: dirs_label(
+                s.files
+                    .iter()
+                    .filter(|f| *f.state.lock().unwrap() == FileState::Done)
+                    .filter_map(|f| f.dest.parent()),
+            ),
         }
     }
 
@@ -80,6 +91,12 @@ impl HistoryEntry {
             bytes: s.sent_total.load(Ordering::Relaxed),
             outcome,
             at: now_unix(),
+            path: dirs_label(
+                s.files
+                    .iter()
+                    .filter(|f| *f.state.lock().unwrap() == FileState::Done)
+                    .filter_map(|f| f.path.parent()),
+            ),
         }
     }
 }
@@ -178,6 +195,7 @@ mod tests {
             bytes: 1,
             outcome: Outcome::Completed,
             at: 0,
+            path: "/save".to_string(),
         }
     }
 
@@ -194,6 +212,49 @@ mod tests {
         }
         assert_eq!(peers(&h), ["p2", "p3", "p4"]);
         std::fs::remove_dir_all(dir.trim_end_matches('/')).unwrap();
+    }
+
+    #[test]
+    fn inbound_entry_records_where_the_files_landed() {
+        use crate::net::protocol::FileMeta;
+        use crate::net::{Wake, WakeReason};
+        use std::collections::BTreeMap;
+
+        struct NoopWake;
+        impl Wake for NoopWake {
+            fn wake(&self, _: WakeReason) {}
+        }
+        let meta = |id: &str, name: &str| FileMeta {
+            id: id.into(),
+            file_name: name.into(),
+            size: 3,
+            file_type: "application/octet-stream".into(),
+            sha256: None,
+            preview: None,
+            metadata: None,
+        };
+
+        let base = std::path::PathBuf::from(temp_dir("inbound").trim_end_matches('/'));
+        let mut routes = BTreeMap::new();
+        routes.insert("png".to_string(), "shots".to_string());
+        let router = super::super::route::SaveRouter::new(base.clone(), &routes, false);
+        let session = InboundSession::new(
+            "Phone".into(),
+            vec![meta("a", "grab.png"), meta("b", "rom.gbc")],
+            &router,
+        )
+        .unwrap();
+        for id in ["a", "b"] {
+            let token = session.tokens()[id].clone();
+            session.receive_file(id, &token, &mut &b"abc"[..], &NoopWake);
+        }
+
+        let entry = HistoryEntry::from_inbound(&session);
+        assert_eq!(
+            entry.path,
+            format!("{} +1 more", base.join("shots").display())
+        );
+        std::fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]

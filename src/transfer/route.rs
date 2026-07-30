@@ -15,6 +15,27 @@ pub fn normalize_ext(ext: &str) -> String {
     ext.trim().trim_start_matches('.').to_ascii_lowercase()
 }
 
+/// The distinct directories of `dirs`, in first-use order.
+pub fn unique_dirs<'a>(dirs: impl Iterator<Item = &'a Path>) -> Vec<&'a Path> {
+    let mut unique: Vec<&Path> = Vec::new();
+    for dir in dirs {
+        if !unique.contains(&dir) {
+            unique.push(dir);
+        }
+    }
+    unique
+}
+
+/// One directory as is; several (a session the routes split up) as
+/// "first +N more" — for the history rows, which have a single line for it.
+pub fn dirs_label<'a>(dirs: impl Iterator<Item = &'a Path>) -> String {
+    match unique_dirs(dirs).split_first() {
+        None => String::new(),
+        Some((first, [])) => first.display().to_string(),
+        Some((first, rest)) => format!("{} +{} more", first.display(), rest.len()),
+    }
+}
+
 /// Resolves each received file to the directory it should land in.
 #[derive(Clone)]
 pub struct SaveRouter {
@@ -77,6 +98,17 @@ impl SaveRouter {
     pub fn default_dir(&self) -> &Path {
         &self.default_dir
     }
+
+    /// Where `filenames` would land: one entry per distinct directory, in
+    /// first-use order. Names are sanitized exactly as
+    /// [`crate::transfer::inbound::InboundSession::new`] does, so the modal
+    /// promises the directories the session will actually use.
+    pub fn dest_dirs<'a>(&self, filenames: impl Iterator<Item = &'a str>) -> Vec<String> {
+        unique_dirs(filenames.map(|name| self.dir_for(&super::files::sanitize_filename(name))))
+            .iter()
+            .map(|dir| dir.display().to_string())
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -104,6 +136,24 @@ mod tests {
         // No route → the default dir; extensionless too.
         assert_eq!(r.dir_for("save.dat"), Path::new("/save"));
         assert_eq!(r.dir_for("README"), Path::new("/save"));
+    }
+
+    #[test]
+    fn dirs_label_collapses_duplicates_and_counts_the_rest() {
+        let dirs = |paths: &[&str]| dirs_label(paths.iter().map(Path::new));
+        assert_eq!(dirs(&[]), "");
+        assert_eq!(dirs(&["/save", "/save"]), "/save");
+        assert_eq!(dirs(&["/save/gb", "/save", "/save/gb"]), "/save/gb +1 more");
+    }
+
+    #[test]
+    fn dest_dirs_names_every_dir_a_request_would_use_once() {
+        let r = SaveRouter::new(PathBuf::from("/save"), &map(&[("png", "shots")]), false);
+        assert_eq!(r.dest_dirs(["rom.gbc"].into_iter()), ["/save"]);
+        assert_eq!(
+            r.dest_dirs(["grab.png", "rom.gbc", "shot2.PNG"].into_iter()),
+            ["/save/shots", "/save"]
+        );
     }
 
     #[test]

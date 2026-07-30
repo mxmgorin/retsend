@@ -40,6 +40,10 @@ pub struct PendingRequest {
     /// Name-sorted for display.
     pub files: Vec<protocol::FileMeta>,
     pub total_bytes: u64,
+    /// Where these files would land, save routes resolved — one entry per
+    /// distinct directory. Computed here rather than per frame in the modal:
+    /// detecting the auto routes walks the save directory.
+    pub dests: Vec<String>,
     /// The modal renders its countdown from this against [`DECISION_TIMEOUT`].
     pub received_at: Instant,
     decision_tx: mpsc::SyncSender<Decision>,
@@ -281,6 +285,13 @@ fn handle_prepare_upload<S: Read + Write>(
         );
     }
 
+    let router = crate::transfer::route::SaveRouter::new(
+        settings.save_dir.clone(),
+        &settings.routes,
+        settings.auto_routes,
+    );
+    let dests = router.dest_dirs(files.iter().map(|f| f.file_name.as_str()));
+
     let (tx, rx) = mpsc::sync_channel::<Decision>(1);
     {
         let mut pending = shared.pending.lock().unwrap();
@@ -291,6 +302,7 @@ fn handle_prepare_upload<S: Read + Write>(
             sender: prepare.info.clone(),
             files: files.clone(),
             total_bytes,
+            dests,
             received_at: Instant::now(),
             decision_tx: tx,
         });

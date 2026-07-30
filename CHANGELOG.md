@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- History rows show the folder the files landed in (`→`) or were sent from (`←`),
+  so a save route that moved a ROM somewhere unexpected is visible without
+  hunting for it. A session split across routes shows the first folder and how
+  many more it used. Entries logged before this stay two-line.
+- The incoming-request modal names the routed destinations instead of the plain
+  save directory, so the folders the files will actually land in are visible
+  before pressing A — one line per folder when the save routes spread a request
+  over several, up to four before the rest collapse into a count.
+
 - X in the send browser selects every file of the current folder (and clears them
   again), so a folder full of saves goes out without walking the list. Subfolders
   stay out: the protocol only carries a flat list of files.

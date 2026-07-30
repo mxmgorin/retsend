@@ -202,7 +202,7 @@ impl AppUi {
             auto_on: config.transfer.auto_routes,
         };
 
-        let prompt_data = prompt_data(net, config);
+        let prompt_data = prompt_data(net);
         let transfer_data = self.transfer_data();
         let active_tab = self.tabs.active();
         let settings_state = &self.settings;
@@ -369,7 +369,7 @@ fn outbound_title(session: &OutboundSession) -> String {
     }
 }
 
-fn prompt_data(net: &NetService, config: &AppConfig) -> Option<prompt::PromptData> {
+fn prompt_data(net: &NetService) -> Option<prompt::PromptData> {
     let pending = net.shared.pending.lock().unwrap();
     let p = pending.as_ref()?;
     let elapsed = p.received_at.elapsed().as_secs_f32();
@@ -384,7 +384,8 @@ fn prompt_data(net: &NetService, config: &AppConfig) -> Option<prompt::PromptDat
         hidden: p.files.len().saturating_sub(prompt::SHOWN_FILES),
         count: p.files.len(),
         total_bytes: p.total_bytes,
-        dest: config.transfer.save_dir.clone(),
+        dests: p.dests.iter().take(prompt::SHOWN_DESTS).cloned().collect(),
+        hidden_dests: p.dests.len().saturating_sub(prompt::SHOWN_DESTS),
         remaining: 1.0 - elapsed / DECISION_TIMEOUT.as_secs_f32(),
     })
 }
@@ -422,6 +423,24 @@ pub(crate) fn fmt_bytes(bytes: u64) -> String {
         unit += 1;
     }
     format!("{value:.1} {}", UNITS[unit])
+}
+
+/// One-line budget for a path at [`theme::DETAIL_FONT`], sized for the
+/// narrowest place one is shown (the 460 px incoming-request modal).
+pub(crate) const PATH_CHARS: usize = 64;
+
+/// Keep the tail of a long path visible: `/very/…/deep/folder`.
+pub(crate) fn truncate_middle(s: &str, max_chars: usize) -> String {
+    let count = s.chars().count();
+    if count <= max_chars {
+        return s.to_string();
+    }
+    let keep = max_chars.saturating_sub(1);
+    let head = keep / 3;
+    let tail = keep - head;
+    let head_str: String = s.chars().take(head).collect();
+    let tail_str: String = s.chars().skip(count - tail).collect();
+    format!("{head_str}…{tail_str}")
 }
 
 fn render_toasts(ctx: &egui::Context, toasts: &[String]) {

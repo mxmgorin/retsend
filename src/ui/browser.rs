@@ -1,7 +1,7 @@
 //! File browser renderer: breadcrumb header, dirs-first listing with
 //! selection checkboxes, and a footer with the running selection total.
 
-use super::theme;
+use super::{theme, truncate_middle};
 use crate::overlay::browser::{BrowserMode, FileBrowser};
 use egui_sdl2::egui;
 
@@ -46,7 +46,7 @@ pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
                 ("Start", if picking_dir { "Choose here" } else { "Send" }),
             ];
             if !picking_dir {
-                hints.push(("X", "Dir"));
+                hints.push(("X", "All"));
             }
             hints.push((
                 "Y",
@@ -141,18 +141,4 @@ pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
             }
         });
     });
-}
-
-/// Keep the tail of a long path visible: `/very/…/deep/folder`.
-fn truncate_middle(s: &str, max_chars: usize) -> String {
-    let count = s.chars().count();
-    if count <= max_chars {
-        return s.to_string();
-    }
-    let keep = max_chars.saturating_sub(1);
-    let head = keep / 3;
-    let tail = keep - head;
-    let head_str: String = s.chars().take(head).collect();
-    let tail_str: String = s.chars().skip(count - tail).collect();
-    format!("{head_str}…{tail_str}")
 }
