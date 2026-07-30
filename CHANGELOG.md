@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-30
+
 ### Changed
 
 - Every footer now ends with A, so the confirm hint sits under the same thumb on
@@ -27,7 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   save directory, so the folders the files will actually land in are visible
   before pressing A — one line per folder when the save routes spread a request
   over several, up to four before the rest collapse into a count.
-
 - X in the send browser selects every file of the current folder (and clears them
   again), so a folder full of saves goes out without walking the list. Subfolders
   stay out: the protocol only carries a flat list of files.
@@ -36,7 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anywhere in the tree, a pinned file can be sent without navigating
   (`[transfer] pinned_paths`). The send browser also reopens where the last send
   came from (`[transfer] last_send_dir`).
-
 - Automatic save routes: received ROMs are sorted into the console folders that
   already exist in the save directory, using the folder names KNULLI, ROCKNIX,
   and muOS each actually use. Nothing is created, and only extensions that name
@@ -73,5 +73,6 @@ use (Knulli, muOS, ROCKNIX), running on desktop Linux too.
 - Brand wordmark and window icon.
 - Builds for Linux x86_64 and aarch64, with PortMaster packaging.
 
-[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/mxmgorin/retsend/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/mxmgorin/retsend/releases/tag/v0.1.0
