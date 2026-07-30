@@ -29,7 +29,7 @@ this is the missing end: a client built for a gamepad and screen, moving files b
 
 - **Discovery** — a live radar of nearby devices (LocalSend protocol v2.1).
 - **Receive** — accept/decline dialog with countdown, speed/ETA, and cancel from either side; quick-save mode auto-accepts.
-- **Send** — gamepad file browser with multi-select and per-file progress; pin the folders and files you send often and they lead every listing.
+- **Send** — gamepad file browser with multi-select and per-file progress; pin the folders and files you send often and they lead every listing. A send is a flat list of files: the protocol has no folders.
 - **Save routes** — received ROMs land in the console folder they belong to, detected from the card; per-extension overrides on top.
 - **Encryption** — the protocol's HTTPS mode, on by default; works with the official app's default settings both ways.
 - **Settings on device** — alias, save folder, and port, applied live.
@@ -83,29 +83,33 @@ cargo test
 
 ## Configuration
 
-`config.toml` lives in the data dir (created with defaults on first run) and
-everything in it is also editable from the Settings screen, except:
+`config.toml` lives in the data dir (created with defaults on first run). The
+Settings screen edits everything in it except:
 
 - `[network] https = false` — fall back to the protocol's plain-http mode
 - `[network] announce_interval_secs` — multicast announce cadence
 - `[transfer] browser_roots` — extra mount points for the file browser
 - `[transfer] history_limit` — max transfers kept in the History tab (default 200)
+- `[transfer] pinned_paths`, `last_send_dir` — written by Y and by sending
 
-Received files land in `save_dir` by default, but ROMs are sorted on their own:
-retsend looks for the console folders already present in `save_dir` and routes by
-extension — `.gba` into `gba`, `.sfc` into `snes`, `.ws` into `wswan`. The folder
-names come from KNULLI, ROCKNIX, and muOS themselves, which disagree (Mega Drive
-is `megadrive`, `genesis`, and `md` respectively — all three are recognized), and
-SD-card templates that rename folders to `Nintendo Game Boy Advance (GBA)` are
-matched through the code in parentheses. Nothing is created for you: a console
-folder that isn't there gets no route, so on desktop this does nothing. Only
-extensions that name exactly one console take part — `.zip`, `.iso`, `.bin`, and
-`.md` never do. Turn it off with **Settings → Auto save routes** or
-`[transfer] auto_routes = false`.
+Environment variables override paths and control logging at launch:
+`RETSEND_DATA_DIR`, `RETSEND_CONFIG`, `RETSEND_SAVE_DIR`, `RETSEND_SCALE`,
+`RETSEND_GLES=0|1`, `RETSEND_LOG_LEVEL`, `RETSEND_LOG_FILE`,
+`RETSEND_PANIC_FILE`.
 
-`[transfer.routes]` overrides all of that per file extension, and wins over the
-detected routes. Edit it on the device from **Settings → Save routes** (type the
-extension, pick the folder), or in the config:
+### Save routes
+
+Received files land in `save_dir`, except ROMs: those are routed by extension
+into the console folders already present in `save_dir` — `.gba` into `gba`,
+`.sfc` into `snes`. The folder names come from KNULLI, ROCKNIX, and muOS, which
+disagree (Mega Drive is `megadrive`, `genesis`, or `md` — all recognized), and
+renamed folders like `Nintendo Game Boy Advance (GBA)` are matched by the code in
+parentheses. Nothing is created, so a missing folder gets no route, and ambiguous
+extensions (`.zip`, `.iso`, `.bin`, `.md`) never take part. Off via
+**Settings → Auto save routes** or `[transfer] auto_routes = false`.
+
+Per-extension overrides win over the detected routes — **Settings → Save routes**
+on the device, or:
 
 ```toml
 [transfer.routes]
@@ -114,23 +118,5 @@ gba = "/roms/gba"             # absolute → used as-is
 png = "/roms/screenshots"
 ```
 
-Extensions match case-insensitively, folders are created on demand, and
-anything without a matching route still lands in `save_dir`.
-
-**X** in the send browser takes every file of the folder you are looking at into
-the selection, and gives them back on a second press. Subfolders are left alone:
-the protocol has no notion of a directory, so a send is always a flat list of
-files — see `sanitize_filename` for what that means on the receiving end.
-
-**Y** pins whatever the cursor is on — a folder you send from often, or a single
-file. Pinned rows lead every listing, so a pinned folder is one press away from
-anywhere in the tree, and a pinned file can be selected and sent without
-navigating at all. Pins live in `[transfer] pinned_paths`; the folder pickers list
-only the pinned folders, and a pin on a card that isn't in the slot is skipped
-rather than shown dead. The send browser also reopens in the folder your last send
-came from (`[transfer] last_send_dir`).
-
-Environment variables override paths and control logging at launch:
-`RETSEND_DATA_DIR`, `RETSEND_CONFIG`, `RETSEND_SAVE_DIR`, `RETSEND_SCALE`,
-`RETSEND_GLES=0|1`, `RETSEND_LOG_LEVEL`, `RETSEND_LOG_FILE`,
-`RETSEND_PANIC_FILE`.
+Extensions match case-insensitively, folders are created on demand, and anything
+unrouted lands in `save_dir`.
