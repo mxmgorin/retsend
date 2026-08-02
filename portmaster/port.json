@@ -37,7 +37,8 @@
         "availability": "free",
         "reqs": [],
         "arch": [
-            "aarch64"
+            "aarch64",
+            "armhf"
         ],
         "min_glibc": ""
     }

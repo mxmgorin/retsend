@@ -18,7 +18,8 @@ get_controls
 
 GAMEDIR=/$directory/ports/retsend/
 
-BINNAME="retsend"
+BINNAME="retsend.${DEVICE_ARCH:-aarch64}"
+[ -x "$GAMEDIR/$BINNAME" ] || BINNAME="retsend"
 if [ ! -x "$GAMEDIR/$BINNAME" ]; then
   echo "ERROR: no runnable retsend binary found in $GAMEDIR" >&2
   exit 1
