@@ -390,9 +390,9 @@ dependencies = [
 
 [[package]]
 name = "egui-sdl2"
-version = "0.5.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9a32754755376f4feda9fe52d8c1edb367a9b55376d03d9962195652d4fea07"
+checksum = "7a10609f6fb889c715a0ba9e6888b7cf407f949d8e03bc46268ebf24cbdb1147"
 dependencies = [
  "egui",
  "egui_glow",
