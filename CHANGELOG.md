@@ -7,18 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-02
+
 ### Added
-
-- Missing GL is no longer fatal: GLES 3.0, then desktop GL, then SDL's renderer
-  (software if that is all there is). `RETSEND_SOFTWARE=1` skips GL outright.
-
-- armhf builds for 32-bit handhelds: a `retsend-linux-armhf.zip` release asset,
-  and both binaries in the PortMaster zip, picked by `DEVICE_ARCH` at launch.
-- The incoming-request modal takes a folder: X opens the browser, Start drops
-  that transfer into the folder on screen. The pick is the whole answer to
-  "where" — save routes are skipped, so nothing gets moved out of the folder
-  just chosen. The request keeps counting down while you browse, so the header
-  shows the seconds left before it auto-declines.
 
 - Devices can be added to the radar by IP: X on the Send tab types `ip[:port]`
   (port defaults to 53317) and registers with whatever answers there — the way
@@ -27,6 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   giving up, and a hand-added device stays on the radar instead of expiring
   after two minutes of silence. It still has to be routable: this replaces
   discovery, not the network path.
+- The incoming-request modal takes a folder: X opens the browser, Start drops
+  that transfer into the folder on screen. The pick is the whole answer to
+  "where" — save routes are skipped, so nothing gets moved out of the folder
+  just chosen. The request keeps counting down while you browse, so the header
+  shows the seconds left before it auto-declines.
+- armhf builds for 32-bit handhelds: a `retsend-linux-armhf.zip` release asset,
+  and both binaries in the PortMaster zip, picked by `DEVICE_ARCH` at launch.
+- Missing GL is no longer fatal: GLES 3.0, then desktop GL, then SDL's renderer
+  (software if that is all there is). `RETSEND_SOFTWARE=1` skips GL outright.
 
 ## [0.2.1] - 2026-07-30
 
@@ -103,7 +103,8 @@ use (Knulli, muOS, ROCKNIX), running on desktop Linux too.
 - Brand wordmark and window icon.
 - Builds for Linux x86_64 and aarch64, with PortMaster packaging.
 
-[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/mxmgorin/retsend/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/mxmgorin/retsend/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/mxmgorin/retsend/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/mxmgorin/retsend/releases/tag/v0.1.0
