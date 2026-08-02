@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- armhf builds for 32-bit handhelds: a `retsend-linux-armhf.zip` release asset,
+  and both binaries in the PortMaster zip, picked by `DEVICE_ARCH` at launch.
 - The incoming-request modal takes a folder: X opens the browser, Start drops
   that transfer into the folder on screen. The pick is the whole answer to
   "where" — save routes are skipped, so nothing gets moved out of the folder

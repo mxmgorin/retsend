@@ -18,7 +18,8 @@ jobs:
           set -eux
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config ca-certificates libsdl2-dev
+            build-essential pkg-config ca-certificates libsdl2-dev \
+            gcc-arm-linux-gnueabihf
 
       - name: Rust toolchain
         run: |
@@ -36,3 +37,14 @@ jobs:
       # against the receive server, plus the loopback send worker.
       - name: Test
         run: cargo test
+
+      # armhf is a release target but nothing else here compiles 32-bit. No
+      # linking, so only ring's C code needs the cross compiler — no SDL
+      # sysroot (the release build gets one, see Cross.toml).
+      - name: Check armhf
+        env:
+          CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
+        run: |
+          set -eux
+          rustup target add armv7-unknown-linux-gnueabihf
+          cargo check --all-targets --target armv7-unknown-linux-gnueabihf
