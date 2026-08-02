@@ -27,7 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and both binaries in the PortMaster zip, picked by `DEVICE_ARCH` at launch.
 - Missing GL is no longer fatal: GLES 3.0, then desktop GL, then SDL's renderer
   (software if that is all there is). `RETSEND_SOFTWARE=1` skips GL outright.
-  The armhf build stays glow-only: that painter needs SDL 2.0.18.
+  Every build needs SDL 2.0.18 or newer on the device now — that painter calls
+  `SDL_RenderGeometry`.
 
 ## [0.2.1] - 2026-07-30
 

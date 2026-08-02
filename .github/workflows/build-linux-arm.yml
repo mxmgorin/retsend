@@ -75,7 +75,22 @@ jobs:
           # build-essential too: build scripts compile for the host.
           apt-get install -y --no-install-recommends \
             build-essential crossbuild-essential-armhf pkg-config \
-            ca-certificates curl git libsdl2-dev:armhf
+            ca-certificates curl git
+
+      - name: SDL2 for linking
+        run: |
+          set -eux
+          # Debian 11 ships SDL 2.0.14, which predates SDL_RenderGeometry — the
+          # call egui's canvas painter is built on. Unpack bookworm's armhf SDL
+          # into a prefix of its own instead of pulling the suite in through
+          # apt, which would drag a newer libc along and raise the glibc floor.
+          pool=http://deb.debian.org/debian/pool/main/libs/libsdl2
+          ver=2.26.5+dfsg-1
+          for pkg in libsdl2-2.0-0 libsdl2-dev; do
+            curl -fsSLO "$pool/${pkg}_${ver}_armhf.deb"
+            dpkg -x "${pkg}_${ver}_armhf.deb" /opt/sdl2
+          done
+          ls -l /opt/sdl2/usr/lib/arm-linux-gnueabihf/libSDL2*
 
       - uses: actions/checkout@v4
 
@@ -93,13 +108,11 @@ jobs:
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
           CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
           CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
+          RUSTFLAGS: "-L /opt/sdl2/usr/lib/arm-linux-gnueabihf"
         run: |
           set -eux
           rustup target add armv7-unknown-linux-gnueabihf
-          # No software-render: Debian 11's SDL 2.0.14 has no SDL_RenderGeometry,
-          # and neither do the userlands this build targets.
-          cargo build --release --no-default-features \
-            --target armv7-unknown-linux-gnueabihf
+          cargo build --release --target armv7-unknown-linux-gnueabihf
 
       - name: Stage binary
         run: |
