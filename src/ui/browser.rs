@@ -2,21 +2,37 @@
 //! selection checkboxes, and a footer with the running selection total.
 
 use super::{theme, truncate_middle};
-use crate::overlay::browser::{BrowserMode, FileBrowser};
+use crate::overlay::browser::{BrowserMode, DirPurpose, FileBrowser};
 use egui_sdl2::egui;
 
-pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
+/// `deadline_secs` is set only while the browser is picking a destination for
+/// a parked incoming request: the modal (and its countdown bar) is hidden
+/// behind us, so the seconds left have to show up here.
+pub fn render(
+    root: &mut egui::Ui,
+    browser: &FileBrowser,
+    target_alias: &str,
+    deadline_secs: Option<u32>,
+) {
     let picking_dir = browser.mode == BrowserMode::PickDir;
+    let for_incoming = picking_dir && browser.dir_purpose == DirPurpose::Incoming;
     egui::Panel::top(super::TOP_PANEL_ID).show(root, |ui| {
         ui.add_space(6.0);
         ui.horizontal(|ui| {
-            let title = if picking_dir {
-                "Choose the save folder".to_string()
-            } else {
-                format!("Send to {target_alias}")
+            let title = match (picking_dir, for_incoming) {
+                (_, true) => format!("Save files from {target_alias} here"),
+                (true, false) => "Choose the save folder".to_string(),
+                (false, _) => format!("Send to {target_alias}"),
             };
             ui.label(egui::RichText::new(title).size(theme::ROW_FONT).strong());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if let Some(secs) = deadline_secs {
+                    ui.label(
+                        egui::RichText::new(format!("{secs}s"))
+                            .size(theme::DETAIL_FONT)
+                            .color(theme::ACCENT),
+                    );
+                }
                 ui.label(
                     egui::RichText::new(truncate_middle(&browser.cwd.display().to_string(), 48))
                         .size(theme::DETAIL_FONT)
@@ -41,10 +57,12 @@ pub fn render(root: &mut egui::Ui, browser: &FileBrowser, target_alias: &str) {
             }
             // Built rather than a literal: X has nothing to do while a folder is
             // being chosen, and six hints is already tight on a 320px screen.
-            let mut hints: Vec<(&str, &str)> = vec![
-                ("Select", "Roots"),
-                ("Start", if picking_dir { "Choose here" } else { "Send" }),
-            ];
+            let start_hint = match (picking_dir, for_incoming) {
+                (_, true) => "Save here",
+                (true, false) => "Choose here",
+                (false, _) => "Send",
+            };
+            let mut hints: Vec<(&str, &str)> = vec![("Select", "Roots"), ("Start", start_hint)];
             if !picking_dir {
                 hints.push(("X", "All"));
             }

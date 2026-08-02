@@ -203,6 +203,16 @@ impl AppUi {
         };
 
         let prompt_data = prompt_data(net);
+        // The destination picker stands in for the modal while it is up: the
+        // request keeps counting down, so the browser shows what is left of
+        // the deadline and the modal itself stays hidden behind it.
+        let picking_incoming = self.browser.open
+            && self.browser.dir_purpose == crate::overlay::browser::DirPurpose::Incoming;
+        let deadline_secs = prompt_data.as_ref().filter(|_| picking_incoming).map(|p| {
+            (p.remaining * DECISION_TIMEOUT.as_secs_f32())
+                .max(0.0)
+                .ceil() as u32
+        });
         let transfer_data = self.transfer_data();
         let active_tab = self.tabs.active();
         let settings_state = &self.settings;
@@ -222,7 +232,12 @@ impl AppUi {
             // editor, the About screen, and the transfer takeover outrank the
             // tabs; otherwise the tab bar plus the active tab's body.
             if self.browser.open {
-                browser::render(&mut root, &self.browser, &self.browser.target_alias);
+                browser::render(
+                    &mut root,
+                    &self.browser,
+                    &self.browser.target_alias,
+                    deadline_secs,
+                );
             } else if routes_open {
                 routes::render(&mut root, &routes_data);
             } else if self.about.open {
@@ -240,7 +255,7 @@ impl AppUi {
                     }
                 }
             }
-            if let Some(p) = &prompt_data {
+            if let Some(p) = prompt_data.as_ref().filter(|_| !picking_incoming) {
                 prompt::render(ctx, p);
             }
             if self.osk.active {

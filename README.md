@@ -29,7 +29,7 @@ this is the missing end: a client built for a gamepad and screen, moving files b
 
 - **Discovery** — a live radar of nearby devices (LocalSend protocol v2.1), with
   a manually typed IP address for the networks that block multicast.
-- **Receive** — accept/decline dialog with countdown, speed/ETA, and cancel from either side; quick-save mode auto-accepts.
+- **Receive** — accept/decline dialog with countdown, speed/ETA, and cancel from either side; X picks a folder for that one transfer; quick-save mode auto-accepts.
 - **Send** — gamepad file browser with multi-select and per-file progress; pin the folders and files you send often and they lead every listing. A send is a flat list of files: the protocol has no folders.
 - **Save routes** — received ROMs land in the console folder they belong to, detected from the card; per-extension overrides on top.
 - **Encryption** — the protocol's HTTPS mode, on by default; works with the official app's default settings both ways.
@@ -76,7 +76,7 @@ cargo test
 | D-pad / stick| Arrows     | Navigate                                      |
 | A            | Enter      | Send to device · select file · accept · type  |
 | B            | Esc        | Back · decline · cancel · leave the keyboard  |
-| X            | X / Bksp   | Add a device by IP · erase a character · take every file in the folder |
+| X            | X / Bksp   | Add a device by IP · pick where an incoming transfer lands · erase a character · take every file in the folder |
 | Y            | Y          | Pin / unpin the row under the cursor          |
 | Start        | F1         | Confirm send · OK (keyboard)                  |
 | Select       | Tab / F5   | Refresh radar · switch roots · layer (keyboard)|

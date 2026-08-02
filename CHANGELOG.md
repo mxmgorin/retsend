@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The incoming-request modal takes a folder: X opens the browser, Start drops
+  that transfer into the folder on screen. The pick is the whole answer to
+  "where" — save routes are skipped, so nothing gets moved out of the folder
+  just chosen. The request keeps counting down while you browse, so the header
+  shows the seconds left before it auto-declines.
+
 - Devices can be added to the radar by IP: X on the Send tab types `ip[:port]`
   (port defaults to 53317) and registers with whatever answers there — the way
   in on networks where multicast discovery never arrives, like guest Wi-Fi and

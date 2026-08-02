@@ -8,7 +8,7 @@ use crate::config::AppConfig;
 use crate::event::user::UserEventSender;
 use crate::event::AppEventHandler;
 use crate::net::NetService;
-use crate::overlay::browser::BrowserMode;
+use crate::overlay::browser::{BrowserMode, DirPurpose};
 use crate::overlay::osk::{OskEvent, OskTarget};
 use crate::overlay::routes::RouteCursor;
 use crate::overlay::settings::SettingsRow;
@@ -137,11 +137,14 @@ impl App {
     }
 
     /// Input precedence: the incoming modal outranks everything, then the
-    /// full-screen overlays, then the tabs.
+    /// full-screen overlays, then the tabs. The exception is the folder
+    /// browser opened *from* that modal to pick where the files land — the
+    /// request stays parked, but the browser owns the buttons.
     fn focus(&self) -> Focus {
         if self.ui.osk.active {
             Focus::Osk
-        } else if self.net.shared.pending.lock().unwrap().is_some() {
+        } else if self.net.shared.pending.lock().unwrap().is_some() && !self.picking_incoming_dir()
+        {
             Focus::Prompt
         } else if self.ui.browser.open {
             Focus::Browser
@@ -217,6 +220,10 @@ impl App {
                     self.ui.toasts.push(format!("Declined {sender}"));
                 }
             }
+            // X: choose the folder for this transfer instead of taking the
+            // configured one. The request stays parked (and counting down)
+            // while the browser is up.
+            (Focus::Prompt, AppCommand::Alt) => self.browse_for_incoming_dir(),
             (Focus::Prompt, _) => {}
 
             (Focus::Transfer, AppCommand::Back) => {
@@ -259,8 +266,11 @@ impl App {
             // save-dir setting or a pending route's folder).
             (Focus::Browser, AppCommand::Start) => match self.ui.browser.mode {
                 BrowserMode::PickFiles => self.send_selection(),
-                BrowserMode::PickDir if self.ui.routes.pending_ext.is_some() => self.finish_route(),
-                BrowserMode::PickDir => self.choose_save_dir(),
+                BrowserMode::PickDir => match self.ui.browser.dir_purpose {
+                    DirPurpose::SaveDir => self.choose_save_dir(),
+                    DirPurpose::Route => self.finish_route(),
+                    DirPurpose::Incoming => self.accept_incoming_into(),
+                },
             },
             // Select: jump between mount points.
             (Focus::Browser, AppCommand::ReAnnounce) => {
@@ -371,6 +381,8 @@ impl App {
                     &start,
                     &self.config.transfer.browser_roots,
                     &self.config.transfer.pinned_paths,
+                    DirPurpose::SaveDir,
+                    "",
                 );
             }
             SettingsRow::QuickSave => self.toggle_quick_save(),
@@ -586,6 +598,8 @@ impl App {
                     &start,
                     &self.config.transfer.browser_roots,
                     &self.config.transfer.pinned_paths,
+                    DirPurpose::Route,
+                    "",
                 );
             }
             OskEvent::Committed(OskTarget::PeerAddress, value) => {
@@ -601,6 +615,52 @@ impl App {
             }
             OskEvent::Cancelled => {}
         }
+    }
+
+    /// Is the browser up to give the parked incoming request a folder?
+    fn picking_incoming_dir(&self) -> bool {
+        self.ui.browser.open && self.ui.browser.dir_purpose == DirPurpose::Incoming
+    }
+
+    /// X on the incoming modal: browse for this transfer's destination,
+    /// starting from the configured save directory.
+    fn browse_for_incoming_dir(&mut self) {
+        let sender = {
+            let pending = self.net.shared.pending.lock().unwrap();
+            let Some(pending) = pending.as_ref() else {
+                return;
+            };
+            pending.sender.alias.clone()
+        };
+        let start = PathBuf::from(&self.config.transfer.save_dir);
+        self.ui.browser.open_for_dir(
+            &start,
+            &self.config.transfer.browser_roots,
+            &self.config.transfer.pinned_paths,
+            DirPurpose::Incoming,
+            &sender,
+        );
+    }
+
+    /// Start in the browser opened from the incoming modal: accept the parked
+    /// request into the cwd. The save routes are skipped — the folder on
+    /// screen is the answer to where these files go.
+    fn accept_incoming_into(&mut self) {
+        let dir = self.ui.browser.cwd.clone();
+        self.ui.browser.close();
+        let Some(pending) = self.net.shared.pending.lock().unwrap().take() else {
+            // The 60 s deadline passed while the folder was being picked.
+            self.ui.toasts.push("Request expired");
+            return;
+        };
+        pending.accept_into(dir.clone());
+        self.ui.routes.close();
+        self.ui.about.close();
+        self.ui.transfer.open();
+        self.ui.toasts.push(format!(
+            "Saving into {}",
+            crate::ui::truncate_middle(&dir.display().to_string(), crate::ui::PATH_CHARS)
+        ));
     }
 
     /// Start in PickDir mode: the cwd becomes the save directory.
