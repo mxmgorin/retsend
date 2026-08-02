@@ -7,6 +7,7 @@
 pub mod client;
 pub mod discovery;
 pub mod httpd;
+pub mod manual;
 pub mod protocol;
 pub mod server;
 pub mod tls;
@@ -32,6 +33,8 @@ pub enum WakeReason {
     Incoming,
     Progress,
     Done,
+    /// A net thread queued a message for the UI to toast.
+    Notice,
 }
 
 /// Receive behavior the server consults per request. A snapshot of
@@ -74,9 +77,24 @@ pub struct NetShared {
     /// lifetime). Incoming prepare-uploads answer 409 while it's up — one
     /// transfer at a time keeps the UI honest on a small screen.
     pub outbound_active: AtomicBool,
+    /// Messages from net threads for the UI to toast (a manual add's outcome).
+    /// Drained once per pass of the main loop.
+    pub notices: Mutex<Vec<String>>,
     pub wake: Arc<dyn Wake>,
     /// Set by [`NetService::stop`]; every loop polls it and exits.
     pub shutdown: AtomicBool,
+}
+
+impl NetShared {
+    /// Queue a message for the UI to toast, and wake it to pick it up.
+    pub fn notify(&self, message: String) {
+        self.notices.lock().unwrap().push(message);
+        self.wake.wake(WakeReason::Notice);
+    }
+
+    pub fn take_notices(&self) -> Vec<String> {
+        std::mem::take(&mut self.notices.lock().unwrap())
+    }
 }
 
 /// Handle owning the net threads: HTTP accept loop, multicast listener,
@@ -126,6 +144,7 @@ impl NetService {
             pending: Mutex::new(None),
             active: Mutex::new(None),
             outbound_active: AtomicBool::new(false),
+            notices: Mutex::new(Vec::new()),
             wake,
             shutdown: AtomicBool::new(false),
         });

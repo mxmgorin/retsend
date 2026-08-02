@@ -115,6 +115,10 @@ impl App {
             for toast in outcome.toasts {
                 self.ui.toasts.push(toast);
             }
+            // Outcomes reported by net threads (a manual add's probe).
+            for notice in self.net.shared.take_notices() {
+                self.ui.toasts.push(notice);
+            }
             if let Some(entry) = outcome.recorded {
                 self.history.record(entry);
             }
@@ -289,6 +293,13 @@ impl App {
             (Focus::Tabs, AppCommand::PageDown) => self.switch_tab(1),
             (Focus::Tabs, AppCommand::Nav(dir)) => self.tab_nav(dir),
             (Focus::Tabs, AppCommand::Confirm) => self.tab_confirm(),
+            // X on the radar: type a peer's address, for the networks where
+            // multicast discovery never reaches us.
+            (Focus::Tabs, AppCommand::Alt) if self.ui.tabs.active() == Tab::Send => {
+                self.ui
+                    .osk
+                    .open(OskTarget::PeerAddress, &local_subnet_prefix());
+            }
             (
                 Focus::Tabs,
                 AppCommand::Start | AppCommand::Back | AppCommand::TogglePin | AppCommand::Alt,
@@ -577,6 +588,17 @@ impl App {
                     &self.config.transfer.pinned_paths,
                 );
             }
+            OskEvent::Committed(OskTarget::PeerAddress, value) => {
+                match crate::net::manual::parse_address(&value) {
+                    // The probe runs on its own thread; its outcome arrives as
+                    // a notice the main loop turns into a toast.
+                    Ok(addr) => {
+                        self.ui.toasts.push(format!("Looking for {addr}…"));
+                        crate::net::manual::spawn_probe(self.net.shared.clone(), addr);
+                    }
+                    Err(message) => self.ui.toasts.push(message),
+                }
+            }
             OskEvent::Cancelled => {}
         }
     }
@@ -676,6 +698,19 @@ fn nav_delta(dir: Direction) -> i32 {
         Direction::Up => -1,
         Direction::Down => 1,
         Direction::Left | Direction::Right => 0,
+    }
+}
+
+/// A head start for typing a peer's address on a d-pad: a peer is nearly
+/// always on our own /24, so the keyboard opens on `192.168.1.` and only the
+/// last octet is left to type. Empty when we have no IPv4 address to borrow.
+fn local_subnet_prefix() -> String {
+    match crate::net::local_ip() {
+        Some(std::net::IpAddr::V4(ip)) => {
+            let [a, b, c, _] = ip.octets();
+            format!("{a}.{b}.{c}.")
+        }
+        _ => String::new(),
     }
 }
 

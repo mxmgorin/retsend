@@ -16,6 +16,8 @@ pub enum UserEvent {
     TransferProgress = 2,
     /// A transfer finished or failed.
     TransferDone = 3,
+    /// A net thread has a message for the UI to toast.
+    Notice = 4,
 }
 
 #[derive(Clone)]
@@ -56,6 +58,7 @@ impl crate::net::Wake for UserEventSender {
             crate::net::WakeReason::Incoming => UserEvent::IncomingRequest,
             crate::net::WakeReason::Progress => UserEvent::TransferProgress,
             crate::net::WakeReason::Done => UserEvent::TransferDone,
+            crate::net::WakeReason::Notice => UserEvent::Notice,
         });
     }
 }

@@ -8,6 +8,29 @@ pub enum OskTarget {
     Alias,
     /// A new route's file extension; the folder is picked next in the browser.
     RouteExt,
+    /// A peer's `ip[:port]`, to add it to the radar by hand.
+    PeerAddress,
+}
+
+impl OskTarget {
+    /// Layer to open on: an address is digits, dots and colons, which all live
+    /// on the symbols layer.
+    fn layer(self) -> usize {
+        match self {
+            OskTarget::Alias | OskTarget::RouteExt => 0,
+            OskTarget::PeerAddress => SYMBOL_LAYER,
+        }
+    }
+
+    /// Label above the buffer — an empty buffer says nothing about what the
+    /// keyboard was opened for.
+    pub fn prompt(self) -> &'static str {
+        match self {
+            OskTarget::Alias => "Device name",
+            OskTarget::RouteExt => "File extension",
+            OskTarget::PeerAddress => "Device IP, e.g. 192.168.1.23",
+        }
+    }
 }
 
 /// The user finished (or abandoned) input.
@@ -29,13 +52,19 @@ pub enum Key {
 const CHAR_ROWS: [[&str; 3]; 3] = [
     ["qwertyuiop", "asdfghjkl-", "zxcvbnm._"],
     ["QWERTYUIOP", "ASDFGHJKL-", "ZXCVBNM._"],
-    ["1234567890", "!@#$%^&*()", "+=[]{}:;'"],
+    // The digits row carries `.`, `:` and the IPv6 brackets below it, so a
+    // whole address can be typed without leaving this layer.
+    ["1234567890", "!@#$%^&*()", "+=[]{}:;'."],
 ];
+/// Index into [`CHAR_ROWS`] of the digits/punctuation layer.
+const SYMBOL_LAYER: usize = 2;
 const LAYER_NAMES: [&str; 3] = ["abc", "ABC", "123"];
 /// Bottom row: wide special keys.
 const SPECIAL_ROW: [Key; 4] = [Key::Layer, Key::Space, Key::Backspace, Key::Ok];
 
-const MAX_LEN: usize = 40;
+/// `[` + a full IPv6 literal + `]:` + a port — the longest input any target
+/// takes.
+const MAX_LEN: usize = "[0000:0000:0000:0000:0000:0000:0000:0000]:65535".len();
 
 pub struct Osk {
     pub active: bool,
@@ -64,7 +93,7 @@ impl Osk {
         self.buffer = initial.to_string();
         self.row = 0;
         self.col = 0;
-        self.layer = 0;
+        self.layer = target.layer();
     }
 
     /// Rows of the current layer, the special row last.
@@ -175,6 +204,17 @@ mod tests {
         osk.open(OskTarget::Alias, "abc");
         assert!(matches!(osk.cancel(), OskEvent::Cancelled));
         assert!(!osk.active);
+    }
+
+    #[test]
+    fn an_address_opens_on_the_digits_layer() {
+        let mut osk = Osk::new();
+        osk.open(OskTarget::PeerAddress, "");
+        osk.press(); // '1' at 0,0
+        osk.move_cursor(0, 2); // down to the punctuation row
+        osk.move_cursor(9, 0); // its last key
+        osk.press();
+        assert_eq!(osk.buffer, "1.");
     }
 
     #[test]

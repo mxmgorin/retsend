@@ -52,6 +52,7 @@ fn start_receiver(auto_accept: bool) -> (Arc<NetShared>, String, PathBuf, impl F
         pending: Mutex::new(None),
         active: Mutex::new(None),
         outbound_active: AtomicBool::new(false),
+        notices: Mutex::new(Vec::new()),
         wake: Arc::new(NoopWake),
         shutdown: AtomicBool::new(false),
     });
@@ -170,6 +171,7 @@ fn sends_to_an_https_receiver() {
         pending: Mutex::new(None),
         active: Mutex::new(None),
         outbound_active: AtomicBool::new(false),
+        notices: Mutex::new(Vec::new()),
         wake: Arc::new(NoopWake),
         shutdown: AtomicBool::new(false),
     });

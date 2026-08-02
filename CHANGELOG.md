@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Devices can be added to the radar by IP: X on the Send tab types `ip[:port]`
+  (port defaults to 53317) and registers with whatever answers there — the way
+  in on networks where multicast discovery never arrives, like guest Wi-Fi and
+  AP-isolated access points. HTTPS is tried before plain HTTP, `/info` before
+  giving up, and a hand-added device stays on the radar instead of expiring
+  after two minutes of silence. It still has to be routable: this replaces
+  discovery, not the network path.
+
 ## [0.2.1] - 2026-07-30
 
 ### Fixed
