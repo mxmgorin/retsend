@@ -120,7 +120,10 @@ pub fn render(ctx: &egui::Context, data: &PromptData) {
                     ui.painter().rect_filled(lit, 2.0, theme::ACCENT);
 
                     ui.add_space(10.0);
-                    super::home::hint_bar(ui, &[("B", "Decline"), ("A", "Accept")]);
+                    super::home::hint_bar(
+                        ui,
+                        &[("B", "Decline"), ("X", "Folder"), ("A", "Accept")],
+                    );
                 });
         });
 }

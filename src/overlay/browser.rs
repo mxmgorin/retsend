@@ -40,14 +40,29 @@ pub struct PinChange {
 pub enum BrowserMode {
     /// Multi-select files to send.
     PickFiles,
-    /// Navigate to a directory; Start chooses the cwd (save-dir setting).
+    /// Navigate to a directory; Start chooses the cwd.
     PickDir,
+}
+
+/// What Start applies the chosen directory to. Only meaningful in
+/// [`BrowserMode::PickDir`].
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum DirPurpose {
+    /// The save-directory setting.
+    SaveDir,
+    /// The destination folder of the route being added.
+    Route,
+    /// Where the parked incoming request should land — that request keeps
+    /// counting down while this browser is up, so it also owns the input.
+    Incoming,
 }
 
 pub struct FileBrowser {
     pub open: bool,
     pub mode: BrowserMode,
-    /// Shown in the header: who the selection will be sent to.
+    pub dir_purpose: DirPurpose,
+    /// Shown in the header: who the selection will be sent to, or whose
+    /// incoming files are being given a folder.
     pub target_alias: String,
     pub cwd: PathBuf,
     pub entries: Vec<Entry>,
@@ -66,6 +81,7 @@ impl FileBrowser {
         Self {
             open: false,
             mode: BrowserMode::PickFiles,
+            dir_purpose: DirPurpose::SaveDir,
             target_alias: String::new(),
             cwd: PathBuf::new(),
             entries: Vec::new(),
@@ -103,9 +119,19 @@ impl FileBrowser {
     }
 
     /// Open to choose a directory, starting at `start` when it exists.
-    pub fn open_for_dir(&mut self, start: &Path, extra_roots: &[String], pinned_paths: &[String]) {
+    /// `purpose` decides what Start does with the folder landed on; `about`
+    /// names the peer for the header, empty when the pick is about no one.
+    pub fn open_for_dir(
+        &mut self,
+        start: &Path,
+        extra_roots: &[String],
+        pinned_paths: &[String],
+        purpose: DirPurpose,
+        about: &str,
+    ) {
         self.mode = BrowserMode::PickDir;
-        self.target_alias.clear();
+        self.dir_purpose = purpose;
+        self.target_alias = about.to_string();
         self.roots = build_roots(extra_roots);
         self.pinned = existing_paths(pinned_paths);
         self.root_index = 0;
@@ -526,6 +552,8 @@ mod tests {
             &root,
             &[],
             &[file.display().to_string(), games.display().to_string()],
+            DirPurpose::SaveDir,
+            "",
         );
 
         let pinned: Vec<&PathBuf> = b
@@ -614,7 +642,7 @@ mod tests {
         let root = temp_tree();
         let mut b = FileBrowser::new();
         b.roots = vec![root.to_path_buf()];
-        b.open_for_dir(&root, &[], &[]);
+        b.open_for_dir(&root, &[], &[], DirPurpose::SaveDir, "");
         assert!(b.toggle_folder_files().is_none());
         std::fs::remove_dir_all(&root).unwrap();
     }

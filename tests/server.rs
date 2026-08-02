@@ -603,3 +603,44 @@ fn a_dead_address_says_so() {
     assert_eq!(probe_notice(&prober), "No device at 127.0.0.1:1");
     assert!(prober.peers.snapshot().is_empty());
 }
+
+#[test]
+fn a_chosen_folder_takes_the_files_whatever_the_routes_say() {
+    let (shared, port, stop) = start_server(false);
+    shared.transfer.lock().unwrap().routes =
+        std::collections::BTreeMap::from([("gbc".to_string(), "gb".to_string())]);
+    let save_dir = save_dir_of(&shared);
+    let chosen = save_dir.join("elsewhere");
+
+    let handle = std::thread::spawn(move || {
+        post(
+            port,
+            "/api/localsend/v2/prepare-upload",
+            &prepare_body(&[("a", "rom.gbc", 4)]),
+        )
+    });
+
+    // The modal offers the route's folder…
+    let dests = wait_for(|| {
+        shared
+            .pending
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|p| p.dests.clone())
+    });
+    assert_eq!(dests, vec![save_dir.join("gb").display().to_string()]);
+
+    // …but the user browsed to another one, and that answer is final.
+    let pending = shared.pending.lock().unwrap().take().expect("still parked");
+    pending.accept_into(chosen.clone());
+
+    let (status, body) = handle.join().unwrap();
+    assert_eq!(status, 200);
+    let (session_id, tokens) = tokens_of(&body);
+    assert_eq!(upload(port, &session_id, "a", &tokens["a"], b"rom!"), 200);
+
+    assert_eq!(std::fs::read(chosen.join("rom.gbc")).unwrap(), b"rom!");
+    assert!(!save_dir.join("gb").exists(), "the route must not apply");
+    stop();
+}

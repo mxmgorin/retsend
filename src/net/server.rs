@@ -27,7 +27,15 @@ pub const DECISION_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// The user's answer to an incoming request.
 pub enum Decision {
-    Accept { save_dir: PathBuf },
+    /// Into the configured save directory, save routes applied.
+    Accept {
+        save_dir: PathBuf,
+    },
+    /// Into a directory the user picked for this request; the save routes are
+    /// skipped, since they would move the files out of the folder just named.
+    AcceptInto {
+        dir: PathBuf,
+    },
     Decline,
 }
 
@@ -54,6 +62,11 @@ impl PendingRequest {
     /// installs the session into [`NetShared::active`].
     pub fn accept(self, save_dir: PathBuf) {
         let _ = self.decision_tx.send(Decision::Accept { save_dir });
+    }
+
+    /// Same, but everything lands in `dir` verbatim — the user browsed to it.
+    pub fn accept_into(self, dir: PathBuf) {
+        let _ = self.decision_tx.send(Decision::AcceptInto { dir });
     }
 
     pub fn decline(self) {
@@ -324,6 +337,17 @@ fn handle_prepare_upload<S: Read + Write>(
             save_dir,
             &settings.routes,
             settings.auto_routes,
+        ),
+        // A folder chosen for this request is the whole answer to "where":
+        // no routes, no auto routes, everything lands there.
+        Ok(Decision::AcceptInto { dir }) => start_session(
+            reader.get_mut(),
+            shared,
+            prepare.info,
+            files,
+            dir,
+            &std::collections::BTreeMap::new(),
+            false,
         ),
         Ok(Decision::Decline) | Err(_) => httpd::respond_empty(reader.get_mut(), 403),
     }
