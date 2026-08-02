@@ -108,7 +108,10 @@ jobs:
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
           CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
           CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
-          RUSTFLAGS: "-L /opt/sdl2/usr/lib/arm-linux-gnueabihf"
+          # --allow-shlib-undefined: this libSDL2 pulls in X11/wayland/alsa/gbm,
+          # none of which are in the armhf sysroot and none of which we call.
+          # The device loads its own SDL anyway; we only need its symbols here.
+          RUSTFLAGS: "-L /opt/sdl2/usr/lib/arm-linux-gnueabihf -C link-arg=-Wl,--allow-shlib-undefined"
         run: |
           set -eux
           rustup target add armv7-unknown-linux-gnueabihf
