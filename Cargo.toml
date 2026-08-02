@@ -7,8 +7,14 @@ description = "LocalSend client for retro handhelds (SDL2 + egui)"
 repository = "https://github.com/mxmgorin/retsend"
 
 [features]
+default = ["software-render"]
 sdl2-bundled = ["sdl2/bundled"]
 sdl2-static-link = ["sdl2/static-link"]
+# The fallback to SDL's renderer. egui's canvas painter calls
+# SDL_RenderGeometry, which is SDL 2.0.18+, so a build for a userland older
+# than that (armhf) drops this and stays glow-only — the symbol would otherwise
+# stop the binary from loading at all.
+software-render = ["egui-sdl2/canvas-backend"]
 
 # Local release builds stay cheap to compile (Cargo's release defaults); the
 # slow, fully-optimized settings are CI-only via CARGO_PROFILE_RELEASE_* env
@@ -20,7 +26,7 @@ overflow-checks = false
 
 [dependencies]
 sdl2 = { version = "0.38", default-features = false }
-egui-sdl2 = { version = "0.8", default-features = false, features = ["glow-backend", "canvas-backend"] }
+egui-sdl2 = { version = "0.8", default-features = false, features = ["glow-backend"] }
 # Pinned to what egui_glow (via egui-sdl2) uses — we hand it our glow::Context,
 # so the versions must match. Can only move when egui_glow bumps glow.
 glow = "0.17"
