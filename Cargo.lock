@@ -390,15 +390,17 @@ dependencies = [
 
 [[package]]
 name = "egui-sdl2"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a10609f6fb889c715a0ba9e6888b7cf407f949d8e03bc46268ebf24cbdb1147"
+checksum = "08ddc6bcb578dc6733651853c40be849b63738b3fba5e149708c586d97bfbf88"
 dependencies = [
+ "bytemuck",
  "egui",
  "egui_glow",
  "glow",
  "log",
  "sdl2",
+ "sdl2-sys",
 ]
 
 [[package]]
