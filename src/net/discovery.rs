@@ -29,6 +29,9 @@ pub struct Peer {
     /// From the announce/register body; the port we dial for transfers.
     pub port: u16,
     pub last_seen: Instant,
+    /// Typed in by hand (see [`super::manual`]). Nothing refreshes such a peer,
+    /// so it is exempt from [`PEER_TTL`] pruning.
+    pub manual: bool,
 }
 
 impl Peer {
@@ -37,9 +40,14 @@ impl Peer {
         self.info.protocol.as_deref().unwrap_or("http")
     }
 
-    /// Base URL for the peer's REST endpoints.
+    /// Base URL for the peer's REST endpoints. Built through [`SocketAddr`] so
+    /// an IPv6 peer comes out bracketed (`https://[fe80::1]:53317`).
     pub fn base_url(&self) -> String {
-        format!("{}://{}:{}", self.scheme(), self.ip, self.port)
+        format!(
+            "{}://{}",
+            self.scheme(),
+            SocketAddr::new(self.ip, self.port)
+        )
     }
 }
 
@@ -60,12 +68,26 @@ impl PeerRegistry {
         let Some(port) = info.port else {
             return false; // unreachable peer: nothing to dial
         };
+        self.insert(info, ip, port, false)
+    }
+
+    /// Insert/refresh a hand-typed peer at the address that answered. That
+    /// address wins over the announced port — it is the one we just proved
+    /// reachable — and the entry becomes sticky.
+    pub fn upsert_manual(&self, info: DeviceInfo, ip: IpAddr, port: u16) -> bool {
+        self.insert(info, ip, port, true)
+    }
+
+    fn insert(&self, info: DeviceInfo, ip: IpAddr, port: u16, manual: bool) -> bool {
         let mut peers = self.peers.lock().unwrap();
         let existing = peers.get(&info.fingerprint);
         let changed = match existing {
             Some(p) => p.info.alias != info.alias || p.ip != ip || p.port != port,
             None => true,
         };
+        // Once sticky, always sticky: a later announce must not put a manual
+        // peer back under the TTL it was added to escape.
+        let manual = manual || existing.is_some_and(|p| p.manual);
         peers.insert(
             info.fingerprint.clone(),
             Peer {
@@ -73,6 +95,7 @@ impl PeerRegistry {
                 ip,
                 port,
                 last_seen: Instant::now(),
+                manual,
             },
         );
         changed
@@ -81,7 +104,7 @@ impl PeerRegistry {
     /// Live peers sorted by alias; prunes expired entries as it goes.
     pub fn snapshot(&self) -> Vec<Peer> {
         let mut peers = self.peers.lock().unwrap();
-        peers.retain(|_, p| p.last_seen.elapsed() < PEER_TTL);
+        peers.retain(|_, p| p.manual || p.last_seen.elapsed() < PEER_TTL);
         let mut list: Vec<Peer> = peers.values().cloned().collect();
         list.sort_by(|a, b| a.info.alias.cmp(&b.info.alias).then(a.ip.cmp(&b.ip)));
         list
@@ -289,5 +312,66 @@ fn reply_to_announce(shared: &Arc<NetShared>, their_info: DeviceInfo, their_ip: 
         });
     if let Err(e) = spawned {
         log::warn!("could not spawn register-reply thread: {e}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn info(fingerprint: &str, port: Option<u16>) -> DeviceInfo {
+        DeviceInfo {
+            alias: "Peer".into(),
+            version: protocol::PROTOCOL_VERSION.into(),
+            device_model: None,
+            device_type: None,
+            fingerprint: fingerprint.into(),
+            port,
+            protocol: Some("http".into()),
+            download: None,
+            announce: None,
+        }
+    }
+
+    /// Backdate a peer past the TTL, the way a device going quiet would.
+    fn age_out(registry: &PeerRegistry, fingerprint: &str) {
+        let mut peers = registry.peers.lock().unwrap();
+        let peer = peers.get_mut(fingerprint).expect("peer was inserted");
+        peer.last_seen = Instant::now() - PEER_TTL * 2;
+    }
+
+    #[test]
+    fn silent_peers_expire_but_manual_ones_stay() {
+        let registry = PeerRegistry::new();
+        let ip = IpAddr::from([192, 168, 1, 5]);
+        assert!(registry.upsert(info("heard", Some(53317)), ip));
+        assert!(registry.upsert_manual(info("typed", None), ip, 53318));
+        age_out(&registry, "heard");
+        age_out(&registry, "typed");
+
+        let live = registry.snapshot();
+        assert_eq!(live.len(), 1);
+        assert_eq!(live[0].info.fingerprint, "typed");
+        // The dialed port, not the announce's missing one.
+        assert_eq!(live[0].port, 53318);
+    }
+
+    #[test]
+    fn an_announce_does_not_unstick_a_manual_peer() {
+        let registry = PeerRegistry::new();
+        let ip = IpAddr::from([192, 168, 1, 5]);
+        registry.upsert_manual(info("typed", None), ip, 53317);
+        registry.upsert(info("typed", Some(53317)), ip);
+        age_out(&registry, "typed");
+        assert_eq!(registry.snapshot().len(), 1);
+    }
+
+    #[test]
+    fn ipv6_base_urls_are_bracketed() {
+        let registry = PeerRegistry::new();
+        let ip: IpAddr = "fe80::1".parse().unwrap();
+        registry.upsert_manual(info("typed", None), ip, 53317);
+        let peers = registry.snapshot();
+        assert_eq!(peers[0].base_url(), "http://[fe80::1]:53317");
     }
 }

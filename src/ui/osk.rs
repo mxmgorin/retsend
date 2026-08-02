@@ -18,6 +18,11 @@ pub fn render(ctx: &egui::Context, osk: &Osk) {
                 .show(ui, |ui| {
                     ui.set_width((screen.width() * 0.9).min(520.0));
 
+                    ui.label(
+                        egui::RichText::new(osk.target.prompt())
+                            .size(theme::DETAIL_FONT)
+                            .color(theme::DIM),
+                    );
                     // Buffer line with a caret.
                     ui.label(
                         egui::RichText::new(format!("{}▏", osk.buffer))

@@ -3,7 +3,7 @@
 
 use retsend::net::discovery::PeerRegistry;
 use retsend::net::protocol::{self, DeviceInfo};
-use retsend::net::{server, NetShared, TransferSettings, Wake, WakeReason};
+use retsend::net::{manual, server, NetShared, TransferSettings, Wake, WakeReason};
 use std::io::Read;
 use std::net::TcpStream;
 use std::path::PathBuf;
@@ -53,6 +53,7 @@ fn start_server(auto_accept: bool) -> (Arc<NetShared>, u16, impl FnOnce()) {
         pending: Mutex::new(None),
         active: Mutex::new(None),
         outbound_active: AtomicBool::new(false),
+        notices: Mutex::new(Vec::new()),
         wake: Arc::new(NoopWake),
         shutdown: AtomicBool::new(false),
     });
@@ -460,6 +461,7 @@ fn https_serves_info_with_certificate_fingerprint() {
         pending: Mutex::new(None),
         active: Mutex::new(None),
         outbound_active: AtomicBool::new(false),
+        notices: Mutex::new(Vec::new()),
         wake: Arc::new(NoopWake),
         shutdown: AtomicBool::new(false),
     });
@@ -536,4 +538,68 @@ fn size_mismatch_fails_the_file_with_500() {
     assert!(!dir.join("big.bin").exists());
     assert!(!dir.join("big.bin.part").exists());
     stop();
+}
+
+/// The other side of the manual add: no server of our own is needed to probe
+/// one, only an identity to register with.
+fn prober() -> Arc<NetShared> {
+    Arc::new(NetShared {
+        me: Mutex::new(DeviceInfo {
+            alias: "Prober".into(),
+            // A port the peer can dial us back on; the registry drops peers
+            // that announce none.
+            port: Some(53317),
+            ..test_me()
+        }),
+        peers: PeerRegistry::new(),
+        transfer: Mutex::new(TransferSettings {
+            save_dir: std::env::temp_dir(),
+            auto_accept: false,
+            auto_routes: false,
+            routes: Default::default(),
+        }),
+        pending: Mutex::new(None),
+        active: Mutex::new(None),
+        outbound_active: AtomicBool::new(false),
+        notices: Mutex::new(Vec::new()),
+        wake: Arc::new(NoopWake),
+        shutdown: AtomicBool::new(false),
+    })
+}
+
+/// The probe's outcome, once its thread has reported one.
+fn probe_notice(shared: &Arc<NetShared>) -> String {
+    wait_for(|| shared.take_notices().pop())
+}
+
+#[test]
+fn a_typed_address_registers_both_ways() {
+    let (shared, port, stop) = start_server(false);
+    let prober = prober();
+
+    manual::spawn_probe(prober.clone(), ([127, 0, 0, 1], port).into());
+    // The notice is queued last, so the peer is in place once it shows.
+    assert_eq!(probe_notice(&prober), "Added Test Retro");
+
+    let peers = prober.peers.snapshot();
+    assert_eq!(peers.len(), 1);
+    assert!(peers[0].manual, "typed peers are sticky");
+    // The scheme that answered: https is tried first and this server is plain.
+    assert_eq!(peers[0].base_url(), format!("http://127.0.0.1:{port}"));
+    assert_eq!(
+        peers[0].info.fingerprint,
+        shared.me.lock().unwrap().fingerprint
+    );
+    // /register is symmetric — the peer learned about us as well.
+    assert_eq!(shared.peers.snapshot().len(), 1);
+    stop();
+}
+
+#[test]
+fn a_dead_address_says_so() {
+    let prober = prober();
+    // Port 1 is privileged and unbound here: the connection is refused at once.
+    manual::spawn_probe(prober.clone(), ([127, 0, 0, 1], 1).into());
+    assert_eq!(probe_notice(&prober), "No device at 127.0.0.1:1");
+    assert!(prober.peers.snapshot().is_empty());
 }

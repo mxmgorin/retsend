@@ -28,7 +28,12 @@ pub fn render(root: &mut egui::Ui, data: &HomeData) {
         ui.add_space(4.0);
         hint_bar(
             ui,
-            &[("L1/R1", "Tabs"), ("Select", "Refresh"), ("A", "Send")],
+            &[
+                ("L1/R1", "Tabs"),
+                ("Select", "Refresh"),
+                ("X", "Add IP"),
+                ("A", "Send"),
+            ],
         );
         ui.add_space(4.0);
     });
@@ -36,7 +41,7 @@ pub fn render(root: &mut egui::Ui, data: &HomeData) {
     egui::CentralPanel::default().show(root, |ui| {
         if data.peers.is_empty() {
             // Same branded hero as the Receive tab, with a discovery hint.
-            const HERO_H: f32 = 130.0; // wordmark + gap + hint, roughly
+            const HERO_H: f32 = 150.0; // wordmark + gap + hint, roughly
             let top = ((ui.available_height() - HERO_H) / 2.0).max(8.0);
             ui.vertical_centered(|ui| {
                 ui.add_space(top);
@@ -46,6 +51,13 @@ pub fn render(root: &mut egui::Ui, data: &HomeData) {
                 ui.label(
                     egui::RichText::new("Open LocalSend on your phone or PC\non the same network.")
                         .size(theme::ROW_FONT)
+                        .color(theme::DIM),
+                );
+                ui.add_space(10.0);
+                // The escape hatch when this network blocks multicast.
+                ui.label(
+                    egui::RichText::new("Nothing showing up? X adds a device by IP.")
+                        .size(theme::DETAIL_FONT)
                         .color(theme::DIM),
                 );
             });
