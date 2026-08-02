@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Missing GL is no longer fatal: GLES 3.0, then desktop GL, then SDL's renderer
+  (software if that is all there is). `RETSEND_SOFTWARE=1` skips GL outright.
+
 - armhf builds for 32-bit handhelds: a `retsend-linux-armhf.zip` release asset,
   and both binaries in the PortMaster zip, picked by `DEVICE_ARCH` at launch.
 - The incoming-request modal takes a folder: X opens the browser, Start drops

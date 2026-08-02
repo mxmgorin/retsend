@@ -95,7 +95,7 @@ Settings screen edits everything in it except:
 
 Environment variables override paths and control logging at launch:
 `RETSEND_DATA_DIR`, `RETSEND_CONFIG`, `RETSEND_SAVE_DIR`, `RETSEND_SCALE`,
-`RETSEND_GLES=0|1`, `RETSEND_LOG_LEVEL`, `RETSEND_LOG_FILE`,
+`RETSEND_GLES=0|1`, `RETSEND_SOFTWARE=1`, `RETSEND_LOG_LEVEL`, `RETSEND_LOG_FILE`,
 `RETSEND_PANIC_FILE`.
 
 ### Save routes

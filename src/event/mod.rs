@@ -8,7 +8,6 @@ pub mod user;
 
 use crate::app::AppCommand;
 use crate::config::InputConfig;
-use crate::platform::window::AppWindow;
 use crate::ui::AppUi;
 use gamepad::Gamepad;
 use sdl2::event::Event;
@@ -45,42 +44,36 @@ impl AppEventHandler {
     /// Block for the next event when idle, then drain everything queued this
     /// frame and emit gamepad repeats. `ui.take_repaint_delay()` bounds the
     /// block when egui or a toast wants a timed follow-up frame.
-    pub fn wait(&mut self, window: &AppWindow, ui: &mut AppUi, commands: &mut Vec<AppCommand>) {
+    pub fn wait(&mut self, ui: &mut AppUi, commands: &mut Vec<AppCommand>) {
         if !self.gamepad.is_active() {
             match ui.take_repaint_delay() {
                 Some(delay) => {
                     let ms = delay.as_millis().min(u32::MAX as u128) as u32;
                     if ms > 0 {
                         if let Some(event) = self.event_pump.wait_event_timeout(ms) {
-                            self.handle_event(event, window, ui, commands);
+                            self.handle_event(event, ui, commands);
                         }
                     }
                 }
                 None => {
                     let event = self.event_pump.wait_event();
-                    self.handle_event(event, window, ui, commands);
+                    self.handle_event(event, ui, commands);
                 }
             }
         }
 
         while let Some(event) = self.event_pump.poll_event() {
-            self.handle_event(event, window, ui, commands);
+            self.handle_event(event, ui, commands);
         }
 
         self.gamepad.tick(commands);
     }
 
-    fn handle_event(
-        &mut self,
-        event: Event,
-        window: &AppWindow,
-        ui: &mut AppUi,
-        commands: &mut Vec<AppCommand>,
-    ) {
+    fn handle_event(&mut self, event: Event, ui: &mut AppUi, commands: &mut Vec<AppCommand>) {
         // Feed egui first (pointer hover, window resize/DPI bookkeeping). Our
         // navigation is command-driven, so egui never consumes the keys we
         // care about — no text fields exist yet.
-        ui.handle_event(window, &event);
+        ui.handle_event(&event);
 
         match event {
             Event::ControllerDeviceAdded { which, .. } => {

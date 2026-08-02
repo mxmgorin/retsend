@@ -30,12 +30,12 @@ use crate::overlay::{
     toast::Toasts,
     transfer::{TransferView, Viewed},
 };
-use crate::platform::window::AppWindow;
+use crate::platform::window;
 use crate::transfer::history::History;
 use crate::transfer::inbound::FileState;
 use crate::transfer::outbound::{OutboundPhase, OutboundSession};
 use egui_sdl2::egui;
-use egui_sdl2::EguiGlow;
+use egui_sdl2::EguiWindow;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
@@ -86,7 +86,7 @@ impl NetStatusCache {
 }
 
 pub struct AppUi {
-    egui: EguiGlow,
+    egui: EguiWindow,
     repaint_delay: Option<Duration>,
     pub tabs: Tabs,
     pub home: Home,
@@ -108,15 +108,15 @@ pub struct AppUi {
 }
 
 impl AppUi {
-    pub fn new(window: &AppWindow) -> Self {
-        let egui = EguiGlow::new(window.sdl2_window(), window.glow_ctx(), None, false);
-        theme::apply(&egui.ctx);
+    pub fn new(sdl: &sdl2::Sdl, config: &crate::config::DisplayConfig) -> Result<Self, String> {
+        let egui = window::open(sdl, config)?;
+        theme::apply(egui.ctx());
         let scale = crate::config::device_scale();
         if scale != 1.0 {
             log::info!("applying RETSEND_SCALE {scale}");
-            egui.ctx.set_zoom_factor(scale);
+            egui.ctx().set_zoom_factor(scale);
         }
-        Self {
+        Ok(Self {
             egui,
             repaint_delay: None,
             tabs: Tabs::new(),
@@ -132,12 +132,12 @@ impl AppUi {
             peer_count: 0,
             history_count: 0,
             net_status: NetStatusCache::new(),
-        }
+        })
     }
 
     /// Feed an SDL event to egui (resize/DPI bookkeeping, pointer hover).
-    pub fn handle_event(&mut self, window: &AppWindow, event: &sdl2::event::Event) {
-        let _ = self.egui.state.on_event(window.sdl2_window(), event);
+    pub fn handle_event(&mut self, event: &sdl2::event::Event) {
+        let _ = self.egui.on_event(event);
     }
 
     /// How long the event loop may block before the next frame is due.
@@ -337,10 +337,8 @@ impl AppUi {
         })
     }
 
-    pub fn draw(&mut self, window: &AppWindow) {
-        self.egui.clear(theme::BACKGROUND);
-        self.egui.paint();
-        window.present();
+    pub fn draw(&mut self) {
+        self.egui.paint(theme::BACKGROUND);
     }
 
     pub fn destroy(&mut self) {

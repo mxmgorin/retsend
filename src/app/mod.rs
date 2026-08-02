@@ -15,7 +15,6 @@ use crate::overlay::settings::SettingsRow;
 use crate::overlay::tabs::Tab;
 use crate::overlay::transfer::Viewed;
 use crate::overlay::Focus;
-use crate::platform::window::AppWindow;
 use crate::transfer::history::History;
 use crate::transfer::outbound::{self, OutboundSession};
 use crate::ui::AppUi;
@@ -27,7 +26,6 @@ use std::sync::Arc;
 const PAGE_JUMP: i32 = 8;
 
 pub struct App {
-    window: AppWindow,
     ui: AppUi,
     event_handler: AppEventHandler,
     config: AppConfig,
@@ -52,8 +50,7 @@ struct SendTarget {
 
 impl App {
     pub fn new(sdl: &sdl2::Sdl, config: AppConfig) -> Result<Self, String> {
-        let window = AppWindow::new(sdl, &config.display)?;
-        let ui = AppUi::new(&window);
+        let ui = AppUi::new(sdl, &config.display)?;
         let event_handler = AppEventHandler::new(sdl, config.input.clone())?;
 
         // Net threads wake the blocked event loop through SDL user events;
@@ -80,7 +77,6 @@ impl App {
         let history = History::load(&crate::config::data_dir(), config.transfer.history_limit);
 
         Ok(Self {
-            window,
             ui,
             event_handler,
             config,
@@ -102,8 +98,7 @@ impl App {
         );
         let mut commands: Vec<AppCommand> = Vec::new();
         while self.running {
-            self.event_handler
-                .wait(&self.window, &mut self.ui, &mut commands);
+            self.event_handler.wait(&mut self.ui, &mut commands);
             for command in commands.drain(..) {
                 self.execute_command(command);
             }
@@ -130,7 +125,7 @@ impl App {
                     .store(false, Ordering::SeqCst);
             }
             self.ui.update(&self.net, &self.config, &self.history);
-            self.ui.draw(&self.window);
+            self.ui.draw();
         }
         self.ui.destroy();
         self.net.stop();
