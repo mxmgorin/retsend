@@ -286,24 +286,21 @@ fn handle_prepare_upload<S: Read + Write>(
     }
 
     let settings = shared.transfer.lock().unwrap().clone();
-    if settings.auto_accept {
-        return start_session(
-            reader.get_mut(),
-            shared,
-            prepare.info,
-            files,
-            settings.save_dir,
+    let router_for = |dir: PathBuf| {
+        crate::transfer::route::SaveRouter::new(
+            dir,
             &settings.routes,
             settings.auto_routes,
-        );
+            settings.overwrite,
+        )
+    };
+    if settings.auto_accept {
+        let router = router_for(settings.save_dir.clone());
+        return start_session(reader.get_mut(), shared, prepare.info, files, &router);
     }
 
-    let router = crate::transfer::route::SaveRouter::new(
-        settings.save_dir.clone(),
-        &settings.routes,
-        settings.auto_routes,
-    );
-    let dests = router.dest_dirs(files.iter().map(|f| f.file_name.as_str()));
+    let dests =
+        router_for(settings.save_dir.clone()).dest_dirs(files.iter().map(|f| f.file_name.as_str()));
 
     let (tx, rx) = mpsc::sync_channel::<Decision>(1);
     {
@@ -329,26 +326,21 @@ fn handle_prepare_upload<S: Read + Write>(
     let decision = rx.recv_timeout(DECISION_TIMEOUT);
     shared.pending.lock().unwrap().take();
     match decision {
-        Ok(Decision::Accept { save_dir }) => start_session(
-            reader.get_mut(),
-            shared,
-            prepare.info,
-            files,
-            save_dir,
-            &settings.routes,
-            settings.auto_routes,
-        ),
+        Ok(Decision::Accept { save_dir }) => {
+            let router = router_for(save_dir);
+            start_session(reader.get_mut(), shared, prepare.info, files, &router)
+        }
         // A folder chosen for this request is the whole answer to "where":
         // no routes, no auto routes, everything lands there.
-        Ok(Decision::AcceptInto { dir }) => start_session(
-            reader.get_mut(),
-            shared,
-            prepare.info,
-            files,
-            dir,
-            &std::collections::BTreeMap::new(),
-            false,
-        ),
+        Ok(Decision::AcceptInto { dir }) => {
+            let router = crate::transfer::route::SaveRouter::new(
+                dir,
+                &std::collections::BTreeMap::new(),
+                false,
+                settings.overwrite,
+            );
+            start_session(reader.get_mut(), shared, prepare.info, files, &router)
+        }
         Ok(Decision::Decline) | Err(_) => httpd::respond_empty(reader.get_mut(), 403),
     }
 }
@@ -359,12 +351,10 @@ fn start_session<S: Write>(
     shared: &Arc<NetShared>,
     sender: DeviceInfo,
     files: Vec<protocol::FileMeta>,
-    save_dir: PathBuf,
-    routes: &std::collections::BTreeMap<String, String>,
-    auto_routes: bool,
+    router: &crate::transfer::route::SaveRouter,
 ) -> std::io::Result<()> {
-    let router = crate::transfer::route::SaveRouter::new(save_dir.clone(), routes, auto_routes);
-    let session = match InboundSession::new(sender.alias.clone(), files, &router) {
+    let save_dir = router.default_dir();
+    let session = match InboundSession::new(sender.alias.clone(), files, router) {
         Ok(s) => Arc::new(s),
         Err(e) => {
             log::error!("could not start session in `{}`: {e}", save_dir.display());

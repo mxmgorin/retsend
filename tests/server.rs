@@ -47,6 +47,7 @@ fn start_server(auto_accept: bool) -> (Arc<NetShared>, u16, impl FnOnce()) {
         transfer: Mutex::new(TransferSettings {
             save_dir: save_dir.clone(),
             auto_accept,
+            overwrite: true,
             auto_routes: false,
             routes: Default::default(),
         }),
@@ -256,6 +257,37 @@ fn auto_accept_receives_files() {
     stop();
 }
 
+/// The `overwrite` setting decides what a second transfer of the same name
+/// does, and it is read per request — the settings screen edits it live.
+#[test]
+fn overwrite_setting_decides_whether_a_resend_replaces_the_file() {
+    let (shared, port, stop) = start_server(true);
+    let dir = save_dir_of(&shared);
+
+    let send = |body: &[u8]| {
+        let (status, response) = post(
+            port,
+            "/api/localsend/v2/prepare-upload",
+            &prepare_body(&[("a", "game.gbc", body.len() as u64)]),
+        );
+        assert_eq!(status, 200);
+        let (session_id, tokens) = tokens_of(&response);
+        assert_eq!(upload(port, &session_id, "a", &tokens["a"], body), 200);
+    };
+
+    send(b"first");
+    send(b"second");
+    assert_eq!(std::fs::read(dir.join("game.gbc")).unwrap(), b"second");
+    assert!(!dir.join("game (1).gbc").exists());
+
+    shared.transfer.lock().unwrap().overwrite = false;
+    send(b"third");
+    assert_eq!(std::fs::read(dir.join("game.gbc")).unwrap(), b"second");
+    assert_eq!(std::fs::read(dir.join("game (1).gbc")).unwrap(), b"third");
+
+    stop();
+}
+
 #[test]
 fn manual_accept_parks_until_the_user_agrees() {
     let (shared, port, stop) = start_server(false);
@@ -455,6 +487,7 @@ fn https_serves_info_with_certificate_fingerprint() {
         transfer: Mutex::new(TransferSettings {
             save_dir: dir.clone(),
             auto_accept: true,
+            overwrite: true,
             auto_routes: false,
             routes: Default::default(),
         }),
@@ -555,6 +588,7 @@ fn prober() -> Arc<NetShared> {
         transfer: Mutex::new(TransferSettings {
             save_dir: std::env::temp_dir(),
             auto_accept: false,
+            overwrite: true,
             auto_routes: false,
             routes: Default::default(),
         }),

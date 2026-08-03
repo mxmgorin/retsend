@@ -24,6 +24,15 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
             "A Toggle",
         ),
         (
+            "Existing files",
+            if config.transfer.overwrite {
+                "replace".into()
+            } else {
+                "keep both — save as name (1)".into()
+            },
+            "A Toggle",
+        ),
+        (
             "Auto save routes",
             auto_routes_value(config.transfer.auto_routes, state.auto_route_count),
             "A Toggle",

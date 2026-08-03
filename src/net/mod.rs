@@ -43,6 +43,8 @@ pub enum WakeReason {
 pub struct TransferSettings {
     pub save_dir: PathBuf,
     pub auto_accept: bool,
+    /// Replace a same-named file instead of saving `name (1)` beside it.
+    pub overwrite: bool,
     /// Fill unclaimed extensions from the save dir's console folders.
     pub auto_routes: bool,
     /// Per-extension destination folders (`ext -> folder`); see
@@ -55,6 +57,7 @@ impl From<&crate::config::TransferConfig> for TransferSettings {
         Self {
             save_dir: PathBuf::from(&cfg.save_dir),
             auto_accept: cfg.auto_accept,
+            overwrite: cfg.overwrite,
             auto_routes: cfg.auto_routes,
             routes: cfg.routes.clone(),
         }

@@ -36,12 +36,14 @@ pub fn dirs_label<'a>(dirs: impl Iterator<Item = &'a Path>) -> String {
     }
 }
 
-/// Resolves each received file to the directory it should land in.
+/// Resolves each received file to the path it should be saved at.
 #[derive(Clone)]
 pub struct SaveRouter {
     default_dir: PathBuf,
     /// `(lowercase extension without dot, resolved target dir)`.
     routes: Vec<(String, PathBuf)>,
+    /// Replace a file of the same name instead of saving beside it.
+    overwrite: bool,
 }
 
 impl SaveRouter {
@@ -50,7 +52,12 @@ impl SaveRouter {
     /// value resolves under `default_dir`, an absolute one is kept as is. Blank
     /// keys or values are dropped. With `auto_routes`, the console folders found
     /// in `default_dir` fill in the extensions the map leaves unclaimed.
-    pub fn new(default_dir: PathBuf, routes: &BTreeMap<String, String>, auto_routes: bool) -> Self {
+    pub fn new(
+        default_dir: PathBuf,
+        routes: &BTreeMap<String, String>,
+        auto_routes: bool,
+        overwrite: bool,
+    ) -> Self {
         let mut routes: Vec<(String, PathBuf)> = routes
             .iter()
             .filter_map(|(ext, dir)| {
@@ -80,7 +87,15 @@ impl SaveRouter {
         Self {
             default_dir,
             routes,
+            overwrite,
         }
+    }
+
+    /// Where to save `filename`: its route's directory, and a name that clears
+    /// `taken` (the paths already given to other files of the same session).
+    /// See [`super::files::dest_path`].
+    pub fn dest_for(&self, filename: &str, taken: &std::collections::HashSet<PathBuf>) -> PathBuf {
+        super::files::dest_path(self.dir_for(filename), filename, taken, self.overwrite)
     }
 
     /// The directory `filename` should land in — its extension's route, or the
@@ -128,6 +143,7 @@ mod tests {
             PathBuf::from("/save"),
             &map(&[("gbc", "gb"), ("PNG", "/shots")]),
             false,
+            false,
         );
         // Relative route resolves under the default dir.
         assert_eq!(r.dir_for("Zelda.gbc"), Path::new("/save/gb"));
@@ -148,7 +164,12 @@ mod tests {
 
     #[test]
     fn dest_dirs_names_every_dir_a_request_would_use_once() {
-        let r = SaveRouter::new(PathBuf::from("/save"), &map(&[("png", "shots")]), false);
+        let r = SaveRouter::new(
+            PathBuf::from("/save"),
+            &map(&[("png", "shots")]),
+            false,
+            false,
+        );
         assert_eq!(r.dest_dirs(["rom.gbc"].into_iter()), ["/save"]);
         assert_eq!(
             r.dest_dirs(["grab.png", "rom.gbc", "shot2.PNG"].into_iter()),
@@ -161,6 +182,7 @@ mod tests {
         let r = SaveRouter::new(
             PathBuf::from("/save"),
             &map(&[("", "x"), ("iso", "")]),
+            false,
             false,
         );
         assert_eq!(r.dir_for("game.iso"), Path::new("/save"));
@@ -181,7 +203,7 @@ mod tests {
     #[test]
     fn auto_routes_fill_unclaimed_extensions() {
         let dir = save_dir_with("auto", &["gba", "snes"]);
-        let r = SaveRouter::new(dir.clone(), &Default::default(), true);
+        let r = SaveRouter::new(dir.clone(), &Default::default(), true, false);
 
         assert_eq!(r.dir_for("Zelda.gba"), dir.join("gba"));
         assert_eq!(r.dir_for("Mario.sfc"), dir.join("snes"));
@@ -194,7 +216,7 @@ mod tests {
     #[test]
     fn explicit_routes_win_over_auto_routes() {
         let dir = save_dir_with("explicit", &["gba"]);
-        let r = SaveRouter::new(dir.clone(), &map(&[("gba", "/elsewhere")]), true);
+        let r = SaveRouter::new(dir.clone(), &map(&[("gba", "/elsewhere")]), true, false);
         assert_eq!(r.dir_for("Zelda.gba"), Path::new("/elsewhere"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -202,7 +224,7 @@ mod tests {
     #[test]
     fn auto_routes_off_ignores_the_console_folders() {
         let dir = save_dir_with("off", &["gba"]);
-        let r = SaveRouter::new(dir.clone(), &Default::default(), false);
+        let r = SaveRouter::new(dir.clone(), &Default::default(), false, false);
         assert_eq!(r.dir_for("Zelda.gba"), dir);
         std::fs::remove_dir_all(&dir).unwrap();
     }

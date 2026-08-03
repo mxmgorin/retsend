@@ -9,6 +9,8 @@ pub struct TransferConfig {
     pub save_dir: String,
     /// Accept incoming transfers without asking ("quick save").
     pub auto_accept: bool,
+    /// Replace a same-named received file instead of saving `name (1)` beside it.
+    pub overwrite: bool,
     /// Extra file-browser roots on top of the auto-detected mount points.
     pub browser_roots: Vec<String>,
     /// Folders and files pinned to the top of the file browser, in the order
@@ -39,6 +41,7 @@ impl Default for TransferConfig {
         Self {
             save_dir: super::paths::default_save_dir(),
             auto_accept: false,
+            overwrite: true,
             browser_roots: Vec::new(),
             pinned_paths: Vec::new(),
             last_send_dir: String::new(),
@@ -75,5 +78,11 @@ mod tests {
     fn auto_routes_defaults_on_for_configs_written_before_it_existed() {
         let back: TransferConfig = toml::from_str("save_dir = \"/roms\"").expect("deserialize");
         assert!(back.auto_routes);
+    }
+
+    #[test]
+    fn overwrite_defaults_on_for_configs_written_before_it_existed() {
+        let back: TransferConfig = toml::from_str("save_dir = \"/roms\"").expect("deserialize");
+        assert!(back.overwrite);
     }
 }
