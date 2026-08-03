@@ -11,128 +11,107 @@ on:
 permissions:
   contents: write
 
+env:
+  # The oldest userland we target: OnionOS (Miyoo Mini Plus) is glibc 2.28, ArkOS
+  # 2.30. zig supplies stubs for it, so this is the whole floor decision — no
+  # archived distro to build in. Keep in step with tools/arm/glibc-floor.
+  GLIBC_FLOOR: "2.28"
+  ZIG_VERSION: "0.15.2"
+  ZIGBUILD_VERSION: "0.23.0"
+  SDL_VERSION: "2.26.5+dfsg-1"
+
 jobs:
-  build-aarch64:
-    # Native arm64 runner (free for public repos) — no cross-compile, no qemu.
-    runs-on: ubuntu-22.04-arm
+  build:
+    # One build per arch, shared by every package below.
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - arch: armhf
+            target: armv7-unknown-linux-gnueabihf
+            deb_arch: armhf
+            libdir: arm-linux-gnueabihf
+          - arch: aarch64
+            target: aarch64-unknown-linux-gnu
+            deb_arch: arm64
+            libdir: aarch64-linux-gnu
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          set -eux
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config ca-certificates libsdl2-dev
 
       - name: Rust toolchain
         run: |
           set -eux
           # rust-toolchain.toml pins the channel; rustup honors it.
-          rustup show
+          rustup target add ${{ matrix.target }}
           rustc --version
 
-      - name: Build
-        env:
-          # CI performance build (kept out of Cargo.toml so local release
-          # builds stay fast to compile). No -C target-cpu: the binary must
-          # run on any ARMv8.0+ core (A35/A53/A55...).
-          CARGO_PROFILE_RELEASE_LTO: "fat"
-          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+      - name: zig and cargo-zigbuild
         run: |
           set -eux
-          cargo build --release
-
-      - name: Stage binary
-        run: |
-          set -eux
-          mkdir -p dist
-          cp target/release/retsend dist/
-          strip dist/retsend || true
-          ls -la dist/
-
-      - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: retsend-linux-aarch64
-          path: dist/retsend
-
-  build-armhf:
-    # 32-bit handhelds. No armhf runners exist and arm64 hosts can't execute
-    # AArch32, so this cross-compiles. Debian 11 sets the floor: its glibc 2.31
-    # and SDL 2.0.14 are old enough for the CFW images these devices ship,
-    # while a jammy build would demand GLIBC_2.34 and never start.
-    runs-on: ubuntu-22.04
-    container: debian:bullseye
-    steps:
-      - name: Install dependencies
-        run: |
-          set -eux
-          # Debian keeps every architecture in one archive, so the armhf
-          # sysroot is a plain apt install.
-          dpkg --add-architecture armhf
-          apt-get update
-          # build-essential too: build scripts compile for the host.
-          apt-get install -y --no-install-recommends \
-            build-essential crossbuild-essential-armhf pkg-config \
-            ca-certificates curl git
+          curl --retry 5 -fsSL \
+            "https://ziglang.org/download/$ZIG_VERSION/zig-x86_64-linux-$ZIG_VERSION.tar.xz" \
+            | tar -xJ -C /opt
+          echo "/opt/zig-x86_64-linux-$ZIG_VERSION" >> "$GITHUB_PATH"
+          curl --retry 5 -fsSL \
+            "https://github.com/rust-cross/cargo-zigbuild/releases/download/v$ZIGBUILD_VERSION/cargo-zigbuild-x86_64-unknown-linux-musl.tar.xz" \
+            | sudo tar -xJ -C /usr/local/bin --strip-components=1 \
+              "cargo-zigbuild-x86_64-unknown-linux-musl/cargo-zigbuild"
 
       - name: SDL2 for linking
         run: |
           set -eux
-          # Debian 11 ships SDL 2.0.14, which predates SDL_RenderGeometry — the
-          # call egui's canvas painter is built on. Unpack bookworm's armhf SDL
-          # into a prefix of its own instead of pulling the suite in through
-          # apt, which would drag a newer libc along and raise the glibc floor.
+          # Only its symbols matter; the device loads its own SDL2. Ubuntu's is
+          # 2.0.20, which predates SDL_RenderGeometry, so take Debian's.
           pool=http://deb.debian.org/debian/pool/main/libs/libsdl2
-          ver=2.26.5+dfsg-1
+          mkdir -p /opt/sdl2
           for pkg in libsdl2-2.0-0 libsdl2-dev; do
-            curl -fsSLO "$pool/${pkg}_${ver}_armhf.deb"
-            dpkg -x "${pkg}_${ver}_armhf.deb" /opt/sdl2
+            curl --retry 5 -fsSLO "$pool/${pkg}_${SDL_VERSION}_${{ matrix.deb_arch }}.deb"
+            dpkg -x "${pkg}_${SDL_VERSION}_${{ matrix.deb_arch }}.deb" /opt/sdl2
           done
-          ls -l /opt/sdl2/usr/lib/arm-linux-gnueabihf/libSDL2*
-
-      - uses: actions/checkout@v4
-
-      - name: Rust toolchain
-        run: |
-          set -eux
-          # rust-toolchain.toml pins the channel; the first cargo call fetches it.
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-            | sh -s -- -y --no-modify-path --default-toolchain none
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          ls -l /opt/sdl2/usr/lib/${{ matrix.libdir }}/libSDL2*
 
       - name: Build
         env:
+          # CI performance build; kept out of Cargo.toml so local release builds
+          # stay fast to compile. No -C target-cpu: any ARMv7/ARMv8.0+ core.
           CARGO_PROFILE_RELEASE_LTO: "fat"
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
-          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
-          CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
+          # No linker override: cargo-zigbuild points the linker and cc at zig,
+          # and a -C linker of our own would opt out of it.
           # --allow-shlib-undefined: this libSDL2 pulls in X11/wayland/alsa/gbm,
-          # none of which are in the armhf sysroot and none of which we call.
-          # The device loads its own SDL anyway; we only need its symbols here.
-          RUSTFLAGS: "-L /opt/sdl2/usr/lib/arm-linux-gnueabihf -C link-arg=-Wl,--allow-shlib-undefined"
+          # which the sysroot lacks and we never call.
+          RUSTFLAGS: "-L /opt/sdl2/usr/lib/${{ matrix.libdir }} -C link-arg=-Wl,--allow-shlib-undefined"
         run: |
           set -eux
-          rustup target add armv7-unknown-linux-gnueabihf
-          cargo build --release --target armv7-unknown-linux-gnueabihf
+          cargo zigbuild --release --target ${{ matrix.target }}.$GLIBC_FLOOR
 
       - name: Stage binary
         run: |
           set -eux
           mkdir -p dist
-          cp target/armv7-unknown-linux-gnueabihf/release/retsend dist/
+          cp target/${{ matrix.target }}/release/retsend dist/
           ls -la dist/
+
+      - name: Check the glibc floor
+        run: |
+          set -eux
+          # Above the floor the loader refuses the binary on the device, which is
+          # how this port broke the first time. Fail here instead of there.
+          newer=$(readelf -V dist/retsend | grep -o 'GLIBC_2\.[0-9]*' | sort -uV \
+            | awk -F. -v f="${GLIBC_FLOOR#2.}" '$2 > f' | tr '\n' ' ')
+          if [ -n "$newer" ]; then
+            echo "binary requires $newer; the floor is GLIBC_$GLIBC_FLOOR" >&2
+            exit 1
+          fi
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: retsend-linux-armhf
+          name: retsend-linux-${{ matrix.arch }}
           path: dist/retsend
 
-  package:
-    # Both binaries ride in one PortMaster zip; Retsend.sh picks at launch.
-    needs: [build-aarch64, build-armhf]
+  portmaster:
+    needs: build
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -146,10 +125,6 @@ jobs:
         with:
           name: retsend-linux-armhf
           path: bin/armhf
-
-      - name: Restore the executable bit
-        # Artifacts travel as zips, which drop file modes.
-        run: chmod +x bin/aarch64/retsend bin/armhf/retsend
 
       - name: Package for PortMaster
         run: |
@@ -166,8 +141,9 @@ jobs:
           cp portmaster/screenshot.png "$pm/retsend/"
           cp -r portmaster/retsend/. "$pm/retsend/"
           rm -f "$pm/retsend/.gitkeep"
-          cp bin/aarch64/retsend "$pm/retsend/retsend.aarch64"
-          cp bin/armhf/retsend "$pm/retsend/retsend.armhf"
+          # Artifacts travel as zips, which drop file modes.
+          install -m 755 bin/aarch64/retsend "$pm/retsend/retsend.aarch64"
+          install -m 755 bin/armhf/retsend "$pm/retsend/retsend.armhf"
           chmod +x "$pm/Retsend.sh"
           ls -laR "$pm"
 
@@ -181,8 +157,7 @@ jobs:
         if: github.event_name == 'release'
         run: |
           set -eux
-          cd portmaster-dist && zip -r ../retsend-portmaster.zip .
-          cd ..
+          (cd portmaster-dist && zip -r ../retsend-portmaster.zip .)
           sha256sum retsend-portmaster.zip > retsend-portmaster.zip.sha256
           (cd bin/aarch64 && zip ../../retsend-linux-aarch64.zip retsend)
           sha256sum retsend-linux-aarch64.zip > retsend-linux-aarch64.zip.sha256
@@ -200,3 +175,4 @@ jobs:
             retsend-linux-aarch64.zip.sha256
             retsend-linux-armhf.zip
             retsend-linux-armhf.zip.sha256
+

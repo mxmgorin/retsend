@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The ARM binaries are cross-built with `cargo-zigbuild`, which puts the glibc
+  floor in the target triple instead of pinning the build to whichever distro
+  ships that glibc — no archived apt suites in the pipeline. One build per arch
+  feeds every package. `tools/arm/build.sh` runs the same thing locally.
+
+### Fixed
+
+- The armhf binary starts on a glibc 2.28 userland, and the aarch64 one now
+  loads on older ArkOS. Both were built against whatever glibc the CI runner
+  had — 2.31 for armhf, 2.35 for aarch64 — so armhf asked for `log`, `log2`,
+  `pow@GLIBC_2.29` and `gettid@GLIBC_2.30` on a 2.28 userland and the loader
+  refused it before `main()`. Both are built with `cargo-zigbuild` against a
+  pinned glibc 2.28 now, and CI fails the job if a reference above the floor
+  comes back. `port.json` states that floor for PortMaster.
+
 ## [0.3.0] - 2026-08-02
 
 ### Added
