@@ -40,6 +40,6 @@
             "aarch64",
             "armhf"
         ],
-        "min_glibc": ""
+        "min_glibc": "2.28"
     }
 }
