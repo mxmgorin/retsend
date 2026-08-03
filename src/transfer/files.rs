@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 /// Longest allowed name in bytes — comfortably under every filesystem's 255
-/// while leaving room for the ` (N)` uniquing suffix and `.part`.
+/// while leaving room for the ` (N)` collision suffix and `.part`.
 const MAX_NAME_BYTES: usize = 200;
 
 /// Reduce an untrusted sender-supplied file name to a safe basename.
@@ -45,11 +45,13 @@ pub fn sanitize_filename(raw: &str) -> String {
     format!("{stem}{ext}")
 }
 
-/// A path in `dir` for `name` that collides neither with existing files nor
-/// with `taken` (names already assigned to other files of the same session):
-/// `name.gbc`, `name (1).gbc`, `name (2).gbc`, …
-pub fn unique_path(dir: &Path, name: &str, taken: &HashSet<PathBuf>) -> PathBuf {
-    let free = |p: &PathBuf| !p.exists() && !taken.contains(p);
+/// The path in `dir` to save `name` at. A collision steps the name aside —
+/// `name (1).gbc`, `name (2).gbc`, … — unless `overwrite`, which replaces the
+/// file on disk. `taken` (other files of this session) steps aside either way.
+pub fn dest_path(dir: &Path, name: &str, taken: &HashSet<PathBuf>, overwrite: bool) -> PathBuf {
+    // A directory can't be renamed onto, so it collides in either mode.
+    let free =
+        |p: &PathBuf| !taken.contains(p) && if overwrite { !p.is_dir() } else { !p.exists() };
     let candidate = dir.join(name);
     if free(&candidate) {
         return candidate;
@@ -209,29 +211,54 @@ mod tests {
     }
 
     #[test]
-    fn unique_path_suffixes_collisions() {
+    fn dest_path_suffixes_collisions() {
         let dir = std::env::temp_dir().join(format!("lsretro-files-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let mut taken = HashSet::new();
 
-        let first = unique_path(&dir, "game.gbc", &taken);
+        let first = dest_path(&dir, "game.gbc", &taken, false);
         assert_eq!(first, dir.join("game.gbc"));
         taken.insert(first);
 
         // Second file of the same session with the same name.
-        let second = unique_path(&dir, "game.gbc", &taken);
+        let second = dest_path(&dir, "game.gbc", &taken, false);
         assert_eq!(second, dir.join("game (1).gbc"));
         taken.insert(second);
 
         // A name already on disk collides too.
         std::fs::write(dir.join("save.dat"), b"x").unwrap();
-        let third = unique_path(&dir, "save.dat", &taken);
+        let third = dest_path(&dir, "save.dat", &taken, false);
         assert_eq!(third, dir.join("save (1).dat"));
 
         // No extension.
         taken.insert(dir.join("README"));
-        let fourth = unique_path(&dir, "README", &taken);
+        let fourth = dest_path(&dir, "README", &taken, false);
         assert_eq!(fourth, dir.join("README (1)"));
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn dest_path_overwrites_disk_but_not_the_session() {
+        let dir = std::env::temp_dir().join(format!("lsretro-files-ow-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("game.gbc"), b"old").unwrap();
+        std::fs::create_dir_all(dir.join("folder")).unwrap();
+        let mut taken = HashSet::new();
+
+        let first = dest_path(&dir, "game.gbc", &taken, true);
+        assert_eq!(first, dir.join("game.gbc"));
+        taken.insert(first);
+
+        // Same name twice in one transfer still needs two paths.
+        let second = dest_path(&dir, "game.gbc", &taken, true);
+        assert_eq!(second, dir.join("game (1).gbc"));
+
+        // Renaming onto a directory would fail, so it steps aside.
+        assert_eq!(
+            dest_path(&dir, "folder", &taken, true),
+            dir.join("folder (1)")
+        );
 
         std::fs::remove_dir_all(&dir).unwrap();
     }

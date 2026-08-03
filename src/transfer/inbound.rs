@@ -37,7 +37,7 @@ pub enum FileState {
 pub struct FileSlot {
     pub meta: FileMeta,
     pub token: String,
-    /// Final destination (unique within save_dir and the session).
+    /// Final destination (see [`SaveRouter::dest_for`]).
     pub dest: PathBuf,
     pub state: Mutex<FileState>,
     pub received: AtomicU64,
@@ -72,7 +72,7 @@ impl InboundSession {
             let name = super::files::sanitize_filename(&meta.file_name);
             let dir = router.dir_for(&name);
             std::fs::create_dir_all(dir)?;
-            let dest = super::files::unique_path(dir, &name, &taken);
+            let dest = router.dest_for(&name, &taken);
             // Belt and braces on top of sanitize: never outside its dir.
             assert_eq!(dest.parent(), Some(dir));
             taken.insert(dest.clone());
@@ -297,9 +297,10 @@ mod tests {
         dir
     }
 
-    /// A no-routes router that lands everything in `dir`.
+    /// A no-routes router that lands everything in `dir`, keeping both on a
+    /// name collision.
     fn router(dir: &std::path::Path) -> SaveRouter {
-        SaveRouter::new(dir.to_path_buf(), &Default::default(), false)
+        SaveRouter::new(dir.to_path_buf(), &Default::default(), false, false)
     }
 
     #[test]
@@ -401,11 +402,50 @@ mod tests {
     }
 
     #[test]
+    fn overwrite_replaces_the_file_on_disk() {
+        let dir = temp_dir("overwrite");
+        std::fs::write(dir.join("game.gbc"), b"old").unwrap();
+        let router = SaveRouter::new(dir.clone(), &Default::default(), false, true);
+        let session =
+            InboundSession::new("Phone".into(), vec![meta("a", "game.gbc", 3)], &router).unwrap();
+        let token = session.tokens()["a"].clone();
+
+        assert_eq!(
+            session.receive_file("a", &token, &mut &b"new"[..], &NoopWake),
+            200
+        );
+        assert_eq!(std::fs::read(dir.join("game.gbc")).unwrap(), b"new");
+        assert!(!dir.join("game (1).gbc").exists());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The old file must survive a receive that dies part-way: the rename onto
+    /// it only happens once the whole body is on disk.
+    #[test]
+    fn overwrite_keeps_the_old_file_when_the_transfer_fails() {
+        let dir = temp_dir("overwrite-fail");
+        std::fs::write(dir.join("game.gbc"), b"old").unwrap();
+        let router = SaveRouter::new(dir.clone(), &Default::default(), false, true);
+        let session =
+            InboundSession::new("Phone".into(), vec![meta("a", "game.gbc", 10)], &router).unwrap();
+        let token = session.tokens()["a"].clone();
+
+        assert_eq!(
+            session.receive_file("a", &token, &mut &b"short"[..], &NoopWake),
+            500
+        );
+        assert_eq!(std::fs::read(dir.join("game.gbc")).unwrap(), b"old");
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn routes_files_to_per_extension_folders() {
         let base = temp_dir("route");
         let mut routes = std::collections::BTreeMap::new();
         routes.insert("png".to_string(), "shots".to_string()); // relative → base/shots
-        let router = SaveRouter::new(base.clone(), &routes, false);
+        let router = SaveRouter::new(base.clone(), &routes, false, false);
         let session = InboundSession::new(
             "Phone".into(),
             vec![meta("a", "grab.png", 3), meta("b", "rom.gbc", 3)],

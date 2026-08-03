@@ -237,7 +237,7 @@ mod tests {
         let base = std::path::PathBuf::from(temp_dir("inbound").trim_end_matches('/'));
         let mut routes = BTreeMap::new();
         routes.insert("png".to_string(), "shots".to_string());
-        let router = super::super::route::SaveRouter::new(base.clone(), &routes, false);
+        let router = super::super::route::SaveRouter::new(base.clone(), &routes, false, false);
         let session = InboundSession::new(
             "Phone".into(),
             vec![meta("a", "grab.png"), meta("b", "rom.gbc")],
