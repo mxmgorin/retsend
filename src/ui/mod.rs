@@ -85,6 +85,21 @@ impl NetStatusCache {
     }
 }
 
+/// Data for the one base screen this frame renders. Built by
+/// [`AppUi::screen_data`] with the same precedence the render pass uses, so
+/// covered screens cost nothing.
+enum Screen {
+    /// Renders straight from `AppUi::browser`.
+    Browser,
+    Routes(routes::RoutesData),
+    About,
+    Transfer(transfer::TransferData),
+    Send(home::HomeData),
+    Receive(receive::ReceiveData),
+    History(history::HistoryData),
+    Settings,
+}
+
 pub struct AppUi {
     egui: EguiWindow,
     repaint_delay: Option<Duration>,
@@ -98,10 +113,11 @@ pub struct AppUi {
     pub osk: Osk,
     pub transfer: TransferView,
     pub toasts: Toasts,
-    /// Peer count as of the last frame — the command router clamps the home
-    /// cursor against it without re-locking the registry.
+    /// Peer count as of the last frame that showed the Send tab — the command
+    /// router clamps the home cursor against it without re-locking the registry.
     pub peer_count: usize,
-    /// History entry count as of the last frame — clamps the history cursor.
+    /// History entry count as of the last frame that showed the History tab —
+    /// clamps the history cursor.
     pub history_count: usize,
     /// Throttled IP/SSID for the Receive screen's diagnostic line.
     net_status: NetStatusCache,
@@ -148,60 +164,7 @@ impl AppUi {
     /// Build the frame. Reads shared net state (brief locks) before entering
     /// the egui closure.
     pub fn update(&mut self, net: &NetService, config: &AppConfig, history: &History) {
-        let peers = net.shared.peers.snapshot();
-        self.peer_count = peers.len();
-        let send_data = home::HomeData {
-            cursor: self.home.cursor(peers.len()),
-            peers: peers
-                .iter()
-                .map(|p| home::PeerRow {
-                    alias: p.info.alias.clone(),
-                    detail: format!(
-                        "{} · {}",
-                        p.info.device_model.as_deref().unwrap_or("unknown"),
-                        p.ip
-                    ),
-                    proto: p.info.protocol.as_deref().unwrap_or("http").to_uppercase(),
-                })
-                .collect(),
-        };
-        let (scheme, port) = endpoint_scheme_port(net);
-        let status = self.net_status.get();
-        let receive_data = receive::ReceiveData {
-            alias: config.device.alias.clone(),
-            scheme,
-            port,
-            ip: status.ip.map(|ip| ip.to_string()),
-            ssid: status.ssid.clone(),
-            quick_save: config.transfer.auto_accept,
-        };
-        self.history_count = history.entries().len();
-        let now = unix_now();
-        let history_data = history::HistoryData {
-            cursor: self.history.cursor(self.history_count),
-            rows: history
-                .entries()
-                .iter()
-                .rev()
-                .map(|e| history::row(e, now))
-                .collect(),
-        };
-
-        let routes_open = self.routes.open;
-        let route_rows: Vec<(String, String)> = config
-            .transfer
-            .routes
-            .iter()
-            .map(|(ext, dir)| (ext.clone(), dir.clone()))
-            .collect();
-        let auto_rows = self.routes.auto_rows(&config.transfer.routes);
-        let routes_data = routes::RoutesData {
-            cursor: self.routes.cursor(route_rows.len(), auto_rows.len()),
-            rows: route_rows,
-            auto_rows,
-            auto_on: config.transfer.auto_routes,
-        };
-
+        let screen = self.screen_data(net, config, history);
         let prompt_data = prompt_data(net);
         // The destination picker stands in for the modal while it is up: the
         // request keeps counting down, so the browser shows what is left of
@@ -213,7 +176,6 @@ impl AppUi {
                 .max(0.0)
                 .ceil() as u32
         });
-        let transfer_data = self.transfer_data();
         let active_tab = self.tabs.active();
         let settings_state = &self.settings;
         let toasts: Vec<String> = self.toasts.live().map(str::to_string).collect();
@@ -228,31 +190,31 @@ impl AppUi {
                 egui::UiBuilder::new().max_rect(ctx.content_rect()),
             );
             root.set_clip_rect(ctx.content_rect());
-            // Base-screen precedence mirrors Focus: the browser, the routes
-            // editor, the About screen, and the transfer takeover outrank the
-            // tabs; otherwise the tab bar plus the active tab's body.
-            if self.browser.open {
-                browser::render(
+            match &screen {
+                Screen::Browser => browser::render(
                     &mut root,
                     &self.browser,
                     &self.browser.target_alias,
                     deadline_secs,
-                );
-            } else if routes_open {
-                routes::render(&mut root, &routes_data);
-            } else if self.about.open {
-                about::render(&mut root);
-            } else if let Some(t) = &transfer_data {
-                transfer::render(&mut root, t);
-            } else {
-                tabs::render_bar(&mut root, active_tab);
-                match active_tab {
-                    Tab::Send => home::render(&mut root, &send_data),
-                    Tab::Receive => receive::render(&mut root, &receive_data),
-                    Tab::History => history::render(&mut root, &history_data),
-                    Tab::Settings => {
-                        settings::render(&mut root, settings_state, config, actual_port)
-                    }
+                ),
+                Screen::Routes(data) => routes::render(&mut root, data),
+                Screen::About => about::render(&mut root),
+                Screen::Transfer(data) => transfer::render(&mut root, data),
+                Screen::Send(data) => {
+                    tabs::render_bar(&mut root, active_tab);
+                    home::render(&mut root, data);
+                }
+                Screen::Receive(data) => {
+                    tabs::render_bar(&mut root, active_tab);
+                    receive::render(&mut root, data);
+                }
+                Screen::History(data) => {
+                    tabs::render_bar(&mut root, active_tab);
+                    history::render(&mut root, data);
+                }
+                Screen::Settings => {
+                    tabs::render_bar(&mut root, active_tab);
+                    settings::render(&mut root, settings_state, config, actual_port);
                 }
             }
             if let Some(p) = prompt_data.as_ref().filter(|_| !picking_incoming) {
@@ -275,6 +237,84 @@ impl AppUi {
             delay = delay.min(PROMPT_REFRESH);
         }
         self.repaint_delay = Some(delay);
+    }
+
+    /// Snapshot what the rendered screen needs, and only that. Precedence
+    /// mirrors Focus: browser, routes editor, About, the transfer takeover,
+    /// then the active tab. Skipping covered screens also keeps the Receive
+    /// tab's network probe (shells out to `iw`) off every other screen.
+    fn screen_data(&mut self, net: &NetService, config: &AppConfig, history: &History) -> Screen {
+        if self.browser.open {
+            return Screen::Browser;
+        }
+        if self.routes.open {
+            let rows: Vec<(String, String)> = config
+                .transfer
+                .routes
+                .iter()
+                .map(|(ext, dir)| (ext.clone(), dir.clone()))
+                .collect();
+            let auto_rows = self.routes.auto_rows(&config.transfer.routes);
+            return Screen::Routes(routes::RoutesData {
+                cursor: self.routes.cursor(rows.len(), auto_rows.len()),
+                rows,
+                auto_rows,
+                auto_on: config.transfer.auto_routes,
+            });
+        }
+        if self.about.open {
+            return Screen::About;
+        }
+        if let Some(data) = self.transfer_data() {
+            return Screen::Transfer(data);
+        }
+        match self.tabs.active() {
+            Tab::Send => {
+                let peers = net.shared.peers.snapshot();
+                self.peer_count = peers.len();
+                Screen::Send(home::HomeData {
+                    cursor: self.home.cursor(peers.len()),
+                    peers: peers
+                        .iter()
+                        .map(|p| home::PeerRow {
+                            alias: p.info.alias.clone(),
+                            detail: format!(
+                                "{} · {}",
+                                p.info.device_model.as_deref().unwrap_or("unknown"),
+                                p.ip
+                            ),
+                            proto: p.info.protocol.as_deref().unwrap_or("http").to_uppercase(),
+                        })
+                        .collect(),
+                })
+            }
+            Tab::Receive => {
+                let (scheme, port) = endpoint_scheme_port(net);
+                let status = self.net_status.get();
+                Screen::Receive(receive::ReceiveData {
+                    alias: config.device.alias.clone(),
+                    scheme,
+                    port,
+                    ip: status.ip.map(|ip| ip.to_string()),
+                    ssid: status.ssid.clone(),
+                    quick_save: config.transfer.auto_accept,
+                })
+            }
+            Tab::History => {
+                self.history_count = history.entries().len();
+                let now = unix_now();
+                Screen::History(history::HistoryData {
+                    cursor: self.history.cursor(self.history_count),
+                    rows: history
+                        .entries()
+                        .iter()
+                        .rev()
+                        .map(|e| history::row(e, now))
+                        .collect(),
+                })
+            }
+            Tab::Settings => Screen::Settings,
+        }
     }
 
     /// Snapshot the viewed session for the renderer (per-slot locks, brief).
