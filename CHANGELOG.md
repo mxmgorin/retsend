@@ -12,7 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The ARM binaries are cross-built with `cargo-zigbuild`, which puts the glibc
   floor in the target triple instead of pinning the build to whichever distro
   ships that glibc — no archived apt suites in the pipeline. One build per arch
-  feeds every package. `tools/arm/build.sh` runs the same thing locally.
+  feeds every package, so the armhf binary in the PortMaster zip is the same file
+  the OnionOS zip carries. `tools/arm/build.sh` runs the same thing locally.
+
+### Added
+
+- An OnionOS package for the Miyoo Mini Plus and Flip (the plain Mini has no
+  wifi): `retsend-onionos.zip` unzips at the card root into `App/Retsend/`,
+  built and released by a workflow of its own. It ships the SDL2 the platform's
+  own ports use and preloads it the same way, keeps the config and received
+  files on the card, skips the GL probes the SSD202 cannot answer, and wires
+  MENU to quit through `pressMenu2Kill` — nothing on these devices raises an
+  SDL quit event.
 
 ### Fixed
 
@@ -23,6 +34,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refused it before `main()`. Both are built with `cargo-zigbuild` against a
   pinned glibc 2.28 now, and CI fails the job if a reference above the floor
   comes back. `port.json` states that floor for PortMaster.
+- Text is no longer clipped along the bottom of every glyph on the Miyoo Mini
+  Plus and Flip, and the UI no longer stutters. Both came from the same place:
+  egui's meshes were rasterized as triangles, and the SDL 2.26 those devices'
+  SDL2 forks are built on drops the last row of a textured triangle. Glyphs and
+  plain rectangles are blitted now instead, which is also cheaper than per-pixel
+  triangle work on a CPU with no GPU behind it.
+- Buttons work on the Miyoo Mini Plus and Flip. Their SDL2 offers the pad as a
+  joystick with no gamepad mapping and sends key presses instead (A is Space, B
+  is Left Ctrl, Start is Return), none of which matched the desktop bindings.
+  The layout is picked from the `mmiyoo` video driver, or by `RETSEND_KEYMAP`.
 
 ## [0.3.0] - 2026-08-02
 
