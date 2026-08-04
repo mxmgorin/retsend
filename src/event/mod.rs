@@ -49,23 +49,26 @@ impl AppEventHandler {
     }
 
     /// Block for the next event when idle, then drain everything queued this
-    /// frame and emit gamepad repeats. `ui.take_repaint_delay()` bounds the
-    /// block when egui or a toast wants a timed follow-up frame.
+    /// frame and emit gamepad repeats. The block is bounded by the earlier of
+    /// egui's repaint request and the next auto-repeat — a held D-pad wakes
+    /// the loop per repeat instead of spinning it.
     pub fn wait(&mut self, ui: &mut AppUi, commands: &mut Vec<AppCommand>) {
-        if !self.gamepad.is_active() {
-            match ui.take_repaint_delay() {
-                Some(delay) => {
-                    let ms = delay.as_millis().min(u32::MAX as u128) as u32;
-                    if ms > 0 {
-                        if let Some(event) = self.event_pump.wait_event_timeout(ms) {
-                            self.handle_event(event, ui, commands);
-                        }
+        let deadline = match (ui.take_repaint_delay(), self.gamepad.next_repeat_in()) {
+            (Some(repaint), Some(repeat)) => Some(repaint.min(repeat)),
+            (repaint, repeat) => repaint.or(repeat),
+        };
+        match deadline {
+            Some(delay) => {
+                let ms = delay.as_millis().min(u32::MAX as u128) as u32;
+                if ms > 0 {
+                    if let Some(event) = self.event_pump.wait_event_timeout(ms) {
+                        self.handle_event(event, ui, commands);
                     }
                 }
-                None => {
-                    let event = self.event_pump.wait_event();
-                    self.handle_event(event, ui, commands);
-                }
+            }
+            None => {
+                let event = self.event_pump.wait_event();
+                self.handle_event(event, ui, commands);
             }
         }
 

@@ -6,7 +6,7 @@
 use crate::app::{AppCommand, Direction};
 use crate::config::InputConfig;
 use sdl2::controller::{Axis, Button};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub struct Gamepad {
     config: InputConfig,
@@ -33,10 +33,15 @@ impl Gamepad {
         }
     }
 
-    /// While a direction is held the main loop must keep ticking (repeats fire
-    /// from [`Self::tick`]); otherwise it may block on the event pump.
-    pub fn is_active(&self) -> bool {
-        self.held.is_some()
+    /// Time until the next auto-repeat is due (zero when overdue), `None`
+    /// when nothing is held — the event loop must not block past it.
+    pub fn next_repeat_in(&self) -> Option<Duration> {
+        let held = self.held.as_ref()?;
+        let due = match held.last_repeat {
+            None => held.pressed_at + Duration::from_millis(self.config.repeat_initial_delay_ms),
+            Some(last) => last + Duration::from_millis(self.config.repeat_interval_ms),
+        };
+        Some(due.saturating_duration_since(Instant::now()))
     }
 
     pub fn on_button(&mut self, button: Button, pressed: bool, commands: &mut Vec<AppCommand>) {
@@ -113,8 +118,8 @@ impl Gamepad {
     pub fn tick(&mut self, commands: &mut Vec<AppCommand>) {
         let Some(held) = &mut self.held else { return };
         let now = Instant::now();
-        let initial = std::time::Duration::from_millis(self.config.repeat_initial_delay_ms);
-        let interval = std::time::Duration::from_millis(self.config.repeat_interval_ms);
+        let initial = Duration::from_millis(self.config.repeat_initial_delay_ms);
+        let interval = Duration::from_millis(self.config.repeat_interval_ms);
         let due = match held.last_repeat {
             None => now.duration_since(held.pressed_at) >= initial,
             Some(last) => now.duration_since(last) >= interval,
