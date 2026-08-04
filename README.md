@@ -79,7 +79,7 @@ cargo test
 
 | Pad          | Keyboard   | Action                                        |
 |--------------|------------|-----------------------------------------------|
-| D-pad / stick| Arrows     | Navigate                                      |
+| D-pad / stick| Arrows     | Navigate · left/right switch tabs             |
 | A            | Enter      | Send to device · select file · accept · type  |
 | B            | Esc        | Back · decline · cancel · leave the keyboard  |
 | X            | X / Bksp   | Add a device by IP · pick where an incoming transfer lands · erase a character · take every file in the folder |

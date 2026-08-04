@@ -10,6 +10,8 @@ pub enum OskTarget {
     RouteExt,
     /// A peer's `ip[:port]`, to add it to the radar by hand.
     PeerAddress,
+    /// The port we listen on.
+    Port,
 }
 
 impl OskTarget {
@@ -18,7 +20,7 @@ impl OskTarget {
     fn layer(self) -> usize {
         match self {
             OskTarget::Alias | OskTarget::RouteExt => 0,
-            OskTarget::PeerAddress => SYMBOL_LAYER,
+            OskTarget::PeerAddress | OskTarget::Port => SYMBOL_LAYER,
         }
     }
 
@@ -29,6 +31,7 @@ impl OskTarget {
             OskTarget::Alias => "Device name",
             OskTarget::RouteExt => "File extension",
             OskTarget::PeerAddress => "Device IP, e.g. 192.168.1.23",
+            OskTarget::Port => "Port, 1024 or above",
         }
     }
 }
