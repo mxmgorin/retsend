@@ -25,6 +25,9 @@ use std::sync::Arc;
 /// Rows a shoulder-button page jump moves in a list.
 const PAGE_JUMP: i32 = 8;
 
+/// Below this the bind needs root, which we never have on these devices.
+const MIN_PORT: u16 = 1024;
+
 pub struct App {
     ui: AppUi,
     event_handler: AppEventHandler,
@@ -325,24 +328,23 @@ impl App {
         }
     }
 
-    /// Nav on a tab: Send scrolls the radar, Settings moves the row cursor and
-    /// steps values with left/right, Receive has nothing to navigate.
+    /// Nav on a tab: left/right step between tabs the same way L1/R1 do, and
+    /// up/down move the active tab's cursor (Receive has nothing to move).
     fn tab_nav(&mut self, dir: Direction) {
-        match self.ui.tabs.active() {
-            Tab::Send => {
-                let count = self.ui.peer_count;
-                self.ui.home.move_cursor(nav_delta(dir), count);
-            }
-            Tab::Receive => {}
-            Tab::History => {
-                let count = self.ui.history_count;
-                self.ui.history.move_cursor(nav_delta(dir), count);
-            }
-            Tab::Settings => match dir {
-                Direction::Up => self.ui.settings.move_cursor(-1),
-                Direction::Down => self.ui.settings.move_cursor(1),
-                Direction::Left => self.adjust_setting(-1),
-                Direction::Right => self.adjust_setting(1),
+        match dir {
+            Direction::Left => self.switch_tab(-1),
+            Direction::Right => self.switch_tab(1),
+            Direction::Up | Direction::Down => match self.ui.tabs.active() {
+                Tab::Send => {
+                    let count = self.ui.peer_count;
+                    self.ui.home.move_cursor(nav_delta(dir), count);
+                }
+                Tab::Receive => {}
+                Tab::History => {
+                    let count = self.ui.history_count;
+                    self.ui.history.move_cursor(nav_delta(dir), count);
+                }
+                Tab::Settings => self.ui.settings.move_cursor(nav_delta(dir)),
             },
         }
     }
@@ -388,7 +390,11 @@ impl App {
                 self.ui.routes.open(auto);
             }
             SettingsRow::About => self.ui.about.open(),
-            SettingsRow::Port => {}
+            SettingsRow::Port => {
+                self.ui
+                    .osk
+                    .open(OskTarget::Port, &self.config.network.port.to_string());
+            }
         }
     }
 
@@ -436,23 +442,6 @@ impl App {
     fn apply_routes(&mut self) {
         self.config.save();
         self.net.shared.transfer.lock().unwrap().routes = self.config.transfer.routes.clone();
-    }
-
-    /// Left/right (and L1/R1) on value rows: port stepper, toggle.
-    fn adjust_setting(&mut self, step: i32) {
-        match self.ui.settings.row() {
-            SettingsRow::Port => {
-                let port = (self.config.network.port as i32 + step).clamp(1024, u16::MAX as i32);
-                if port as u16 != self.config.network.port {
-                    self.config.network.port = port as u16;
-                    self.ui.settings.port_dirty = true;
-                }
-            }
-            SettingsRow::QuickSave => self.toggle_quick_save(),
-            SettingsRow::Overwrite => self.toggle_overwrite(),
-            SettingsRow::AutoRoutes => self.toggle_auto_routes(),
-            _ => {}
-        }
     }
 
     fn toggle_quick_save(&mut self) {
@@ -603,6 +592,22 @@ impl App {
                     DirPurpose::Route,
                     "",
                 );
+            }
+            OskEvent::Committed(OskTarget::Port, value) => {
+                // Applied on leaving Settings, like the stepper it replaced —
+                // rebinding the listener on every keystroke-commit is worse.
+                match value.trim().parse::<u16>() {
+                    Ok(port) if port >= MIN_PORT => {
+                        if port != self.config.network.port {
+                            self.config.network.port = port;
+                            self.ui.settings.port_dirty = true;
+                        }
+                    }
+                    _ => self.ui.toasts.push(format!(
+                        "Port must be a number from {MIN_PORT} to {}",
+                        u16::MAX
+                    )),
+                }
             }
             OskEvent::Committed(OskTarget::PeerAddress, value) => {
                 match crate::net::manual::parse_address(&value) {

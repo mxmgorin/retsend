@@ -29,7 +29,7 @@ pub fn render(root: &mut egui::Ui, data: &HomeData) {
         hint_bar(
             ui,
             &[
-                ("L1/R1", "Tabs"),
+                ("← →", "Tabs"),
                 ("Select", "Refresh"),
                 ("X", "Add IP"),
                 ("A", "Send"),

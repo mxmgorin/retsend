@@ -12,7 +12,7 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
         (
             "Port",
             port_label(config.network.port, actual_port, state.port_dirty),
-            "← → Adjust",
+            "A Edit",
         ),
         (
             "Quick save",
@@ -58,7 +58,7 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
     // egui's panel-id sequence and flag the footer as a changed id.
     egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
-        super::home::hint_bar(ui, &[("L1/R1", "Tabs")]);
+        super::home::hint_bar(ui, &[("← →", "Tabs")]);
         ui.add_space(4.0);
     });
 

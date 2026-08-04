@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Left and right switch tabs, on every tab — the tab bar no longer needs the
+  shoulder buttons, which some of these pads place awkwardly. L1/R1 still do it.
+  The port is typed on the on-screen keyboard now (A on the row) rather than
+  stepped one number at a time with left/right, which was the only thing left
+  holding those two directions; every other settings row was already on A.
 - The ARM binaries are cross-built with `cargo-zigbuild`, which puts the glibc
   floor in the target triple instead of pinning the build to whichever distro
   ships that glibc — no archived apt suites in the pipeline. One build per arch

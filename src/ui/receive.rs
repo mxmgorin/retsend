@@ -23,7 +23,7 @@ pub struct ReceiveData {
 pub fn render(root: &mut egui::Ui, data: &ReceiveData) {
     egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
-        super::home::hint_bar(ui, &[("L1/R1", "Tabs"), ("Select", "Refresh")]);
+        super::home::hint_bar(ui, &[("← →", "Tabs"), ("Select", "Refresh")]);
         ui.add_space(4.0);
     });
 
