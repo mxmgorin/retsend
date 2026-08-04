@@ -5,6 +5,10 @@ use super::{theme, truncate_middle};
 use crate::overlay::browser::{BrowserMode, DirPurpose, FileBrowser};
 use egui_sdl2::egui;
 
+/// Listing row height — denser than [`theme::ROW_HEIGHT`] so a folder shows
+/// more files per screen.
+const ENTRY_HEIGHT: f32 = 30.0;
+
 /// `deadline_secs` is set only while the browser is picking a destination for
 /// a parked incoming request: the modal (and its countdown bar) is hidden
 /// behind us, so the seconds left have to show up here.
@@ -92,12 +96,32 @@ pub fn render(
             });
             return;
         }
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            for (i, entry) in browser.entries.iter().enumerate() {
-                let selected = browser.cursor == i;
-                let desired = egui::vec2(ui.available_width(), 30.0);
-                let (rect, response) = ui.allocate_exact_size(desired, egui::Sense::hover());
-                if selected {
+        // Virtualized: only the visible slice is laid out and painted — ROM
+        // folders can hold thousands of entries.
+        let spacing = ui.spacing().item_spacing.y;
+        let step = ENTRY_HEIGHT + spacing;
+        let total = browser.entries.len();
+        egui::ScrollArea::vertical().show_viewport(ui, |ui, viewport| {
+            ui.set_height(step * total as f32 - spacing);
+            ui.set_width(ui.available_width());
+            let origin = ui.min_rect().left_top();
+            let width = ui.available_width();
+            let row_rect = |i: usize| {
+                egui::Rect::from_min_size(
+                    origin + egui::vec2(0.0, i as f32 * step),
+                    egui::vec2(width, ENTRY_HEIGHT),
+                )
+            };
+            // Keeps the cursor visible even when it jumped past the slice.
+            if browser.cursor < total {
+                ui.scroll_to_rect(row_rect(browser.cursor), None);
+            }
+            let first = (viewport.min.y / step).max(0.0) as usize;
+            let last = ((viewport.max.y / step).ceil() as usize + 1).min(total);
+            for i in first..last {
+                let entry = &browser.entries[i];
+                let rect = row_rect(i);
+                if browser.cursor == i {
                     ui.painter().rect(
                         rect,
                         4.0,
@@ -105,7 +129,6 @@ pub fn render(
                         egui::Stroke::new(1.0, theme::ACCENT),
                         egui::StrokeKind::Inside,
                     );
-                    response.scroll_to_me(None);
                 }
                 let painter = ui.painter();
                 let padding = 10.0;

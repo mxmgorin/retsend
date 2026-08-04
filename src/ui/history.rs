@@ -72,21 +72,48 @@ pub fn render(root: &mut egui::Ui, data: &HistoryData) {
             return;
         }
 
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            for (i, row) in data.rows.iter().enumerate() {
-                let response = history_row(ui, row, data.cursor == Some(i));
-                if data.cursor == Some(i) {
-                    response.scroll_to_me(None);
+        // Virtualized like the browser; rows differ in height (path line or
+        // not), so tops are prefix sums rather than a fixed step.
+        let spacing = ui.spacing().item_spacing.y;
+        let mut tops = Vec::with_capacity(data.rows.len() + 1);
+        let mut y = 0.0;
+        for row in &data.rows {
+            tops.push(y);
+            y += row_height(row) + spacing;
+        }
+        tops.push(y);
+        egui::ScrollArea::vertical().show_viewport(ui, |ui, viewport| {
+            ui.set_height(y - spacing);
+            ui.set_width(ui.available_width());
+            let origin = ui.min_rect().left_top();
+            let width = ui.available_width();
+            let row_rect = |i: usize| {
+                egui::Rect::from_min_size(
+                    origin + egui::vec2(0.0, tops[i]),
+                    egui::vec2(width, row_height(&data.rows[i])),
+                )
+            };
+            if let Some(c) = data.cursor.filter(|&c| c < data.rows.len()) {
+                ui.scroll_to_rect(row_rect(c), None);
+            }
+            let first = tops
+                .partition_point(|&t| t <= viewport.min.y)
+                .saturating_sub(1);
+            for (i, row) in data.rows.iter().enumerate().skip(first) {
+                if tops[i] > viewport.max.y {
+                    break;
                 }
+                history_row(ui, row, row_rect(i), data.cursor == Some(i));
             }
         });
     });
 }
 
-fn history_row(ui: &mut egui::Ui, row: &HistoryRow, selected: bool) -> egui::Response {
-    let extra = if row.path.is_empty() { 0.0 } else { PATH_LINE };
-    let desired = egui::vec2(ui.available_width(), theme::ROW_HEIGHT + extra);
-    let (rect, response) = ui.allocate_exact_size(desired, egui::Sense::hover());
+fn row_height(row: &HistoryRow) -> f32 {
+    theme::ROW_HEIGHT + if row.path.is_empty() { 0.0 } else { PATH_LINE }
+}
+
+fn history_row(ui: &mut egui::Ui, row: &HistoryRow, rect: egui::Rect, selected: bool) {
     if selected {
         ui.painter().rect(
             rect,
@@ -131,7 +158,6 @@ fn history_row(ui: &mut egui::Ui, row: &HistoryRow, selected: bool) -> egui::Res
         egui::FontId::proportional(theme::ROW_FONT),
         glyph_color,
     );
-    response
 }
 
 /// Outcome → (glyph, color): a green check when everything landed, a dim check
