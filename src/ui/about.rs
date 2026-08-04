@@ -1,7 +1,7 @@
 //! The About screen: the wordmark hero over a small block of build metadata
-//! (version, build date, commit) and the project URL. Read-only — B backs out
-//! to Settings. All values are compile-time constants (`CARGO_PKG_*` plus the
-//! `RETSEND_*` vars stamped by `build.rs`), so nothing is threaded in.
+//! (version, build date, commit), the project URL and author. Read-only — B
+//! backs out to Settings. All values are compile-time constants (`CARGO_PKG_*`
+//! plus the `RETSEND_*` vars stamped by `build.rs`), so nothing is threaded in.
 
 use super::{theme, wordmark};
 use egui_sdl2::egui;
@@ -27,7 +27,7 @@ pub fn render(root: &mut egui::Ui) {
     });
 
     egui::CentralPanel::default().show(root, |ui| {
-        const HERO_H: f32 = 200.0; // wordmark + gaps + info block, roughly
+        const HERO_H: f32 = 220.0; // wordmark + gaps + info block, roughly
         let top = ((ui.available_height() - HERO_H) / 2.0).max(8.0);
         ui.vertical_centered(|ui| {
             ui.add_space(top);
@@ -45,6 +45,7 @@ pub fn render(root: &mut egui::Ui) {
             info_row(ui, "Built", env!("RETSEND_BUILD_DATE"));
             info_row(ui, "Commit", env!("RETSEND_GIT_COMMIT"));
             info_row(ui, "Project", env!("CARGO_PKG_REPOSITORY"));
+            info_row(ui, "Author", env!("CARGO_PKG_AUTHORS"));
         });
     });
 }
