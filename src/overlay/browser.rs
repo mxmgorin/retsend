@@ -366,11 +366,8 @@ fn read_entries(dir: &Path) -> std::io::Result<Vec<Entry>> {
             pinned: false,
         });
     }
-    entries.sort_by(|a, b| {
-        b.is_dir
-            .cmp(&a.is_dir)
-            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-    });
+    // Cached key: one lowercase per entry, not two per comparison.
+    entries.sort_by_cached_key(|e| (!e.is_dir, e.name.to_lowercase()));
     Ok(entries)
 }
 
