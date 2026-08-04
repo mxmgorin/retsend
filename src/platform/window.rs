@@ -11,13 +11,26 @@ use sdl2::Sdl;
 /// instead of an exit code. `RETSEND_SOFTWARE=1` skips GL entirely.
 pub fn open(sdl: &Sdl, config: &DisplayConfig) -> Result<EguiWindow, String> {
     let video_subsystem = sdl.video()?;
-    let order: &[Renderer] = if software_only() {
+    let order: &[Renderer] = if blit_first() {
+        log::info!("RETSEND_BLIT set; presenting the canvas as a texture copy");
+        &[Renderer::CanvasBlit, Renderer::Canvas]
+    } else if software_only() {
         log::info!("RETSEND_SOFTWARE set; not asking for GL");
-        &[Renderer::Canvas]
+        &[Renderer::Canvas, Renderer::CanvasBlit]
     } else if config.use_gles {
-        &[Renderer::Gles3, Renderer::Gl32, Renderer::Canvas]
+        &[
+            Renderer::Gles3,
+            Renderer::Gl32,
+            Renderer::Canvas,
+            Renderer::CanvasBlit,
+        ]
     } else {
-        &[Renderer::Gl32, Renderer::Gles3, Renderer::Canvas]
+        &[
+            Renderer::Gl32,
+            Renderer::Gles3,
+            Renderer::Canvas,
+            Renderer::CanvasBlit,
+        ]
     };
 
     let mut window = EguiWindow::new(
@@ -38,6 +51,12 @@ pub fn open(sdl: &Sdl, config: &DisplayConfig) -> Result<EguiWindow, String> {
 
 fn software_only() -> bool {
     std::env::var("RETSEND_SOFTWARE").is_ok_and(|v| v != "0")
+}
+
+/// `mmiyoo` (Miyoo Mini) shows texture copies and drops everything else without
+/// erroring, so the launcher has to ask: a blank screen can't be detected.
+fn blit_first() -> bool {
+    std::env::var("RETSEND_BLIT").is_ok_and(|v| v != "0")
 }
 
 /// Set the window icon from the bundled PNG (RGBA8), baked into the binary.

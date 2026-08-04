@@ -22,7 +22,8 @@ env:
 
 jobs:
   build:
-    # One build per arch, shared by every package below.
+    # One build per arch, shared by every package below, so the binary in the
+    # PortMaster zip is the same file the OnionOS zip ships.
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -176,3 +177,48 @@ jobs:
             retsend-linux-armhf.zip
             retsend-linux-armhf.zip.sha256
 
+  onionos:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: retsend-linux-armhf
+          path: bin
+
+      - name: Assemble the card layout
+        run: |
+          set -eux
+          pkg=onionos-dist
+          rm -rf "$pkg"
+          mkdir -p "$pkg"
+          # The zip mirrors the card, so it unzips at the SD root and the app
+          # lands in App/Retsend/ where MainUI looks for it.
+          cp -r onionos/App "$pkg/"
+          cp onionos/README.md "$pkg/App/Retsend/"
+          install -m 755 bin/retsend "$pkg/App/Retsend/retsend"
+          chmod 755 "$pkg/App/Retsend/launch.sh"
+          ls -laR "$pkg"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: retsend-onionos
+          path: onionos-dist
+
+      - name: Zip for release
+        if: github.event_name == 'release'
+        run: |
+          set -eux
+          (cd onionos-dist && zip -r ../retsend-onionos.zip .)
+          sha256sum retsend-onionos.zip > retsend-onionos.zip.sha256
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            retsend-onionos.zip
+            retsend-onionos.zip.sha256

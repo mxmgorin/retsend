@@ -15,33 +15,39 @@
 client for retro handhelds: send and receive files with your phone
 or PC over Wi-Fi, no cable or SSH. Compatible with the official LocalSend apps.
 
-It targets PortMaster-compatible Linux handhelds (**Knulli, muOS, ROCKNIX** —
-Anbernic/TrimUI class devices, gamepad-only, no compositor) and runs on
-regular desktop Linux too.
+It targets PortMaster-compatible Linux handhelds (**Knulli, muOS, ROCKNIX, ArkOS** — gamepad-only, no compositor) and the
+**Miyoo Mini Plus and Flip** on OnionOS, and runs on regular desktop Linux too.
 
 ## Why?
 
 Getting files onto a handheld usually means pulling the SD card or
 setting up SSH/SMB. Phones and desktops already have LocalSend —
-this is the missing end: a client built for a gamepad and screen, moving files both ways.
+this is the missing end: a client built for a gamepad and screen.
 
 ## Features
 
 - **Discovery** — a live radar of nearby devices (LocalSend protocol v2.1), with
   a manually typed IP address for the networks that block multicast.
 - **Receive** — accept/decline dialog with countdown, speed/ETA, and cancel from either side; X picks a folder for that one transfer; quick-save mode auto-accepts.
-- **Send** — gamepad file browser with multi-select and per-file progress; pin the folders and files you send often and they lead every listing. A send is a flat list of files: the protocol has no folders.
+- **Send** — gamepad file browser with multi-select and per-file progress; pin the folders and files you send often and they lead every listing.
 - **Save routes** — received ROMs land in the console folder they belong to, detected from the card; per-extension overrides on top.
 - **Encryption** — the protocol's HTTPS mode, on by default; works with the official app's default settings both ways.
 - **Settings on device** — alias, save folder, and port, applied live.
 - **Headless** — `retsend --receive` runs with no screen, for SSH and scripting.
-- **Small and simple** — no async runtime, a minimal HTTP server, system SDL2.
+- **Small and simple** — no async runtime, a minimal HTTP server, and the
+  platform's own SDL2 where there is one.
 
 ## Install (PortMaster devices)
 
 Grab `retsend-portmaster.zip` from
 [Releases](https://github.com/mxmgorin/retsend/releases) and unpack it
 into your ports folder (e.g. `/roms/ports/`).
+
+## Install (Miyoo Mini Plus / Flip, OnionOS)
+
+Grab `retsend-onionos.zip` from
+[Releases](https://github.com/mxmgorin/retsend/releases) and unzip it at the
+root of the SD card, so the app lands in `App/Retsend/`. It shows up under Apps, and **MENU quits** it.
 
 ## Building & running (desktop)
 
@@ -95,17 +101,19 @@ Settings screen edits everything in it except:
 
 Environment variables override paths and control logging at launch:
 `RETSEND_DATA_DIR`, `RETSEND_CONFIG`, `RETSEND_SAVE_DIR`, `RETSEND_SCALE`,
-`RETSEND_GLES=0|1`, `RETSEND_SOFTWARE=1`, `RETSEND_LOG_LEVEL`, `RETSEND_LOG_FILE`,
+`RETSEND_GLES=0|1`, `RETSEND_SOFTWARE=1`, `RETSEND_BLIT=1`,
+`RETSEND_KEYMAP=miyoo|desktop`, `RETSEND_LOG_LEVEL`, `RETSEND_LOG_FILE`,
 `RETSEND_PANIC_FILE`.
+
+`RETSEND_BLIT=1` rasterizes the UI offscreen and presents it as a single texture
+copy per frame, for drivers that show nothing else — the Miyoo Mini's `mmiyoo`
+drops geometry and window-surface updates without reporting an error.
 
 ### Save routes
 
 Received files land in `save_dir`, except ROMs: those are routed by extension
 into the console folders already present in `save_dir` — `.gba` into `gba`,
-`.sfc` into `snes`. The folder names come from KNULLI, ROCKNIX, and muOS, which
-disagree (Mega Drive is `megadrive`, `genesis`, or `md` — all recognized), and
-renamed folders like `Nintendo Game Boy Advance (GBA)` are matched by the code in
-parentheses. Nothing is created, so a missing folder gets no route, and ambiguous
+`.sfc` into `snes`. Nothing is created, so a missing folder gets no route, and ambiguous
 extensions (`.zip`, `.iso`, `.bin`, `.md`) never take part. Off via
 **Settings → Auto save routes** or `[transfer] auto_routes = false`.
 

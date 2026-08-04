@@ -1,2 +1,6 @@
 /target
 *-panic.log
+# The packaged binary is a build output; CI drops it in beside the static files.
+/onionos/App/Retsend/retsend
+/onionos/App/Retsend/log.txt
+/onionos/App/Retsend/data/

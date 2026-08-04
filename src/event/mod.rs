@@ -10,6 +10,7 @@ use crate::app::AppCommand;
 use crate::config::InputConfig;
 use crate::ui::AppUi;
 use gamepad::Gamepad;
+use keyboard::Keymap;
 use sdl2::event::Event;
 
 pub struct AppEventHandler {
@@ -17,6 +18,8 @@ pub struct AppEventHandler {
     game_controllers: Vec<sdl2::controller::GameController>,
     game_controller_subsystem: sdl2::GameControllerSubsystem,
     gamepad: Gamepad,
+    /// Which keys the device's pad sends, when it sends keys at all.
+    keymap: Keymap,
 }
 
 impl AppEventHandler {
@@ -33,11 +36,15 @@ impl AppEventHandler {
             }
         }
 
+        let keymap = Keymap::detect(sdl.video()?.current_video_driver());
+        log::info!("keyboard layout: {keymap:?}");
+
         Ok(Self {
             event_pump: sdl.event_pump()?,
             game_controllers,
             game_controller_subsystem,
             gamepad: Gamepad::new(input_cfg),
+            keymap,
         })
     }
 
@@ -99,7 +106,7 @@ impl AppEventHandler {
                 keycode: Some(kc),
                 repeat,
                 ..
-            } => keyboard::on_key_down(kc, repeat, commands),
+            } => keyboard::on_key_down(self.keymap, kc, repeat, commands),
             Event::Quit { .. } => commands.push(AppCommand::Shutdown),
             // User events exist purely to unblock the wait; per-frame reads of
             // the shared net state pick up whatever changed.
