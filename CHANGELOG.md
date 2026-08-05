@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-05
+
+### Changed
+
+- A held direction wakes the event loop once per auto-repeat instead of spinning
+  it. The loop stopped blocking on the event pump at all while a direction was
+  down, so it ran a core flat out to fire repeats at the configured interval; the
+  block is now bounded by the earlier of egui's repaint request and the moment
+  the next repeat comes due.
+- The browser and history lists lay out and paint only the rows in view. A ROM
+  folder can hold thousands of entries, and every one of them was a laid-out,
+  painted row on every frame. History rows differ in height depending on whether
+  they carry a path line, so their tops are prefix sums rather than a fixed step.
+- A frame builds the data for the one screen it draws. Peers, history rows and
+  save routes were all assembled every frame no matter which screen was on top,
+  so covered screens still paid for their allocations; the base-screen precedence
+  the render pass already followed now picks what to build. The peer and history
+  counts the command router clamps its cursors against are from the last frame
+  that showed those tabs.
+- Directory listings sort on a cached lowercase key — one allocation per entry
+  rather than two per comparison.
+
+### Added
+
+- The About screen names the author, next to the version, build date, commit and
+  project URL.
+
 ## [0.4.0] - 2026-08-04
 
 ### Changed
@@ -150,7 +177,8 @@ use (Knulli, muOS, ROCKNIX), running on desktop Linux too.
 - Brand wordmark and window icon.
 - Builds for Linux x86_64 and aarch64, with PortMaster packaging.
 
-[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/mxmgorin/retsend/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/mxmgorin/retsend/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/mxmgorin/retsend/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/mxmgorin/retsend/compare/v0.2.0...v0.2.1
