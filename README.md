@@ -17,9 +17,13 @@ or PC over Wi-Fi, no cable or SSH. Compatible with the official LocalSend apps.
 
 It targets PortMaster-compatible Linux handhelds (Knulli, muOS, ROCKNIX, and ArkOS) and the Miyoo Mini Plus and Miyoo Mini Flip running OnionOS, both of which are gamepad-only systems without a compositor, and runs on regular desktop Linux too.
 
-| Receive | Send | Save | History |
-|:---:|:---:|:---:|:---:|
-| ![Waiting for a sender, showing the device alias, address and Wi-Fi network](resources/retsend_receive.png) | ![Radar of four discovered devices, with the on-screen keyboard open to add one by IP](resources/retsend_send.png) | ![Picking the folder an incoming transfer lands in, the request still counting down](resources/retsend_save.png) | ![Sent and received transfers with file counts, sizes, times and the folders they used](resources/retsend_history.png) |
+| Receive | Request | Save |
+|:---:|:---:|:---:|
+| ![Waiting for a sender, showing the device name, address, Wi-Fi network and the folder files land in](resources/retsend_receive.png) | ![An incoming request naming the sender, its files and where they land, counting down to the automatic decline](resources/retsend_request.png) | ![Picking the folder an incoming transfer lands in, the request still counting down](resources/retsend_save.png) |
+
+| Send | Transfer | History |
+|:---:|:---:|:---:|
+| ![Radar of a discovered device with its model and address](resources/retsend_send.png) | ![A transfer in progress: overall bar with bytes, speed and ETA, and a percentage per file](resources/retsend_transfer.png) | ![Sent and received transfers with file counts, sizes, times and the folders they used](resources/retsend_history.png) |
 
 ## Why?
 
