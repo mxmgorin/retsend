@@ -1,4 +1,5 @@
-//! Settings screen renderer: name/value rows with per-row edit hints.
+//! Settings screen renderer: a scrolling list of name/value rows, the current
+//! row's action in the footer.
 
 use super::theme;
 use crate::config::AppConfig;
@@ -75,36 +76,41 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
     });
 
     egui::CentralPanel::default().show(root, |ui| {
-        for (i, (name, value, _)) in rows.iter().enumerate() {
-            let selected = state.cursor == i;
-            let desired = egui::vec2(ui.available_width(), theme::ROW_HEIGHT);
-            let (rect, _) = ui.allocate_exact_size(desired, egui::Sense::hover());
-            if selected {
-                ui.painter().rect(
-                    rect,
-                    6.0,
-                    theme::ACCENT.linear_multiply(0.30),
-                    egui::Stroke::new(1.0, theme::ACCENT),
-                    egui::StrokeKind::Inside,
+        // Scrolled like every other list: the rows outgrow a 640x480 screen,
+        // and a shorter one (or a larger RETSEND_SCALE) cuts them sooner.
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            for (i, (name, value, _)) in rows.iter().enumerate() {
+                let selected = state.cursor == i;
+                let desired = egui::vec2(ui.available_width(), theme::ROW_HEIGHT);
+                let (rect, response) = ui.allocate_exact_size(desired, egui::Sense::hover());
+                if selected {
+                    response.scroll_to_me(None);
+                    ui.painter().rect(
+                        rect,
+                        6.0,
+                        theme::ACCENT.linear_multiply(0.30),
+                        egui::Stroke::new(1.0, theme::ACCENT),
+                        egui::StrokeKind::Inside,
+                    );
+                }
+                let painter = ui.painter();
+                let padding = 10.0;
+                painter.text(
+                    rect.left_center() + egui::vec2(padding, 0.0),
+                    egui::Align2::LEFT_CENTER,
+                    *name,
+                    egui::FontId::proportional(theme::ROW_FONT),
+                    ui.visuals().text_color(),
+                );
+                painter.text(
+                    rect.right_center() - egui::vec2(padding, 0.0),
+                    egui::Align2::RIGHT_CENTER,
+                    value,
+                    egui::FontId::proportional(theme::DETAIL_FONT),
+                    theme::DIM,
                 );
             }
-            let painter = ui.painter();
-            let padding = 10.0;
-            painter.text(
-                rect.left_center() + egui::vec2(padding, 0.0),
-                egui::Align2::LEFT_CENTER,
-                *name,
-                egui::FontId::proportional(theme::ROW_FONT),
-                ui.visuals().text_color(),
-            );
-            painter.text(
-                rect.right_center() - egui::vec2(padding, 0.0),
-                egui::Align2::RIGHT_CENTER,
-                value,
-                egui::FontId::proportional(theme::DETAIL_FONT),
-                theme::DIM,
-            );
-        }
+        });
     });
 }
 

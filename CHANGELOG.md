@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The settings list scrolls. Its nine rows are taller than a 640x480 screen has
+  room for, and the list had no scroll area, so the last row (About) was cut off
+  at the panel edge — the cursor still moved onto it, off-screen. A smaller panel
+  or a larger `RETSEND_SCALE` cut it sooner.
+
 ## [0.5.1] - 2026-08-08
 
 ### Changed
