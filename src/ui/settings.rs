@@ -33,6 +33,15 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
             "A Toggle",
         ),
         (
+            "Received folders",
+            if config.transfer.keep_folders {
+                "keep the sender's structure".into()
+            } else {
+                "flatten into the save routes".into()
+            },
+            "A Toggle",
+        ),
+        (
             "Auto save routes",
             auto_routes_value(config.transfer.auto_routes, state.auto_route_count),
             "A Toggle",

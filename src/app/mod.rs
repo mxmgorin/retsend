@@ -384,6 +384,7 @@ impl App {
             }
             SettingsRow::QuickSave => self.toggle_quick_save(),
             SettingsRow::Overwrite => self.toggle_overwrite(),
+            SettingsRow::KeepFolders => self.toggle_keep_folders(),
             SettingsRow::AutoRoutes => self.toggle_auto_routes(),
             SettingsRow::Routes => {
                 let auto = self.detected_auto_routes();
@@ -452,6 +453,11 @@ impl App {
     fn toggle_overwrite(&mut self) {
         self.config.transfer.overwrite = !self.config.transfer.overwrite;
         self.net.shared.transfer.lock().unwrap().overwrite = self.config.transfer.overwrite;
+    }
+
+    fn toggle_keep_folders(&mut self) {
+        self.config.transfer.keep_folders = !self.config.transfer.keep_folders;
+        self.net.shared.transfer.lock().unwrap().keep_folders = self.config.transfer.keep_folders;
     }
 
     /// The toast reports the folder count because "on" alone cannot say whether

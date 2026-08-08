@@ -49,6 +49,7 @@ fn start_server(auto_accept: bool) -> (Arc<NetShared>, u16, impl FnOnce()) {
             auto_accept,
             overwrite: true,
             auto_routes: false,
+            keep_folders: true,
             routes: Default::default(),
         }),
         pending: Mutex::new(None),
@@ -468,6 +469,37 @@ fn hostile_file_names_stay_inside_save_dir() {
     stop();
 }
 
+/// A folder transfer as the official app sends it: `fileName` carries the
+/// relative path, which we rebuild under the save dir instead of routing by
+/// extension.
+#[test]
+fn a_folder_transfer_lands_as_a_folder() {
+    let (shared, port, stop) = start_server(true);
+    shared.transfer.lock().unwrap().routes = [("gbc".to_string(), "gb".to_string())].into();
+
+    let (status, body) = post(
+        port,
+        "/api/localsend/v2/prepare-upload",
+        &prepare_body(&[
+            ("a", "Zelda/Zelda.gbc", 4),
+            ("b", "Zelda/saves/Zelda.sav", 4),
+            ("c", "loose.gbc", 4),
+        ]),
+    );
+    assert_eq!(status, 200);
+    let (session_id, tokens) = tokens_of(&body);
+    for id in ["a", "b", "c"] {
+        assert_eq!(upload(port, &session_id, id, &tokens[id], b"data"), 200);
+    }
+
+    let dir = save_dir_of(&shared);
+    assert!(dir.join("Zelda/Zelda.gbc").is_file());
+    assert!(dir.join("Zelda/saves/Zelda.sav").is_file());
+    // The route still places a file the sender sent loose.
+    assert!(dir.join("gb/loose.gbc").is_file());
+    stop();
+}
+
 #[test]
 fn https_serves_info_with_certificate_fingerprint() {
     use retsend::net::{client, tls};
@@ -489,6 +521,7 @@ fn https_serves_info_with_certificate_fingerprint() {
             auto_accept: true,
             overwrite: true,
             auto_routes: false,
+            keep_folders: true,
             routes: Default::default(),
         }),
         pending: Mutex::new(None),
@@ -590,6 +623,7 @@ fn prober() -> Arc<NetShared> {
             auto_accept: false,
             overwrite: true,
             auto_routes: false,
+            keep_folders: true,
             routes: Default::default(),
         }),
         pending: Mutex::new(None),

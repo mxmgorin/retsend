@@ -286,14 +286,7 @@ fn handle_prepare_upload<S: Read + Write>(
     }
 
     let settings = shared.transfer.lock().unwrap().clone();
-    let router_for = |dir: PathBuf| {
-        crate::transfer::route::SaveRouter::new(
-            dir,
-            &settings.routes,
-            settings.auto_routes,
-            settings.overwrite,
-        )
-    };
+    let router_for = |dir: PathBuf| crate::transfer::route::SaveRouter::new(dir, &settings);
     if settings.auto_accept {
         let router = router_for(settings.save_dir.clone());
         return start_session(reader.get_mut(), shared, prepare.info, files, &router);
@@ -333,11 +326,10 @@ fn handle_prepare_upload<S: Read + Write>(
         // A folder chosen for this request is the whole answer to "where":
         // no routes, no auto routes, everything lands there.
         Ok(Decision::AcceptInto { dir }) => {
-            let router = crate::transfer::route::SaveRouter::new(
+            let router = crate::transfer::route::SaveRouter::into_dir(
                 dir,
-                &std::collections::BTreeMap::new(),
-                false,
                 settings.overwrite,
+                settings.keep_folders,
             );
             start_session(reader.get_mut(), shared, prepare.info, files, &router)
         }

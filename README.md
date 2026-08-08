@@ -34,6 +34,7 @@ this is the missing end: a client built for a gamepad and screen.
 - **Receive** — accept/decline dialog with countdown, speed/ETA, and cancel from either side; X picks a folder for that one transfer; quick-save mode auto-accepts.
 - **Send** — gamepad file browser with multi-select and per-file progress; pin the folders and files you send often and they lead every listing.
 - **Save routes** — received ROMs land in the console folder they belong to, detected from the card; per-extension overrides on top.
+- **Folders** — a folder sent from the official app arrives as a folder, its tree rebuilt under the save folder.
 - **Encryption** — the protocol's HTTPS mode, on by default; works with the official app's default settings both ways.
 - **Settings on device** — alias, save folder, and port, applied live.
 - **Headless** — `retsend --receive` runs with no screen, for SSH and scripting.
@@ -132,3 +133,15 @@ png = "/roms/screenshots"
 
 Extensions match case-insensitively, folders are created on demand, and anything
 unrouted lands in `save_dir`.
+
+### Received folders
+
+Protocol v2 carries a folder transfer as ordinary files whose names hold the
+relative path, so a folder sent from the official app is rebuilt under
+`save_dir`: `Zelda/saves/Zelda.sav` arrives at `<save_dir>/Zelda/saves/Zelda.sav`.
+Files inside a folder skip the save routes — a folder arrives whole rather than
+split across console folders — while loose files route as usual. Sender-supplied
+paths are sanitized component by component and can never leave `save_dir`.
+
+Switch it off with **Settings → Received folders** or `[transfer] keep_folders =
+false`, and every file lands flat, placed by the routes as before.

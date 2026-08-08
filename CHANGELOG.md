@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Folders are received as folders. Protocol v2 carries a folder transfer as
+  files whose `fileName` holds the relative path, which the receiver flattened
+  to a basename; it now rebuilds the sender's tree under the save folder, up to
+  eight levels deep, with every component sanitized on its own so a path still
+  cannot leave the save folder. Files that arrive inside a folder skip the save
+  routes — a folder lands whole instead of split across console folders — and
+  loose files route as before. **Settings → Received folders** switches it off
+  (`[transfer] keep_folders = false`) for the old flattening.
+
 ## [0.4.1] - 2026-08-05
 
 ### Changed
