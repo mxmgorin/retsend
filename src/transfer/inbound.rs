@@ -69,12 +69,12 @@ impl InboundSession {
         let mut taken = HashSet::new();
         let mut total = 0u64;
         for meta in files {
-            let name = super::files::sanitize_filename(&meta.file_name);
-            let dir = router.dir_for(&name);
-            std::fs::create_dir_all(dir)?;
-            let dest = router.dest_for(&name, &taken);
+            let rel = super::files::sanitize_relative_path(&meta.file_name);
+            let dir = router.dir_for(&rel);
+            std::fs::create_dir_all(&dir)?;
+            let dest = router.dest_for(&rel, &taken);
             // Belt and braces on top of sanitize: never outside its dir.
-            assert_eq!(dest.parent(), Some(dir));
+            assert_eq!(dest.parent(), Some(dir.as_path()));
             taken.insert(dest.clone());
             total += meta.size;
             by_id.insert(meta.id.clone(), slots.len());
@@ -300,7 +300,7 @@ mod tests {
     /// A no-routes router that lands everything in `dir`, keeping both on a
     /// name collision.
     fn router(dir: &std::path::Path) -> SaveRouter {
-        SaveRouter::new(dir.to_path_buf(), &Default::default(), false, false)
+        SaveRouter::into_dir(dir.to_path_buf(), false, true)
     }
 
     #[test]
@@ -382,6 +382,34 @@ mod tests {
     }
 
     #[test]
+    fn a_folder_transfer_rebuilds_the_senders_tree() {
+        let dir = temp_dir("folder");
+        let session = InboundSession::new(
+            "Phone".into(),
+            vec![
+                meta("a", "Zelda/rom.gbc", 4),
+                meta("b", "Zelda/saves/rom.sav", 4),
+                // Same basename in another folder: no collision suffix.
+                meta("c", "Link/saves/rom.sav", 4),
+            ],
+            &router(&dir),
+        )
+        .unwrap();
+        for id in ["a", "b", "c"] {
+            let token = session.tokens()[id].clone();
+            assert_eq!(
+                session.receive_file(id, &token, &mut &b"data"[..], &NoopWake),
+                200
+            );
+        }
+        assert!(dir.join("Zelda/rom.gbc").exists());
+        assert!(dir.join("Zelda/saves/rom.sav").exists());
+        assert!(dir.join("Link/saves/rom.sav").exists());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn hostile_names_land_inside_save_dir() {
         let dir = temp_dir("hostile");
         let session = InboundSession::new(
@@ -405,7 +433,7 @@ mod tests {
     fn overwrite_replaces_the_file_on_disk() {
         let dir = temp_dir("overwrite");
         std::fs::write(dir.join("game.gbc"), b"old").unwrap();
-        let router = SaveRouter::new(dir.clone(), &Default::default(), false, true);
+        let router = SaveRouter::into_dir(dir.clone(), true, true);
         let session =
             InboundSession::new("Phone".into(), vec![meta("a", "game.gbc", 3)], &router).unwrap();
         let token = session.tokens()["a"].clone();
@@ -426,7 +454,7 @@ mod tests {
     fn overwrite_keeps_the_old_file_when_the_transfer_fails() {
         let dir = temp_dir("overwrite-fail");
         std::fs::write(dir.join("game.gbc"), b"old").unwrap();
-        let router = SaveRouter::new(dir.clone(), &Default::default(), false, true);
+        let router = SaveRouter::into_dir(dir.clone(), true, true);
         let session =
             InboundSession::new("Phone".into(), vec![meta("a", "game.gbc", 10)], &router).unwrap();
         let token = session.tokens()["a"].clone();
@@ -443,9 +471,15 @@ mod tests {
     #[test]
     fn routes_files_to_per_extension_folders() {
         let base = temp_dir("route");
-        let mut routes = std::collections::BTreeMap::new();
-        routes.insert("png".to_string(), "shots".to_string()); // relative → base/shots
-        let router = SaveRouter::new(base.clone(), &routes, false, false);
+        let settings = crate::net::TransferSettings {
+            save_dir: base.clone(),
+            auto_accept: false,
+            overwrite: false,
+            auto_routes: false,
+            keep_folders: true,
+            routes: [("png".to_string(), "shots".to_string())].into(), // relative → base/shots
+        };
+        let router = SaveRouter::new(base.clone(), &settings);
         let session = InboundSession::new(
             "Phone".into(),
             vec![meta("a", "grab.png", 3), meta("b", "rom.gbc", 3)],

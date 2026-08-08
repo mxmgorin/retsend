@@ -47,6 +47,8 @@ pub struct TransferSettings {
     pub overwrite: bool,
     /// Fill unclaimed extensions from the save dir's console folders.
     pub auto_routes: bool,
+    /// Rebuild the folders a sender names in `fileName` under the save dir.
+    pub keep_folders: bool,
     /// Per-extension destination folders (`ext -> folder`); see
     /// [`crate::transfer::route::SaveRouter`].
     pub routes: std::collections::BTreeMap<String, String>,
@@ -59,6 +61,7 @@ impl From<&crate::config::TransferConfig> for TransferSettings {
             auto_accept: cfg.auto_accept,
             overwrite: cfg.overwrite,
             auto_routes: cfg.auto_routes,
+            keep_folders: cfg.keep_folders,
             routes: cfg.routes.clone(),
         }
     }

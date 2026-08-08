@@ -235,9 +235,15 @@ mod tests {
         };
 
         let base = std::path::PathBuf::from(temp_dir("inbound").trim_end_matches('/'));
-        let mut routes = BTreeMap::new();
-        routes.insert("png".to_string(), "shots".to_string());
-        let router = super::super::route::SaveRouter::new(base.clone(), &routes, false, false);
+        let settings = crate::net::TransferSettings {
+            save_dir: base.clone(),
+            auto_accept: false,
+            overwrite: false,
+            auto_routes: false,
+            keep_folders: true,
+            routes: BTreeMap::from([("png".to_string(), "shots".to_string())]),
+        };
+        let router = super::super::route::SaveRouter::new(base.clone(), &settings);
         let session = InboundSession::new(
             "Phone".into(),
             vec![meta("a", "grab.png"), meta("b", "rom.gbc")],

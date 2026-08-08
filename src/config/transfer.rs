@@ -11,6 +11,10 @@ pub struct TransferConfig {
     pub auto_accept: bool,
     /// Replace a same-named received file instead of saving `name (1)` beside it.
     pub overwrite: bool,
+    /// Rebuild the folders a sender names in `fileName` (protocol v2 carries a
+    /// folder transfer that way) under `save_dir`. Off flattens them, leaving
+    /// every file to `routes`. Toggled from Settings → Received folders.
+    pub keep_folders: bool,
     /// Extra file-browser roots on top of the auto-detected mount points.
     pub browser_roots: Vec<String>,
     /// Folders and files pinned to the top of the file browser, in the order
@@ -42,6 +46,7 @@ impl Default for TransferConfig {
             save_dir: super::paths::default_save_dir(),
             auto_accept: false,
             overwrite: true,
+            keep_folders: true,
             browser_roots: Vec::new(),
             pinned_paths: Vec::new(),
             last_send_dir: String::new(),
@@ -84,5 +89,11 @@ mod tests {
     fn overwrite_defaults_on_for_configs_written_before_it_existed() {
         let back: TransferConfig = toml::from_str("save_dir = \"/roms\"").expect("deserialize");
         assert!(back.overwrite);
+    }
+
+    #[test]
+    fn keep_folders_defaults_on_for_configs_written_before_it_existed() {
+        let back: TransferConfig = toml::from_str("save_dir = \"/roms\"").expect("deserialize");
+        assert!(back.keep_folders);
     }
 }
