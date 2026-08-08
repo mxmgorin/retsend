@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-08-08
+
+### Changed
+
+- The tab bar leads with Receive, the tab the app opens on. Landing mid-bar meant
+  left and right stepped off the landing screen in two unrelated directions.
+- Button hints name what the button does. A on the radar reads **Choose files**,
+  not "Send" — it opens the file browser, and Start is what sends. Select on
+  Receive reads **Announce** rather than the radar's "Refresh": there is nothing
+  to refresh there, the button re-multicasts our announce. X on an incoming
+  request reads **Save to…** rather than "Folder".
+- Settings rows are grouped: the settings that decide what happens to an incoming
+  file now run unbroken, and Port — set once, if ever — moved down next to About.
+  `Alias` is **Device name**, `Save to` is **Save folder**, and `Existing files`
+  asks **If a file exists**.
+- A settings row's action moved out of the row and into the footer, where every
+  other screen keeps its buttons.
+- The radar badges only peers announcing plain HTTP, in red. Encryption is the
+  norm now, so an HTTPS badge on every row was noise and the exception was not
+  visible as an exception.
+- History rows use the tab bar's arrows for direction — ↓ came in, ↑ went out —
+  instead of a second, unrelated arrow language.
+- A transfer's ETA reads in minutes and hours once it passes a minute ("5m 05s"),
+  rather than counting seconds to "~305s".
+
+### Added
+
+- The Receive screen shows the folder incoming files land in, under the address.
+- The destination picker's countdown turns red for its last ten seconds.
+
 ## [0.5.0] - 2026-08-08
 
 ### Added
@@ -190,7 +220,8 @@ use (Knulli, muOS, ROCKNIX), running on desktop Linux too.
 - Brand wordmark and window icon.
 - Builds for Linux x86_64 and aarch64, with PortMaster packaging.
 
-[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/mxmgorin/retsend/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/mxmgorin/retsend/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/mxmgorin/retsend/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/mxmgorin/retsend/compare/v0.3.0...v0.4.0
