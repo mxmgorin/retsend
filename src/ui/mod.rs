@@ -283,7 +283,11 @@ impl AppUi {
                                 p.info.device_model.as_deref().unwrap_or("unknown"),
                                 p.ip
                             ),
-                            proto: p.info.protocol.as_deref().unwrap_or("http").to_uppercase(),
+                            insecure: !p
+                                .info
+                                .protocol
+                                .as_deref()
+                                .is_some_and(|s| s.eq_ignore_ascii_case("https")),
                         })
                         .collect(),
                 })
@@ -297,6 +301,7 @@ impl AppUi {
                     port,
                     ip: status.ip.map(|ip| ip.to_string()),
                     ssid: status.ssid.clone(),
+                    save_dir: config.transfer.save_dir.clone(),
                     quick_save: config.transfer.auto_accept,
                 })
             }

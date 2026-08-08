@@ -75,7 +75,10 @@ pub fn render(root: &mut egui::Ui, data: &TransferData) {
             line.push_str(&format!(" · {}/s", super::fmt_bytes(bps as u64)));
             let remaining = data.total.saturating_sub(data.transferred);
             if bps > 1.0 && remaining > 0 {
-                line.push_str(&format!(" · ~{}s", (remaining as f64 / bps).ceil() as u64));
+                line.push_str(&format!(
+                    " · ~{}",
+                    fmt_eta((remaining as f64 / bps).ceil() as u64)
+                ));
             }
         }
         ui.label(
@@ -116,4 +119,28 @@ pub fn render(root: &mut egui::Ui, data: &TransferData) {
             }
         });
     });
+}
+
+/// Compact ETA: "45s", "5m 05s", "1h 12m".
+fn fmt_eta(secs: u64) -> String {
+    match secs {
+        s if s < 60 => format!("{s}s"),
+        s if s < 3600 => format!("{}m {:02}s", s / 60, s % 60),
+        s => format!("{}h {:02}m", s / 3600, (s % 3600) / 60),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fmt_eta;
+
+    #[test]
+    fn fmt_eta_grows_units_with_the_wait() {
+        assert_eq!(fmt_eta(0), "0s");
+        assert_eq!(fmt_eta(45), "45s");
+        assert_eq!(fmt_eta(60), "1m 00s");
+        assert_eq!(fmt_eta(305), "5m 05s");
+        assert_eq!(fmt_eta(3599), "59m 59s");
+        assert_eq!(fmt_eta(4320), "1h 12m");
+    }
 }

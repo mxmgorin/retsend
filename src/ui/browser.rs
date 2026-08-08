@@ -9,6 +9,9 @@ use egui_sdl2::egui;
 /// more files per screen.
 const ENTRY_HEIGHT: f32 = 30.0;
 
+/// Below this many seconds left, the incoming request's countdown turns red.
+const URGENT_SECS: u32 = 10;
+
 /// `deadline_secs` is set only while the browser is picking a destination for
 /// a parked incoming request: the modal (and its countdown bar) is hidden
 /// behind us, so the seconds left have to show up here.
@@ -31,10 +34,15 @@ pub fn render(
             ui.label(egui::RichText::new(title).size(theme::ROW_FONT).strong());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if let Some(secs) = deadline_secs {
+                    let color = if secs <= URGENT_SECS {
+                        theme::DANGER
+                    } else {
+                        theme::ACCENT
+                    };
                     ui.label(
                         egui::RichText::new(format!("{secs}s"))
                             .size(theme::DETAIL_FONT)
-                            .color(theme::ACCENT),
+                            .color(color),
                     );
                 }
                 ui.label(

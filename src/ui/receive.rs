@@ -1,5 +1,6 @@
 //! The Receive tab: the branded landing screen. The two-tone wordmark hero,
-//! who we are on the network (IP + Wi-Fi), and a "ready / no network" status.
+//! who we are on the network (IP + Wi-Fi), where files land, and a
+//! "ready / no network" status.
 //! Incoming requests still arrive as the Prompt modal on top of this.
 
 use super::{theme, wordmark};
@@ -16,6 +17,8 @@ pub struct ReceiveData {
     pub ip: Option<String>,
     /// Connected Wi-Fi SSID if known (best-effort; None on ethernet/desktop).
     pub ssid: Option<String>,
+    /// Where accepted files land, before any save route redirects them.
+    pub save_dir: String,
     /// Quick-save (auto-accept) is on — shown as a badge under the status.
     pub quick_save: bool,
 }
@@ -23,12 +26,13 @@ pub struct ReceiveData {
 pub fn render(root: &mut egui::Ui, data: &ReceiveData) {
     egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
-        super::home::hint_bar(ui, &[("← →", "Tabs"), ("Select", "Refresh")]);
+        // "Refresh" is the radar's word; here the button re-announces us.
+        super::home::hint_bar(ui, &[("← →", "Tabs"), ("Select", "Announce")]);
         ui.add_space(4.0);
     });
 
     egui::CentralPanel::default().show(root, |ui| {
-        const HERO_H: f32 = 190.0; // wordmark + gaps + status block, roughly
+        const HERO_H: f32 = 214.0; // wordmark + gaps + status block, roughly
         let top = ((ui.available_height() - HERO_H) / 2.0).max(8.0);
         ui.vertical_centered(|ui| {
             ui.add_space(top);
@@ -56,6 +60,14 @@ pub fn render(root: &mut egui::Ui, data: &ReceiveData) {
                     if let Some(ssid) = &data.ssid {
                         dim(ui, format!("Wi-Fi · {ssid}"));
                     }
+                    ui.add_space(8.0);
+                    dim(
+                        ui,
+                        format!(
+                            "→ {}",
+                            super::truncate_middle(&data.save_dir, super::PATH_CHARS)
+                        ),
+                    );
                     ui.add_space(12.0);
                     dim(ui, "Waiting for a sender…".to_string());
                     if data.quick_save {

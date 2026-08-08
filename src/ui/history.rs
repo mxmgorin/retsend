@@ -27,9 +27,10 @@ pub struct HistoryData {
 /// Build a row from an entry, resolving the relative time against `now`
 /// (unix seconds).
 pub fn row(e: &HistoryEntry, now: u64) -> HistoryRow {
+    // The arrows are the tab bar's: ↓ came in, ↑ went out.
     let (verb, prep, arrow) = match e.direction {
-        Direction::Received => ("Received", "from", "→"),
-        Direction::Sent => ("Sent", "to", "←"),
+        Direction::Received => ("Received", "from", "↓"),
+        Direction::Sent => ("Sent", "to", "↑"),
     };
     let what = match e.outcome {
         Outcome::Completed => plural(e.total),

@@ -122,7 +122,7 @@ pub fn render(ctx: &egui::Context, data: &PromptData) {
                     ui.add_space(10.0);
                     super::home::hint_bar(
                         ui,
-                        &[("B", "Decline"), ("X", "Folder"), ("A", "Accept")],
+                        &[("B", "Decline"), ("X", "Save to…"), ("A", "Accept")],
                     );
                 });
         });

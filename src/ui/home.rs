@@ -11,8 +11,9 @@ pub struct PeerRow {
     pub alias: String,
     /// Shown under the alias, e.g. "Pixel · 192.168.1.23".
     pub detail: String,
-    /// Transport badge on the right: "HTTP" / "HTTPS".
-    pub proto: String,
+    /// Announced plain HTTP — badged on the right. Encryption is the norm, so
+    /// only its absence is worth the pixels.
+    pub insecure: bool,
 }
 
 /// Everything the Send renderer needs, snapshotted by `AppUi::update` outside
@@ -32,7 +33,7 @@ pub fn render(root: &mut egui::Ui, data: &HomeData) {
                 ("← →", "Tabs"),
                 ("Select", "Refresh"),
                 ("X", "Add IP"),
-                ("A", "Send"),
+                ("A", "Choose files"),
             ],
         );
         ui.add_space(4.0);
@@ -104,15 +105,15 @@ fn peer_row(ui: &mut egui::Ui, peer: &PeerRow, selected: bool) -> egui::Response
         egui::FontId::proportional(theme::DETAIL_FONT),
         theme::DIM,
     );
-    // Transport badge: peers announcing https need the HTTPS milestone before
-    // we can send to them; make that visible early.
-    painter.text(
-        rect.right_center() - egui::vec2(padding, 0.0),
-        egui::Align2::RIGHT_CENTER,
-        &peer.proto,
-        egui::FontId::proportional(theme::DETAIL_FONT),
-        theme::DIM,
-    );
+    if peer.insecure {
+        painter.text(
+            rect.right_center() - egui::vec2(padding, 0.0),
+            egui::Align2::RIGHT_CENTER,
+            "HTTP",
+            egui::FontId::proportional(theme::DETAIL_FONT),
+            theme::DANGER,
+        );
+    }
     response
 }
 
