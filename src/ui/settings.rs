@@ -6,14 +6,10 @@ use crate::overlay::settings::Settings;
 use egui_sdl2::egui;
 
 pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_port: u16) {
+    // Order matches `crate::overlay::settings::ROWS`; third field is the A verb.
     let rows: [(&str, String, &str); crate::overlay::settings::ROW_COUNT] = [
-        ("Alias", config.device.alias.clone(), "A Edit"),
-        ("Save to", config.transfer.save_dir.clone(), "A Choose"),
-        (
-            "Port",
-            port_label(config.network.port, actual_port, state.port_dirty),
-            "A Edit",
-        ),
+        ("Device name", config.device.alias.clone(), "Edit"),
+        ("Save folder", config.transfer.save_dir.clone(), "Choose"),
         (
             "Quick save",
             if config.transfer.auto_accept {
@@ -21,16 +17,16 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
             } else {
                 "off".into()
             },
-            "A Toggle",
+            "Toggle",
         ),
         (
-            "Existing files",
+            "If a file exists",
             if config.transfer.overwrite {
                 "replace".into()
             } else {
                 "keep both — save as name (1)".into()
             },
-            "A Toggle",
+            "Toggle",
         ),
         (
             "Received folders",
@@ -39,12 +35,12 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
             } else {
                 "flatten into the save routes".into()
             },
-            "A Toggle",
+            "Toggle",
         ),
         (
             "Auto save routes",
             auto_routes_value(config.transfer.auto_routes, state.auto_route_count),
-            "A Toggle",
+            "Toggle",
         ),
         (
             "Save routes",
@@ -53,12 +49,17 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
                 1 => "1 extension".into(),
                 n => format!("{n} extensions"),
             },
-            "A Edit",
+            "Edit",
+        ),
+        (
+            "Port",
+            port_label(config.network.port, actual_port, state.port_dirty),
+            "Edit",
         ),
         (
             "About",
             format!("retsend {}", env!("CARGO_PKG_VERSION")),
-            "A Open",
+            "Open",
         ),
     ];
 
@@ -67,12 +68,14 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
     // egui's panel-id sequence and flag the footer as a changed id.
     egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
-        super::home::hint_bar(ui, &[("← →", "Tabs")]);
+        // The row's action, where every other screen puts its buttons.
+        let action = rows[state.cursor.min(rows.len() - 1)].2;
+        super::home::hint_bar(ui, &[("← →", "Tabs"), ("A", action)]);
         ui.add_space(4.0);
     });
 
     egui::CentralPanel::default().show(root, |ui| {
-        for (i, (name, value, hint)) in rows.iter().enumerate() {
+        for (i, (name, value, _)) in rows.iter().enumerate() {
             let selected = state.cursor == i;
             let desired = egui::vec2(ui.available_width(), theme::ROW_HEIGHT);
             let (rect, _) = ui.allocate_exact_size(desired, egui::Sense::hover());
@@ -88,21 +91,12 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
             let painter = ui.painter();
             let padding = 10.0;
             painter.text(
-                rect.left_top() + egui::vec2(padding, 7.0),
-                egui::Align2::LEFT_TOP,
+                rect.left_center() + egui::vec2(padding, 0.0),
+                egui::Align2::LEFT_CENTER,
                 *name,
                 egui::FontId::proportional(theme::ROW_FONT),
                 ui.visuals().text_color(),
             );
-            if selected && !hint.is_empty() {
-                painter.text(
-                    rect.left_bottom() + egui::vec2(padding, -6.0),
-                    egui::Align2::LEFT_BOTTOM,
-                    *hint,
-                    egui::FontId::proportional(theme::DETAIL_FONT - 1.0),
-                    theme::ACCENT,
-                );
-            }
             painter.text(
                 rect.right_center() - egui::vec2(padding, 0.0),
                 egui::Align2::RIGHT_CENTER,

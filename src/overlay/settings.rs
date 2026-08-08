@@ -6,24 +6,26 @@
 pub enum SettingsRow {
     Alias,
     SaveDir,
-    Port,
     QuickSave,
     Overwrite,
     KeepFolders,
     AutoRoutes,
     Routes,
+    Port,
     About,
 }
 
+/// Top-to-bottom order on screen; `crate::ui::settings` labels them in the same
+/// order, one cursor indexes both. Port is late — it is set once, if ever.
 const ROWS: [SettingsRow; 9] = [
     SettingsRow::Alias,
     SettingsRow::SaveDir,
-    SettingsRow::Port,
     SettingsRow::QuickSave,
     SettingsRow::Overwrite,
     SettingsRow::KeepFolders,
     SettingsRow::AutoRoutes,
     SettingsRow::Routes,
+    SettingsRow::Port,
     SettingsRow::About,
 ];
 

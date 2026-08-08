@@ -1,4 +1,4 @@
-//! Top-level tab selection: which of Send / Receive / History / Settings is
+//! Top-level tab selection: which of Receive / Send / History / Settings is
 //! showing. Pure state (no egui); `crate::ui::tabs` draws the bar, `App` drives
 //! the switching.
 
@@ -10,8 +10,9 @@ pub enum Tab {
     Settings,
 }
 
-/// Left-to-right order in the bar, and the cycle L1/R1 walks.
-const ORDER: [Tab; 4] = [Tab::Send, Tab::Receive, Tab::History, Tab::Settings];
+/// Left-to-right order in the bar, and the cycle L1/R1 walks. Receive leads
+/// because the app lands there, so ← and → step away from it, not across it.
+const ORDER: [Tab; 4] = [Tab::Receive, Tab::Send, Tab::History, Tab::Settings];
 
 pub struct Tabs {
     active: Tab,
@@ -45,11 +46,13 @@ mod tests {
     fn cycle_wraps_both_ways() {
         let mut tabs = Tabs::new(); // Receive
         tabs.cycle(1);
+        assert_eq!(tabs.active(), Tab::Send);
+        tabs.cycle(1);
         assert_eq!(tabs.active(), Tab::History);
         tabs.cycle(1);
         assert_eq!(tabs.active(), Tab::Settings);
         tabs.cycle(1); // wrap past the end
-        assert_eq!(tabs.active(), Tab::Send);
+        assert_eq!(tabs.active(), Tab::Receive);
         tabs.cycle(-1); // wrap past the front
         assert_eq!(tabs.active(), Tab::Settings);
     }

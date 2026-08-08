@@ -1,7 +1,7 @@
-//! The top tab bar shared by the three tab screens: `[↑ Send] [↓ Receive]
-//! [⚙ Settings]`, spread evenly across the bar with the active tab in the
-//! accent pill. Hidden during the Browser / Transfer / Prompt / Osk takeovers
-//! (`crate::ui::mod` decides).
+//! The top tab bar shared by the four tab screens: `[↓ Receive] [↑ Send]
+//! [↺ History] [⚙ Settings]`, spread evenly across the bar with the active tab
+//! in the accent pill. Hidden during the Browser / Transfer / Prompt / Osk
+//! takeovers (`crate::ui::mod` decides).
 
 use super::theme;
 use crate::overlay::tabs::Tab;
@@ -10,9 +10,10 @@ use egui_sdl2::egui;
 /// Icons limited to glyphs egui's bundled fonts actually rasterize: the arrows
 /// and history ↺ come from Hack, the gear from emoji-icon-font. Most check/clock
 /// emoji are tofu here (see tests/font_glyphs.rs), so they're avoided.
+/// Mirrors `crate::overlay::tabs::ORDER`.
 const TABS: [(Tab, &str, &str); 4] = [
-    (Tab::Send, "↑", "Send"),
     (Tab::Receive, "↓", "Receive"),
+    (Tab::Send, "↑", "Send"),
     (Tab::History, "↺", "History"),
     (Tab::Settings, "⚙", "Settings"),
 ];
