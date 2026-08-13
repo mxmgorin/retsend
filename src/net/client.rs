@@ -7,6 +7,7 @@ use super::protocol::{
 };
 use std::collections::BTreeMap;
 use std::io::Read;
+use std::sync::RwLock;
 use std::time::Duration;
 
 /// The peer's human is looking at an accept dialog — wait well past our own
@@ -15,12 +16,27 @@ const PREPARE_TIMEOUT: Duration = Duration::from_secs(90);
 /// Cancel is fire-and-forget; don't let it hang the worker.
 const CANCEL_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Our TLS identity, presented whenever a peer asks the client to
+/// authenticate. Process-wide, like the rustls provider: there is one identity
+/// per run and every outbound request wants it. Empty only when the identity
+/// could not be loaded at all.
+static CLIENT_CERT: RwLock<Option<ureq::tls::ClientCert>> = RwLock::new(None);
+
+/// Install the certificate [`agent`] presents. Call once the identity is
+/// known, before any outbound request.
+pub fn set_client_cert(cert: ureq::tls::ClientCert) {
+    *CLIENT_CERT.write().unwrap() = Some(cert);
+}
+
 /// An agent for talking to LocalSend peers. Certificate verification is off:
 /// peers use self-signed certificates and the protocol's trust model is the
-/// announced fingerprint (the certificate's SHA-256), not a CA chain.
+/// announced fingerprint (the certificate's SHA-256), not a CA chain. We do
+/// send ours — a receiver with its web UI off requires a client certificate
+/// and drops the handshake without one.
 pub fn agent(timeout: Option<Duration>) -> ureq::Agent {
     let tls = ureq::tls::TlsConfig::builder()
         .disable_verification(true)
+        .client_cert(CLIENT_CERT.read().unwrap().clone())
         .build();
     ureq::Agent::config_builder()
         .tls_config(tls)

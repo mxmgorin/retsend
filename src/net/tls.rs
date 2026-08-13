@@ -12,8 +12,15 @@ use std::sync::Arc;
 const CERT_FILE: &str = "identity.crt"; // certificate, DER
 const KEY_FILE: &str = "identity.key"; // private key, PKCS#8 DER
 
+const PEM_TAG_CERT: &str = "CERTIFICATE";
+const PEM_TAG_KEY: &str = "PRIVATE KEY"; // PKCS#8, matching KEY_FILE
+
 pub struct Identity {
     pub server_config: Arc<rustls::ServerConfig>,
+    /// The same pair presented when we are the client. A LocalSend receiver
+    /// that isn't also serving its web UI makes client auth mandatory, and
+    /// aborts the handshake with `CertificateRequired` if we present nothing.
+    pub client_cert: ureq::tls::ClientCert,
     /// Lowercase hex SHA-256 of the certificate DER.
     pub fingerprint: String,
 }
@@ -61,6 +68,7 @@ fn load(data_dir: &Path) -> Option<Identity> {
 
 fn build(cert: Vec<u8>, key: Vec<u8>) -> Result<Identity, String> {
     let fingerprint = fingerprint_hex(&cert);
+    let client_cert = client_cert(&cert, &key)?;
     let cert = CertificateDer::from(cert);
     let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key));
     let config = rustls::ServerConfig::builder()
@@ -69,8 +77,21 @@ fn build(cert: Vec<u8>, key: Vec<u8>) -> Result<Identity, String> {
         .map_err(|e| format!("build server config: {e}"))?;
     Ok(Identity {
         server_config: Arc::new(config),
+        client_cert,
         fingerprint,
     })
+}
+
+/// ureq's client-auth types only take PEM — `KeyKind`, which its DER
+/// constructor needs, isn't exported — so re-encode the stored DER.
+fn client_cert(cert: &[u8], key: &[u8]) -> Result<ureq::tls::ClientCert, String> {
+    let cert_pem = pem::encode(&pem::Pem::new(PEM_TAG_CERT, cert));
+    let key_pem = pem::encode(&pem::Pem::new(PEM_TAG_KEY, key));
+    let cert = ureq::tls::Certificate::from_pem(cert_pem.as_bytes())
+        .map_err(|e| format!("read back certificate: {e}"))?;
+    let key = ureq::tls::PrivateKey::from_pem(key_pem.as_bytes())
+        .map_err(|e| format!("read back private key: {e}"))?;
+    Ok(ureq::tls::ClientCert::new_with_certs(&[cert], key))
 }
 
 fn fingerprint_hex(cert_der: &[u8]) -> String {
