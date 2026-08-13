@@ -218,6 +218,23 @@ fn upload(port: u16, session_id: &str, file_id: &str, token: &str, bytes: &[u8])
     }
 }
 
+/// Streams the body with no Content-Length, which ureq frames as chunked —
+/// the same shape reqwest gives LocalSend 1.18+ for a streamed upload.
+fn upload_chunked(port: u16, session_id: &str, file_id: &str, token: &str, bytes: &[u8]) -> u16 {
+    let url = format!(
+        "http://127.0.0.1:{port}/api/localsend/v2/upload?sessionId={session_id}&fileId={file_id}&token={token}"
+    );
+    let mut source = std::io::Cursor::new(bytes.to_vec());
+    match ureq::post(url)
+        .content_type("application/octet-stream")
+        .send(ureq::SendBody::from_reader(&mut source))
+    {
+        Ok(r) => r.status().as_u16(),
+        Err(ureq::Error::StatusCode(code)) => code,
+        Err(e) => panic!("upload failed: {e}"),
+    }
+}
+
 fn tokens_of(body: &str) -> (String, std::collections::BTreeMap<String, String>) {
     let resp: protocol::PrepareUploadResponse = serde_json::from_str(body).unwrap();
     (resp.session_id, resp.files)
@@ -256,6 +273,29 @@ fn auto_accept_receives_files() {
     assert_eq!(std::fs::read(dir.join("save.dat")).unwrap(), b"sav");
     // The finished session no longer blocks the next transfer.
     assert!(shared.active.lock().unwrap().is_none());
+    stop();
+}
+
+/// LocalSend 1.18+ streams uploads through reqwest, which sends them chunked
+/// instead of with a Content-Length. That used to be answered with 411.
+#[test]
+fn a_chunked_upload_is_received() {
+    let (shared, port, stop) = start_server(true);
+
+    let (status, body) = post(
+        port,
+        "/api/localsend/v2/prepare-upload",
+        &prepare_body(&[("a", "game.gbc", 5)]),
+    );
+    assert_eq!(status, 200);
+    let (session_id, tokens) = tokens_of(&body);
+
+    assert_eq!(
+        upload_chunked(port, &session_id, "a", &tokens["a"], b"hello"),
+        200
+    );
+    let dir = save_dir_of(&shared);
+    assert_eq!(std::fs::read(dir.join("game.gbc")).unwrap(), b"hello");
     stop();
 }
 

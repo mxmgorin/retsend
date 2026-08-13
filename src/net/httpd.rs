@@ -1,19 +1,20 @@
 //! Minimal HTTP/1.1 server primitives — just enough for the LocalSend surface
-//! (4 POSTs + 1 GET, Content-Length bodies only). Hand-rolled instead of a
+//! (4 POSTs + 1 GET). Hand-rolled instead of a
 //! dependency: the parser is ~150 lines, testable over `io::Cursor`, and stays
 //! agnostic of the transport (`BufRead`), which is the seam the HTTPS
 //! milestone slots a rustls stream into.
 //!
 //! Simplifications, deliberate on a LAN protocol:
 //! - every response is `Connection: close`; clients reconnect per request
-//! - chunked request bodies are answered with 411 (real LocalSend clients
-//!   always send Content-Length for file bodies; revisit only if one trips)
+//! - of the transfer codings only `chunked` is decoded; the rest get 501
 
 use std::io::{BufRead, Read, Write};
 
 const MAX_REQUEST_LINE: usize = 8 * 1024;
 const MAX_HEADER_BYTES: usize = 16 * 1024;
 const MAX_HEADERS: usize = 64;
+/// A chunk's size line, and the trailers that share its framing.
+const MAX_CHUNK_LINE: usize = 1024;
 
 #[derive(Debug)]
 pub struct Request {
@@ -25,6 +26,8 @@ pub struct Request {
     /// Lowercased names.
     pub headers: Vec<(String, String)>,
     pub content_length: u64,
+    /// Chunked body: the length is in the framing, `content_length` is unset.
+    pub chunked: bool,
     /// The client sent `Expect: 100-continue` and is waiting for our go-ahead
     /// before transmitting the body (curl does this for large POSTs).
     pub expects_continue: bool,
@@ -126,16 +129,32 @@ pub fn parse_request(reader: &mut impl BufRead) -> Result<Request, ParseError> {
         query,
         headers,
         content_length: 0,
+        chunked: false,
         expects_continue: false,
     };
 
-    if request
-        .header("transfer-encoding")
-        .is_some_and(|v| !v.eq_ignore_ascii_case("identity"))
-    {
-        return Err(ParseError::new(411, "chunked bodies unsupported"));
+    // Only the last coding frames the body. LocalSend 1.18+ streams uploads
+    // through reqwest, which sends them chunked.
+    if let Some(value) = request.header("transfer-encoding") {
+        let last = match value.rsplit_once(',') {
+            Some((_, last)) => last,
+            None => value,
+        };
+        let last = last.trim();
+        if last.eq_ignore_ascii_case("chunked") {
+            request.chunked = true;
+        } else if !last.eq_ignore_ascii_case("identity") {
+            return Err(ParseError::new(
+                501,
+                format!("transfer-encoding `{last}` unsupported"),
+            ));
+        }
     }
-    if let Some(v) = request.header("content-length") {
+    // RFC 9112: a Content-Length sent beside chunked framing is ignored.
+    if let Some(v) = request
+        .header("content-length")
+        .filter(|_| !request.chunked)
+    {
         request.content_length = v
             .parse::<u64>()
             .map_err(|_| ParseError::new(400, format!("bad content-length `{v}`")))?;
@@ -147,10 +166,114 @@ pub fn parse_request(reader: &mut impl BufRead) -> Result<Request, ParseError> {
     Ok(request)
 }
 
-/// The request body as a bounded reader. Send [`write_continue`] first when
-/// `expects_continue` is set, or the client will sit out its timeout.
+/// The request body: `Content-Length` bytes, or the dechunked stream. Send
+/// [`write_continue`] first when `expects_continue` is set, or the client will
+/// sit out its timeout. A chunked body is bounded only by its own framing, so
+/// callers buffering it in memory must cap it themselves.
 pub fn body_reader<'a, R: BufRead>(reader: &'a mut R, request: &Request) -> impl Read + 'a {
-    reader.take(request.content_length)
+    if request.chunked {
+        Body::Chunked(ChunkedReader {
+            inner: reader,
+            remaining: 0,
+            done: false,
+        })
+    } else {
+        Body::Sized(reader.take(request.content_length))
+    }
+}
+
+enum Body<'a, R: BufRead> {
+    Sized(std::io::Take<&'a mut R>),
+    Chunked(ChunkedReader<'a, R>),
+}
+
+impl<R: BufRead> Read for Body<'_, R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Self::Sized(r) => r.read(buf),
+            Self::Chunked(r) => r.read(buf),
+        }
+    }
+}
+
+/// Decodes `Transfer-Encoding: chunked`. Extensions and trailers are dropped —
+/// nothing in the LocalSend surface reads them.
+struct ChunkedReader<'a, R: BufRead> {
+    inner: &'a mut R,
+    /// Bytes left in the chunk being streamed.
+    remaining: u64,
+    /// The terminating zero-length chunk arrived; reads are EOF from here.
+    done: bool,
+}
+
+impl<R: BufRead> ChunkedReader<'_, R> {
+    /// Consume a size line, leaving `remaining` set.
+    fn start_chunk(&mut self) -> std::io::Result<()> {
+        let line = read_line(self.inner, MAX_CHUNK_LINE)?;
+        let size = match line.split_once(';') {
+            Some((size, _extensions)) => size,
+            None => &line,
+        };
+        let size = u64::from_str_radix(size.trim(), 16)
+            .map_err(|_| malformed(format!("bad chunk size `{size}`")))?;
+        if size == 0 {
+            self.consume_trailers()?;
+            self.done = true;
+        }
+        self.remaining = size;
+        Ok(())
+    }
+
+    /// The CRLF that closes a chunk's data.
+    fn end_chunk(&mut self) -> std::io::Result<()> {
+        match read_line(self.inner, MAX_CHUNK_LINE)?.is_empty() {
+            true => Ok(()),
+            false => Err(malformed("chunk data not CRLF-terminated")),
+        }
+    }
+
+    /// Trailers run until a blank line, capped like headers so a peer can't
+    /// stream them forever.
+    fn consume_trailers(&mut self) -> std::io::Result<()> {
+        for _ in 0..MAX_HEADERS {
+            if read_line(self.inner, MAX_CHUNK_LINE)?.is_empty() {
+                return Ok(());
+            }
+        }
+        Err(malformed("too many trailers"))
+    }
+}
+
+impl<R: BufRead> Read for ChunkedReader<'_, R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        while self.remaining == 0 {
+            if self.done {
+                return Ok(0);
+            }
+            self.start_chunk()?;
+        }
+        // Compared as u64: a 32-bit usize would truncate the chunk size.
+        let want = self.remaining.min(buf.len() as u64) as usize;
+        let read = self.inner.read(&mut buf[..want])?;
+        if read == 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "connection closed mid-chunk",
+            ));
+        }
+        self.remaining -= read as u64;
+        if self.remaining == 0 {
+            self.end_chunk()?;
+        }
+        Ok(read)
+    }
+}
+
+fn malformed(message: impl Into<String>) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::InvalidData, message.into())
 }
 
 pub fn write_continue(stream: &mut impl Write) -> std::io::Result<()> {
@@ -192,7 +315,6 @@ fn reason_phrase(status: u16) -> &'static str {
         404 => "Not Found",
         405 => "Method Not Allowed",
         409 => "Conflict",
-        411 => "Length Required",
         413 => "Payload Too Large",
         429 => "Too Many Requests",
         431 => "Request Header Fields Too Large",
@@ -300,10 +422,66 @@ mod tests {
         assert_eq!(req.query_param("token"), Some("t x"));
     }
 
+    /// LocalSend 1.18+ streams uploads through reqwest, which frames them
+    /// chunked rather than with a Content-Length.
     #[test]
-    fn chunked_gets_411() {
-        let err = parse("POST /x HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n").unwrap_err();
-        assert_eq!(err.status, 411);
+    fn decodes_a_chunked_body() {
+        let raw = "POST /x HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n\
+                   4\r\nWiki\r\n5;ext=1\r\npedia\r\n0\r\n\r\n";
+        let mut cursor = Cursor::new(raw.as_bytes());
+        let req = parse_request(&mut cursor).unwrap();
+        assert!(req.chunked);
+        let mut body = String::new();
+        body_reader(&mut cursor, &req)
+            .read_to_string(&mut body)
+            .unwrap();
+        assert_eq!(body, "Wikipedia");
+    }
+
+    #[test]
+    fn chunked_trailers_are_consumed() {
+        let raw = "POST /x HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n\
+                   2\r\nhi\r\n0\r\nX-Checksum: abc\r\n\r\n";
+        let mut cursor = Cursor::new(raw.as_bytes());
+        let req = parse_request(&mut cursor).unwrap();
+        let mut body = String::new();
+        body_reader(&mut cursor, &req)
+            .read_to_string(&mut body)
+            .unwrap();
+        assert_eq!(body, "hi");
+    }
+
+    /// Chunked framing wins, so a Content-Length beside it must not bound the
+    /// body — trusting it would truncate the upload.
+    #[test]
+    fn chunked_ignores_content_length() {
+        let raw = "POST /x HTTP/1.1\r\nTransfer-Encoding: chunked\r\nContent-Length: 2\r\n\r\n\
+                   9\r\nWikipedia\r\n0\r\n\r\n";
+        let mut cursor = Cursor::new(raw.as_bytes());
+        let req = parse_request(&mut cursor).unwrap();
+        assert_eq!(req.content_length, 0);
+        let mut body = String::new();
+        body_reader(&mut cursor, &req)
+            .read_to_string(&mut body)
+            .unwrap();
+        assert_eq!(body, "Wikipedia");
+    }
+
+    #[test]
+    fn a_truncated_chunked_body_errors() {
+        let raw = "POST /x HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n9\r\nWiki";
+        let mut cursor = Cursor::new(raw.as_bytes());
+        let req = parse_request(&mut cursor).unwrap();
+        let mut body = String::new();
+        assert!(body_reader(&mut cursor, &req)
+            .read_to_string(&mut body)
+            .is_err());
+    }
+
+    #[test]
+    fn unknown_transfer_coding_gets_501() {
+        let err = parse("POST /x HTTP/1.1\r\nTransfer-Encoding: gzip\r\n\r\n").unwrap_err();
+        assert_eq!(err.status, 501);
     }
 
     #[test]

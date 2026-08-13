@@ -467,8 +467,18 @@ fn read_json_body<S: Read + Write, T: serde::de::DeserializeOwned>(
     if request.expects_continue {
         httpd::write_continue(reader.get_mut())?;
     }
+    // A chunked body declares no length, so the cap is enforced on the read.
     let mut body = String::new();
-    httpd::body_reader(reader, request).read_to_string(&mut body)?;
+    httpd::body_reader(reader, request)
+        .take(cap + 1)
+        .read_to_string(&mut body)?;
+    if body.len() as u64 > cap {
+        httpd::respond_empty(reader.get_mut(), 413)?;
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "body over cap",
+        ));
+    }
     Ok(serde_json::from_str::<T>(&body).ok())
 }
 

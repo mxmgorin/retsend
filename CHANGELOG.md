@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Receiving from LocalSend 1.18+. It streams uploads through reqwest, which
+  frames the body `Transfer-Encoding: chunked` instead of sending a
+  Content-Length, and the server answered every chunked request with 411 — the
+  sender saw `statusCode(status: 411)`. Chunked bodies are now decoded;
+  extensions and trailers are dropped, and a Content-Length sent beside chunked
+  framing is ignored rather than trusted. Transfer codings we can't decode moved
+  from 411 to 501.
+
 ## [0.5.3] - 2026-08-13
 
 ### Fixed
