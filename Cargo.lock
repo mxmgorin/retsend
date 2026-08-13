@@ -1103,6 +1103,7 @@ dependencies = [
  "getrandom 0.4.3",
  "glow",
  "log",
+ "pem",
  "png",
  "rcgen",
  "rustls",

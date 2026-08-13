@@ -47,6 +47,9 @@ ureq = { version = "3", default-features = false, features = ["rustls"] }
 # in Acceptor::accept (RUSTSEC-2024-0399, fixed in 0.23.18).
 rustls = { version = "0.23.42", default-features = false, features = ["ring", "std"] }
 rcgen = "0.14"
+# Only to hand ureq the stored identity: its client-auth types parse PEM, and
+# the DER constructor's `KeyKind` is not exported.
+pem = "3"
 sha2 = "0.11"
 # Only for SO_REUSEADDR/SO_REUSEPORT before binding UDP 53317 — std can't set
 # them pre-bind, and without them we can't coexist with the official LocalSend

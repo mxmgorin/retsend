@@ -120,14 +120,25 @@ impl NetService {
         data_dir: &std::path::Path,
         wake: Arc<dyn Wake>,
     ) -> std::io::Result<Self> {
+        // Loaded whatever our own mode is: peers announce their own scheme, so
+        // we can be the client of an HTTPS receiver while serving plain http,
+        // and those receivers may demand a client certificate.
+        let identity = match tls::load_or_create(data_dir) {
+            Ok(identity) => Some(identity),
+            Err(e) if network.https => return Err(std::io::Error::other(e)),
+            Err(e) => {
+                log::warn!("no TLS identity ({e}); sending without a client certificate");
+                None
+            }
+        };
+        if let Some(identity) = &identity {
+            client::set_client_cert(identity.client_cert.clone());
+        }
+
         // HTTPS mode: the fingerprint is the SHA-256 of our persisted
         // certificate (peers remember devices by it). HTTP mode: just a
         // random self-ignore string, fresh per run.
-        let identity = if network.https {
-            Some(tls::load_or_create(data_dir).map_err(std::io::Error::other)?)
-        } else {
-            None
-        };
+        let serving_tls = network.https;
         let me = DeviceInfo {
             alias: device.alias.clone(),
             version: protocol::PROTOCOL_VERSION.to_string(),
@@ -135,10 +146,11 @@ impl NetService {
             device_type: Some(device.device_type.clone()),
             fingerprint: identity
                 .as_ref()
+                .filter(|_| serving_tls)
                 .map(|i| i.fingerprint.clone())
                 .unwrap_or_else(|| protocol::random_token(32)),
             port: None, // filled in below once the TCP listener binds
-            protocol: Some(if identity.is_some() { "https" } else { "http" }.to_string()),
+            protocol: Some(if serving_tls { "https" } else { "http" }.to_string()),
             download: Some(false),
             announce: None,
         };
@@ -156,7 +168,7 @@ impl NetService {
         });
 
         // Bind TCP first: the announce must carry the real port.
-        let tls = identity.map(|i| i.server_config);
+        let tls = identity.filter(|_| serving_tls).map(|i| i.server_config);
         let (server_handle, actual_port) = server::spawn(shared.clone(), network.port, tls)?;
         shared.me.lock().unwrap().port = Some(actual_port);
         if actual_port != network.port {

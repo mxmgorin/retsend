@@ -4,6 +4,7 @@
 use retsend::net::discovery::PeerRegistry;
 use retsend::net::protocol::{self, DeviceInfo};
 use retsend::net::{manual, server, NetShared, TransferSettings, Wake, WakeReason};
+use rustls::pki_types::CertificateDer;
 use std::io::Read;
 use std::net::TcpStream;
 use std::path::PathBuf;
@@ -508,6 +509,9 @@ fn https_serves_info_with_certificate_fingerprint() {
     let dir = temp_save_dir();
     let identity = tls::load_or_create(&dir).unwrap();
     let fingerprint = identity.fingerprint.clone();
+    // Installed against a server built `with_no_client_auth`: a peer that
+    // never asks must see the same handshake it always did.
+    client::set_client_cert(identity.client_cert.clone());
 
     let shared = Arc::new(NetShared {
         me: Mutex::new(DeviceInfo {
@@ -555,6 +559,134 @@ fn https_serves_info_with_certificate_fingerprint() {
             .call()
             .is_err()
     );
+
+    shared.shutdown.store(true, Ordering::SeqCst);
+    let _ = TcpStream::connect(("127.0.0.1", port));
+    let _ = handle.join();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A LocalSend receiver that isn't also serving its web UI makes client auth
+/// mandatory (`CustomClientCertVerifier` in their core). This stands in for
+/// one: it demands a certificate without caring which, so a client presenting
+/// none is dropped with `CertificateRequired`.
+#[derive(Debug)]
+struct DemandsClientCert;
+
+impl rustls::server::danger::ClientCertVerifier for DemandsClientCert {
+    fn offer_client_auth(&self) -> bool {
+        true
+    }
+
+    fn client_auth_mandatory(&self) -> bool {
+        true
+    }
+
+    fn root_hint_subjects(&self) -> &[rustls::DistinguishedName] {
+        &[]
+    }
+
+    fn verify_client_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _now: rustls::pki_types::UnixTime,
+    ) -> Result<rustls::server::danger::ClientCertVerified, rustls::Error> {
+        Ok(rustls::server::danger::ClientCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        rustls::crypto::verify_tls12_signature(message, cert, dss, &verify_schemes())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        rustls::crypto::verify_tls13_signature(message, cert, dss, &verify_schemes())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        verify_schemes().supported_schemes()
+    }
+}
+
+fn verify_schemes() -> rustls::crypto::WebPkiSupportedAlgorithms {
+    rustls::crypto::CryptoProvider::get_default()
+        .expect("net::tls::install_provider ran before the server was built")
+        .signature_verification_algorithms
+}
+
+#[test]
+fn a_peer_demanding_a_client_certificate_gets_ours() {
+    use retsend::net::{client, tls};
+    use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
+
+    tls::install_provider();
+    let dir = temp_save_dir();
+    let identity = tls::load_or_create(&dir).unwrap();
+    client::set_client_cert(identity.client_cert.clone());
+
+    // The peer's own self-signed identity; our client trusts fingerprints,
+    // not chains, so any certificate serves.
+    let peer = rcgen::generate_simple_self_signed(vec!["peer".to_string()]).unwrap();
+    let server_config = rustls::ServerConfig::builder()
+        .with_client_cert_verifier(Arc::new(DemandsClientCert))
+        .with_single_cert(
+            vec![CertificateDer::from(peer.cert.der().to_vec())],
+            PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(peer.signing_key.serialize_der())),
+        )
+        .expect("peer server config");
+
+    let shared = Arc::new(NetShared {
+        me: Mutex::new(DeviceInfo {
+            protocol: Some("https".into()),
+            ..test_me()
+        }),
+        peers: PeerRegistry::new(),
+        transfer: Mutex::new(TransferSettings {
+            save_dir: dir.clone(),
+            auto_accept: true,
+            overwrite: true,
+            auto_routes: false,
+            keep_folders: true,
+            routes: Default::default(),
+        }),
+        pending: Mutex::new(None),
+        active: Mutex::new(None),
+        outbound_active: AtomicBool::new(false),
+        notices: Mutex::new(Vec::new()),
+        wake: Arc::new(NoopWake),
+        shutdown: AtomicBool::new(false),
+    });
+    let (handle, port) =
+        server::spawn(shared.clone(), 0, Some(Arc::new(server_config))).expect("server spawns");
+    shared.me.lock().unwrap().port = Some(port);
+
+    let url = format!("https://127.0.0.1:{port}/api/localsend/v2/info");
+    assert!(
+        client::agent(None).get(&url).call().is_ok(),
+        "the peer-facing agent must present our certificate"
+    );
+
+    // Without one the handshake dies — the failure users saw as
+    // "Send failed: certificate required".
+    let bare: ureq::Agent = ureq::Agent::config_builder()
+        .tls_config(
+            ureq::tls::TlsConfig::builder()
+                .disable_verification(true)
+                .build(),
+        )
+        .build()
+        .into();
+    assert!(bare.get(&url).call().is_err());
 
     shared.shutdown.store(true, Ordering::SeqCst);
     let _ = TcpStream::connect(("127.0.0.1", port));

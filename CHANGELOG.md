@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Sending to a receiver that requires client authentication. LocalSend's newer
+  core makes a client certificate mandatory whenever it isn't also serving its
+  web UI, and we presented none, so the handshake died before the first request
+  and the transfer read **Send failed: certificate required**. Outbound requests
+  now carry our persisted identity — the same certificate the announced
+  fingerprint hashes. It is loaded even with `https = false`, since a peer
+  announces its own scheme and we can be the client of an HTTPS receiver while
+  serving plain http.
+
 ## [0.5.2] - 2026-08-08
 
 ### Fixed
