@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-08-13
+
 ### Fixed
 
 - Receiving from LocalSend 1.18+. It streams uploads through reqwest, which
@@ -252,7 +254,8 @@ use (Knulli, muOS, ROCKNIX), running on desktop Linux too.
 - Brand wordmark and window icon.
 - Builds for Linux x86_64 and aarch64, with PortMaster packaging.
 
-[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/mxmgorin/retsend/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/mxmgorin/retsend/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/mxmgorin/retsend/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/mxmgorin/retsend/compare/v0.5.0...v0.5.1
