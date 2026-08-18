@@ -1,5 +1,5 @@
 [toolchain]
-# egui 0.34 (via egui-sdl2 0.4) requires rustc >= 1.92.
+# egui 0.36 (via egui-sdl2 0.11) requires rustc >= 1.95.
 channel = "1.95.0"
 
 components = [
