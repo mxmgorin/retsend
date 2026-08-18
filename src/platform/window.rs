@@ -53,8 +53,8 @@ fn software_only() -> bool {
     std::env::var("RETSEND_SOFTWARE").is_ok_and(|v| v != "0")
 }
 
-/// `mmiyoo` (Miyoo Mini) shows texture copies and drops everything else without
-/// erroring, so the launcher has to ask: a blank screen can't be detected.
+/// The Miyoo Mini's panel driver shows texture copies and drops everything else
+/// without erroring, so the launcher has to ask: a blank screen can't be detected.
 fn blit_first() -> bool {
     std::env::var("RETSEND_BLIT").is_ok_and(|v| v != "0")
 }

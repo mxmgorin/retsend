@@ -39,6 +39,6 @@ log in `App/Retsend/log.txt`.
 - Developed and ported by [mxmgorin](https://github.com/mxmgorin/)
 - Implements the [LocalSend](https://localsend.org) protocol
 - Bundled SDL2 for the Miyoo Mini by
-  [XK9274](https://github.com/XK9274/sdl2_miyoo), from the
-  [OnionOS Ports-Collection](https://github.com/OnionUI/Ports-Collection) (zlib)
+  [Steward Fu](https://github.com/steward-fu/sdl2) (zlib, with LGPL-2.1 drivers),
+  built here — provenance and licences in `lib/README.md`
 - Source and issues: https://github.com/mxmgorin/retsend

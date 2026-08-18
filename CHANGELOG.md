@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The OnionOS package carries an SDL2 built from
+  [steward-fu/sdl2](https://github.com/steward-fu/sdl2) instead of the copy taken
+  from the Ports-Collection. The old build declared two texture formats but
+  filled slots 0 and 2 of the table, so SDL read RGB565 and a zero and could
+  offer no 32-bit format at all: every frame was converted down to RGB565 on the
+  CPU before the panel saw it, and flat fills and thin dividers banded. This one
+  declares RGB565 and ARGB8888, so the frame reaches the SoC's blitter as it was
+  drawn. It also drops that build's `SELECT + R1` scaling hotkey, which ate the
+  R1 press that pages a list. Its video driver is named `Mini` rather than
+  `mmiyoo`, so the launcher names the render driver and asks for the pad layout
+  outright, and `libSDL2_image` and `libSDL2_ttf` are gone from the bundle with
+  the fonts and image codecs they pulled in.
+
 ## [0.5.4] - 2026-08-13
 
 ### Fixed
