@@ -24,6 +24,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   outright, and `libSDL2_image` and `libSDL2_ttf` are gone from the bundle with
   the fonts and image codecs they pulled in.
 
+### Fixed
+
+- The rendering artifacts on the devices that fall back to SDL's renderer, the
+  Miyoo among them, are gone — fixed in the egui-sdl2 releases the app has moved
+  onto. egui's colours are premultiplied and SDL's blend multiplied by alpha a
+  second time, so a panel's fade-in flashed close to black for a few frames; a
+  feathered edge ran to black rather than to invisible, drawing a dark line along
+  the bottom and right of the screen; and the frame the blit path presents was
+  blended with the window instead of replacing it, dimming everything short of
+  opaque. The three of them reached a release in 0.5.3, where they went
+  unrecorded here; the banding above is this release's.
+
 ## [0.5.4] - 2026-08-13
 
 ### Fixed
