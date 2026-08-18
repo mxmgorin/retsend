@@ -15,7 +15,7 @@
 client for retro handhelds: send and receive files with your phone
 or PC over Wi-Fi, no cable or SSH. Compatible with the official LocalSend apps.
 
-It targets PortMaster-compatible Linux handhelds (Knulli, muOS, ROCKNIX, and ArkOS) and the Miyoo Mini Plus and Miyoo Mini Flip running OnionOS, both of which are gamepad-only systems without a compositor, and runs on regular desktop Linux too.
+It targets [PortMaster-compatible](https://portmaster.games/supported-devices.html) Linux handhelds and the Miyoo Mini Plus and Flip running OnionOS, both of which are gamepad-only systems without a compositor. It also runs on regular desktop Linux too.
 
 | Receive | Request | Save | Transfer |
 |:---:|:---:|:---:|:---:|
