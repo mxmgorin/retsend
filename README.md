@@ -43,7 +43,7 @@ this is the missing end: a client built for a gamepad and screen.
 - **Settings on device** — alias, save folder, and port, applied live.
 - **Headless** — `retsend --receive` runs with no screen, for SSH and scripting.
 - **Small and simple** — no async runtime, a minimal HTTP server, and the
-  platform's own SDL2 where there is one.
+  system's own SDL2 wherever one can drive the screen.
 
 ## Install (PortMaster devices)
 
@@ -56,6 +56,9 @@ into your ports folder (e.g. `/roms/ports/`).
 Grab `retsend-onionos.zip` from
 [Releases](https://github.com/mxmgorin/retsend/releases) and unzip it at the
 root of the SD card, so the app lands in `App/Retsend/`. It shows up under Apps, and **MENU quits** it.
+The zip carries an SDL2 built for the Miyoo's panel and a launcher that asks for
+the software renderer, since the SSD202D has no GPU at all. What ships inside it,
+in full: [onionos/App/Retsend/lib/README.md](onionos/App/Retsend/lib/README.md).
 
 ## Building & running (desktop)
 
@@ -114,7 +117,7 @@ Environment variables override paths and control logging at launch:
 `RETSEND_PANIC_FILE`.
 
 `RETSEND_BLIT=1` rasterizes the UI offscreen and presents it as a single texture
-copy per frame, for drivers that show nothing else — the Miyoo Mini's `mmiyoo`
+copy per frame, for drivers that show nothing else — the Miyoo Mini's panel driver
 drops geometry and window-surface updates without reporting an error.
 
 ### Save routes
