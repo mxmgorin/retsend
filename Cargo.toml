@@ -7,6 +7,12 @@ license = "GPL-3.0"
 description = "LocalSend client for retro handhelds (SDL2 + egui)"
 repository = "https://github.com/mxmgorin/retsend"
 
+# `cdylib` is the `libretsend.so` SDL's Android shell loads (named in
+# RetsendActivity.getLibraries()); `lib` keeps `src/main.rs` and the tests linkable.
+[lib]
+name = "retsend"
+crate-type = ["lib", "cdylib"]
+
 [features]
 default = ["software-render"]
 sdl2-bundled = ["sdl2/bundled"]
@@ -58,3 +64,8 @@ socket2 = { version = "0.6", features = ["all"] }
 # Random session ids / tokens / fingerprint; a hex helper in net::protocol is
 # all we need on top, so no uuid/rand.
 getrandom = "0.4"
+
+# Android: SDL loads our cdylib and calls the C `SDL_main` we export. There is no
+# stderr to mirror to a file, so `log` goes to logcat via android_logger.
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.15"

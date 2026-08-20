@@ -1,0 +1,72 @@
+apply plugin: 'com.android.application'
+
+// Cargo.toml is the single source of truth for the version, so the APK can't
+// drift from the crate the About screen names.
+def crateVersion = {
+    def toml = new File(rootDir, "../Cargo.toml").getText("UTF-8")
+    def matcher = (toml =~ /(?m)^version = "([^"]+)"/)
+    if (!matcher) throw new GradleException("no package version found in ../Cargo.toml")
+    return matcher[0][1]
+}()
+
+// Strides pack semver into a monotonically increasing versionCode, each bounding
+// the place below it (minor < 100, patch < 100).
+def MINOR_STRIDE = 100
+def MAJOR_STRIDE = 10000
+def (verMajor, verMinor, verPatch) = crateVersion.split('-')[0].tokenize('.').collect { it.toInteger() }
+
+android {
+    namespace 'com.retsend'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.retsend"
+        minSdk 24
+        targetSdk 34
+        versionCode verMajor * MAJOR_STRIDE + verMinor * MINOR_STRIDE + verPatch
+        versionName crateVersion
+        // One 64-bit ABI, which is every Android handheld. The Rust cdylib,
+        // libSDL2.so and libc++_shared.so are placed under src/main/jniLibs by
+        // cargo-ndk and scripts/sync-sdl.sh; Gradle builds no native code here.
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
+
+    // Sideloading, not Play: the release APK is signed with the same key CI
+    // restores from a secret. See android/README.md for a real upload key.
+    signingConfigs {
+        release {
+            storeFile file(System.getenv("RETSEND_KEYSTORE") ?: "debug.keystore")
+            storePassword System.getenv("RETSEND_KEYSTORE_PASS") ?: "android"
+            keyAlias System.getenv("RETSEND_KEY_ALIAS") ?: "androiddebugkey"
+            keyPassword System.getenv("RETSEND_KEY_PASS") ?: "android"
+        }
+    }
+
+    buildTypes {
+        // Debug signs with the SAME key as release. AGP would otherwise use
+        // ~/.android/debug.keystore, and the signature mismatch makes
+        // `adb install -r` fail whenever you switch profiles.
+        debug {
+            signingConfig signingConfigs.release
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+// No dependencies: the SDL Java glue compiles from src/main/java/org/libsdl/app.
+dependencies {}

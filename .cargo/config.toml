@@ -1,0 +1,7 @@
+# Android link paths, relative to the repo root (cargo's rustc cwd):
+#  - NDK r23+ dropped libgcc but rustc's aarch64-linux-android spec still emits
+#    `-lgcc`; android/scripts/build.sh writes the stub that satisfies it.
+#  - jniLibs holds the libSDL2.so the linker needs for `-lSDL2`.
+# Here rather than in RUSTFLAGS: a changing RUSTFLAGS invalidates every crate.
+[target.aarch64-linux-android]
+rustflags = ["-L", "target/ndk-libgcc-stub", "-L", "android/app/src/main/jniLibs/arm64-v8a"]

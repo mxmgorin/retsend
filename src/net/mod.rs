@@ -244,9 +244,17 @@ pub fn sample_status() -> NetStatus {
     }
 }
 
+/// Android has neither wireless tool, and the framework's SSID needs the
+/// location permission — the Receive screen shows the address alone.
+#[cfg(target_os = "android")]
+pub fn wifi_ssid() -> Option<String> {
+    None
+}
+
 /// Best-effort connected Wi-Fi SSID. Tries `iwgetid -r`, then `iw dev <iface>
 /// link` for each wireless interface under `/sys/class/net`. None if no
 /// wireless link is up or neither tool exists (e.g. desktop on ethernet).
+#[cfg(not(target_os = "android"))]
 pub fn wifi_ssid() -> Option<String> {
     if let Some(out) = run_stdout("iwgetid", &["-r"]) {
         let ssid = out.trim();
@@ -272,6 +280,7 @@ pub fn wifi_ssid() -> Option<String> {
 
 /// Run a command, returning its stdout on a zero exit (None if it can't spawn
 /// or fails). Used only for the optional Wi-Fi probes above.
+#[cfg(not(target_os = "android"))]
 fn run_stdout(cmd: &str, args: &[&str]) -> Option<String> {
     let out = std::process::Command::new(cmd).args(args).output().ok()?;
     out.status
@@ -281,6 +290,7 @@ fn run_stdout(cmd: &str, args: &[&str]) -> Option<String> {
 
 /// Wireless interface names: `/sys/class/net` entries exposing a `wireless`
 /// subdirectory.
+#[cfg(not(target_os = "android"))]
 fn wireless_interfaces() -> Vec<String> {
     let Ok(entries) = std::fs::read_dir("/sys/class/net") else {
         return Vec::new();

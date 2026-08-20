@@ -20,7 +20,7 @@ pub use device::DeviceConfig;
 pub use display::DisplayConfig;
 pub use input::InputConfig;
 pub use network::NetworkConfig;
-pub use paths::{data_dir, device_scale};
+pub use paths::{data_dir, device_scale, env_browser_roots};
 pub use transfer::TransferConfig;
 
 #[derive(Clone, Default, Serialize, Deserialize)]
