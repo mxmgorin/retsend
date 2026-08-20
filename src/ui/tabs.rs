@@ -4,6 +4,7 @@
 //! takeovers (`crate::ui::mod` decides).
 
 use super::theme;
+use crate::app::AppCommand;
 use crate::overlay::tabs::Tab;
 use egui_sdl2::egui;
 
@@ -21,7 +22,7 @@ const TABS: [(Tab, &str, &str); 4] = [
 /// Inner padding of a pill (text → pill edge).
 const PAD: egui::Vec2 = egui::vec2(12.0, 4.0);
 
-pub fn render_bar(root: &mut egui::Ui, active: Tab) {
+pub fn render_bar(root: &mut egui::Ui, active: Tab, taps: &mut Vec<AppCommand>) {
     egui::Panel::top(super::TOP_PANEL_ID).show(root, |ui| {
         ui.add_space(6.0);
 
@@ -50,10 +51,17 @@ pub fn render_bar(root: &mut egui::Ui, active: Tab) {
         let (_, rect) = ui.allocate_space(egui::vec2(full_w, row_h));
         let slot_w = full_w / TABS.len() as f32;
 
+        let tap = super::home::tap_pos(ui);
         for (i, (galley, color, is_active)) in items.into_iter().enumerate() {
             // Center each pill in its equal slice of the bar.
             let center = egui::pos2(rect.left() + slot_w * (i as f32 + 0.5), rect.center().y);
             let pill = egui::Rect::from_center_size(center, galley.size() + PAD * 2.0);
+            // The whole slice takes the tap, not just the pill — four pills
+            // leave gaps a finger falls into.
+            let slot = egui::Rect::from_center_size(center, egui::vec2(slot_w, row_h));
+            if tap.is_some_and(|pos| slot.contains(pos)) {
+                taps.push(AppCommand::PickTab(TABS[i].0));
+            }
             if is_active {
                 ui.painter().rect(
                     pill,

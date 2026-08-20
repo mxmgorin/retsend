@@ -4,6 +4,7 @@
 //! Incoming requests still arrive as the Prompt modal on top of this.
 
 use super::{theme, wordmark};
+use crate::app::AppCommand;
 use egui_sdl2::egui;
 
 /// Everything the Receive renderer needs, snapshotted by `AppUi::update`.
@@ -23,11 +24,18 @@ pub struct ReceiveData {
     pub quick_save: bool,
 }
 
-pub fn render(root: &mut egui::Ui, data: &ReceiveData) {
+pub fn render(root: &mut egui::Ui, data: &ReceiveData, taps: &mut Vec<AppCommand>) {
     egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
         // "Refresh" is the radar's word; here the button re-announces us.
-        super::home::hint_bar(ui, &[("← →", "Tabs"), ("Select", "Announce")]);
+        super::home::hint_bar(
+            ui,
+            &[
+                ("← →", "Tabs", None),
+                ("Select", "Announce", Some(AppCommand::ReAnnounce)),
+            ],
+            taps,
+        );
         ui.add_space(4.0);
     });
 

@@ -58,4 +58,9 @@ impl Settings {
         let count = ROW_COUNT as i32;
         self.cursor = (self.cursor as i32 + delta).rem_euclid(count) as usize;
     }
+
+    /// Straight to `index`, for a tapped row.
+    pub fn set_cursor(&mut self, index: usize) {
+        self.cursor = index.min(ROW_COUNT - 1);
+    }
 }

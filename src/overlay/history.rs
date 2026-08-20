@@ -24,4 +24,9 @@ impl HistoryView {
         let cur = self.cursor.min(len - 1) as i32;
         self.cursor = (cur + delta).clamp(0, len as i32 - 1) as usize;
     }
+
+    /// Straight to `index`, for a tapped row.
+    pub fn set_cursor(&mut self, index: usize, len: usize) {
+        self.cursor = index.min(len.saturating_sub(1));
+    }
 }

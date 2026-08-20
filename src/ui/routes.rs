@@ -4,7 +4,8 @@
 //! route removes it; B goes back.
 
 use super::theme;
-use crate::overlay::routes::RouteCursor;
+use crate::app::AppCommand;
+use crate::overlay::routes::{RouteCursor, RoutesView};
 use egui_sdl2::egui;
 
 pub struct RoutesData {
@@ -17,7 +18,7 @@ pub struct RoutesData {
     pub auto_on: bool,
 }
 
-pub fn render(root: &mut egui::Ui, data: &RoutesData) {
+pub fn render(root: &mut egui::Ui, data: &RoutesData, taps: &mut Vec<AppCommand>) {
     egui::Panel::top(super::TOP_PANEL_ID).show(root, |ui| {
         ui.add_space(6.0);
         ui.label(
@@ -35,28 +36,37 @@ pub fn render(root: &mut egui::Ui, data: &RoutesData) {
 
     egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
-        let mut hints = vec![("B", "Back")];
+        let mut hints: Vec<super::home::Hint> = vec![("B", "Back", Some(AppCommand::Back))];
         if let Some(action) = confirm_hint(data.cursor) {
-            hints.push(("A", action));
+            hints.push(("A", action, Some(AppCommand::Confirm)));
         }
-        super::home::hint_bar(ui, &hints);
+        super::home::hint_bar(ui, &hints, taps);
         ui.add_space(4.0);
     });
 
     egui::CentralPanel::default().show(root, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| {
+            let routes = data.rows.len();
+            let mut tapped = |resp: &egui::Response, cursor: RouteCursor| {
+                if resp.clicked() {
+                    taps.push(AppCommand::PickRow(RoutesView::flat_index(cursor, routes)));
+                    taps.push(AppCommand::Confirm);
+                }
+            };
             for (i, (ext, folder)) in data.rows.iter().enumerate() {
                 let selected = data.cursor == RouteCursor::Route(i);
                 let resp = route_row(ui, ext, folder, selected, false);
                 if selected {
                     resp.scroll_to_me(None);
                 }
+                tapped(&resp, RouteCursor::Route(i));
             }
             let on_add = data.cursor == RouteCursor::Add;
             let resp = add_row(ui, on_add);
             if on_add {
                 resp.scroll_to_me(None);
             }
+            tapped(&resp, RouteCursor::Add);
             if data.auto_on {
                 ui.add_space(10.0);
                 ui.label(
@@ -70,6 +80,7 @@ pub fn render(root: &mut egui::Ui, data: &RoutesData) {
                     if selected {
                         resp.scroll_to_me(None);
                     }
+                    tapped(&resp, RouteCursor::Auto(i));
                 }
             }
         });
@@ -96,7 +107,7 @@ fn route_row(
 ) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(
         egui::vec2(ui.available_width(), theme::ROW_HEIGHT),
-        egui::Sense::hover(),
+        egui::Sense::click(),
     );
     if selected {
         highlight(ui, rect);
@@ -128,7 +139,7 @@ fn route_row(
 fn add_row(ui: &mut egui::Ui, selected: bool) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(
         egui::vec2(ui.available_width(), theme::ROW_HEIGHT),
-        egui::Sense::hover(),
+        egui::Sense::click(),
     );
     if selected {
         highlight(ui, rect);

@@ -2,11 +2,18 @@
 //! row's action in the footer.
 
 use super::theme;
+use crate::app::AppCommand;
 use crate::config::AppConfig;
 use crate::overlay::settings::Settings;
 use egui_sdl2::egui;
 
-pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_port: u16) {
+pub fn render(
+    root: &mut egui::Ui,
+    state: &Settings,
+    config: &AppConfig,
+    actual_port: u16,
+    taps: &mut Vec<AppCommand>,
+) {
     // Order matches `crate::overlay::settings::ROWS`; third field is the A verb.
     let rows: [(&str, String, &str); crate::overlay::settings::ROW_COUNT] = [
         ("Device name", config.device.alias.clone(), "Edit"),
@@ -71,7 +78,14 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
         ui.add_space(4.0);
         // The row's action, where every other screen puts its buttons.
         let action = rows[state.cursor.min(rows.len() - 1)].2;
-        super::home::hint_bar(ui, &[("← →", "Tabs"), ("A", action)]);
+        super::home::hint_bar(
+            ui,
+            &[
+                ("← →", "Tabs", None),
+                ("A", action, Some(AppCommand::Confirm)),
+            ],
+            taps,
+        );
         ui.add_space(4.0);
     });
 
@@ -82,7 +96,11 @@ pub fn render(root: &mut egui::Ui, state: &Settings, config: &AppConfig, actual_
             for (i, (name, value, _)) in rows.iter().enumerate() {
                 let selected = state.cursor == i;
                 let desired = egui::vec2(ui.available_width(), theme::ROW_HEIGHT);
-                let (rect, response) = ui.allocate_exact_size(desired, egui::Sense::hover());
+                let (rect, response) = ui.allocate_exact_size(desired, egui::Sense::click());
+                if response.clicked() {
+                    taps.push(AppCommand::PickRow(i));
+                    taps.push(AppCommand::Confirm);
+                }
                 if selected {
                     response.scroll_to_me(None);
                     ui.painter().rect(

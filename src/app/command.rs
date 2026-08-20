@@ -1,5 +1,10 @@
+use crate::overlay::tabs::Tab;
+
 /// Everything input can ask the app to do. Input handlers emit these; the
 /// router in `App::execute_command` interprets them against the current focus.
+///
+/// The `Pick*` three are the exception: a tap names what it landed on, so they
+/// carry an absolute target and are routed by it rather than by focus.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AppCommand {
     Nav(Direction),
@@ -17,6 +22,16 @@ pub enum AppCommand {
     /// file in the folder in the browser.
     Alt,
     Shutdown,
+    /// Put the showing list's cursor on this row. A tap emits it with a
+    /// [`Self::Confirm`] behind it, which is what makes a tap act.
+    PickRow(usize),
+    /// Put the on-screen keyboard's cursor on this key.
+    PickKey {
+        row: usize,
+        col: usize,
+    },
+    /// Switch to this tab.
+    PickTab(Tab),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

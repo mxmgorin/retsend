@@ -3,6 +3,7 @@
 //! underneath whenever a prepare-upload is parked.
 
 use super::theme;
+use crate::app::AppCommand;
 use egui_sdl2::egui;
 
 /// Files shown by name before collapsing into "…and N more".
@@ -26,7 +27,7 @@ pub struct PromptData {
     pub remaining: f32,
 }
 
-pub fn render(ctx: &egui::Context, data: &PromptData) {
+pub fn render(ctx: &egui::Context, data: &PromptData, taps: &mut Vec<AppCommand>) {
     // Dim the screen underneath so the modal reads as blocking.
     let screen = ctx.content_rect();
     egui::Area::new(egui::Id::new("prompt_backdrop"))
@@ -122,7 +123,12 @@ pub fn render(ctx: &egui::Context, data: &PromptData) {
                     ui.add_space(10.0);
                     super::home::hint_bar(
                         ui,
-                        &[("B", "Decline"), ("X", "Save to…"), ("A", "Accept")],
+                        &[
+                            ("B", "Decline", Some(AppCommand::Back)),
+                            ("X", "Save to…", Some(AppCommand::Alt)),
+                            ("A", "Accept", Some(AppCommand::Confirm)),
+                        ],
+                        taps,
                     );
                 });
         });

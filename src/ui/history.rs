@@ -4,6 +4,7 @@
 //! just scrolls.
 
 use super::{fmt_bytes, theme, truncate_middle, PATH_CHARS};
+use crate::app::AppCommand;
 use crate::transfer::history::{Direction, HistoryEntry, Outcome};
 use egui_sdl2::egui;
 
@@ -52,10 +53,10 @@ pub fn row(e: &HistoryEntry, now: u64) -> HistoryRow {
     }
 }
 
-pub fn render(root: &mut egui::Ui, data: &HistoryData) {
+pub fn render(root: &mut egui::Ui, data: &HistoryData, taps: &mut Vec<AppCommand>) {
     egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
-        super::home::hint_bar(ui, &[("← →", "Tabs")]);
+        super::home::hint_bar(ui, &[("← →", "Tabs", None)], taps);
         ui.add_space(4.0);
     });
 
@@ -100,11 +101,17 @@ pub fn render(root: &mut egui::Ui, data: &HistoryData) {
             let first = tops
                 .partition_point(|&t| t <= viewport.min.y)
                 .saturating_sub(1);
+            // Read-only rows, so a tap only carries the cursor there.
+            let tap = super::home::tap_pos(ui);
             for (i, row) in data.rows.iter().enumerate().skip(first) {
                 if tops[i] > viewport.max.y {
                     break;
                 }
-                history_row(ui, row, row_rect(i), data.cursor == Some(i));
+                let rect = row_rect(i);
+                if tap.is_some_and(|pos| rect.contains(pos)) {
+                    taps.push(AppCommand::PickRow(i));
+                }
+                history_row(ui, row, rect, data.cursor == Some(i));
             }
         });
     });

@@ -3,7 +3,15 @@
 //! Receive tab.
 
 use super::{theme, wordmark};
+use crate::app::AppCommand;
 use egui_sdl2::egui;
+
+/// A footer hint: the button, what it does, and the command a tap on its slot
+/// stands for — `None` for the ones naming no single command.
+pub type Hint<'a> = (&'a str, &'a str, Option<AppCommand>);
+
+/// A hint slot is one text row tall; taps get a little more to aim at.
+const HINT_TAP_PAD: f32 = 6.0;
 
 /// A display-ready radar row. `AppUi::update` builds these from the peer
 /// registry, keeping this renderer decoupled from the net layer.
@@ -24,17 +32,18 @@ pub struct HomeData {
     pub cursor: Option<usize>,
 }
 
-pub fn render(root: &mut egui::Ui, data: &HomeData) {
+pub fn render(root: &mut egui::Ui, data: &HomeData, taps: &mut Vec<AppCommand>) {
     egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
         hint_bar(
             ui,
             &[
-                ("← →", "Tabs"),
-                ("Select", "Refresh"),
-                ("X", "Add IP"),
-                ("A", "Choose files"),
+                ("← →", "Tabs", None),
+                ("Select", "Refresh", Some(AppCommand::ReAnnounce)),
+                ("X", "Add IP", Some(AppCommand::Alt)),
+                ("A", "Choose files", Some(AppCommand::Confirm)),
             ],
+            taps,
         );
         ui.add_space(4.0);
     });
@@ -72,6 +81,10 @@ pub fn render(root: &mut egui::Ui, data: &HomeData) {
                 if selected {
                     row.scroll_to_me(None);
                 }
+                if row.clicked() {
+                    taps.push(AppCommand::PickRow(i));
+                    taps.push(AppCommand::Confirm);
+                }
             }
         });
     });
@@ -79,7 +92,7 @@ pub fn render(root: &mut egui::Ui, data: &HomeData) {
 
 fn peer_row(ui: &mut egui::Ui, peer: &PeerRow, selected: bool) -> egui::Response {
     let desired = egui::vec2(ui.available_width(), theme::ROW_HEIGHT);
-    let (rect, response) = ui.allocate_exact_size(desired, egui::Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(desired, egui::Sense::click());
     if selected {
         ui.painter().rect(
             rect,
@@ -120,26 +133,55 @@ fn peer_row(ui: &mut egui::Ui, peer: &PeerRow, selected: bool) -> egui::Response
 /// `[Btn] Action` hints spread evenly across the width — each hint owns an
 /// equal slot and sits centered in it, matching the tab bar. Shared by every
 /// screen's footer.
-pub fn hint_bar(ui: &mut egui::Ui, hints: &[(&str, &str)]) {
+pub fn hint_bar(ui: &mut egui::Ui, hints: &[Hint], taps: &mut Vec<AppCommand>) {
     if hints.is_empty() {
         return;
     }
     // Painted directly over one reserved row — no nested layout, no per-slot
     // interactive widgets. The hint count differs per tab, and any widget id
-    // shifting between egui's passes paints a red line at the panel edge.
+    // shifting between egui's passes paints a red line at the panel edge. Taps
+    // are hit-tested against the slots for the same reason.
     let galleys: Vec<_> = hints
         .iter()
-        .map(|(button, action)| hint_galley(ui, button, action))
+        .map(|(button, action, _)| hint_galley(ui, button, action))
         .collect();
     let row_h = galleys.iter().map(|g| g.size().y).fold(0.0_f32, f32::max);
     let full_w = ui.available_width();
     let (_, rect) = ui.allocate_space(egui::vec2(full_w, row_h));
     let slot_w = full_w / hints.len() as f32;
+    let tap = tap_pos(ui);
     for (i, galley) in galleys.into_iter().enumerate() {
         let center = egui::pos2(rect.left() + slot_w * (i as f32 + 0.5), rect.center().y);
+        // A hint names a button, so its slot *is* that button — the only way to
+        // reach Start/Select/X/Y on a device with no pad.
+        if let Some(command) = hints[i].2 {
+            let slot = egui::Rect::from_center_size(center, egui::vec2(slot_w, row_h))
+                .expand2(egui::vec2(0.0, HINT_TAP_PAD));
+            if tap.is_some_and(|pos| slot.contains(pos)) {
+                taps.push(command);
+            }
+        }
         ui.painter()
             .galley(center - galley.size() / 2.0, galley, theme::DIM);
     }
+}
+
+/// Where a tap landed, for the bars and virtualized lists that paint themselves
+/// instead of allocating widgets. `interact_pos` survives the `PointerGone` a
+/// lifted finger sends, so it reads touches too.
+///
+/// The filters are what a sensed widget gets from egui for free: a rect can run
+/// past its clip rect (virtualized rows, padded hint slots), and a layer above
+/// owns the tap (the incoming-request modal).
+pub fn tap_pos(ui: &egui::Ui) -> Option<egui::Pos2> {
+    ui.input(|i| {
+        i.pointer
+            .primary_clicked()
+            .then(|| i.pointer.interact_pos())
+            .flatten()
+    })
+    .filter(|pos| ui.clip_rect().contains(*pos))
+    .filter(|pos| ui.ctx().layer_id_at(*pos) == Some(ui.layer_id()))
 }
 
 /// A `button` (accent) + `action` (dim) hint laid out as one galley so it can
@@ -166,4 +208,94 @@ fn hint_galley(ui: &egui::Ui, button: &str, action: &str) -> std::sync::Arc<egui
         },
     );
     ui.ctx().fonts_mut(|f| f.layout_job(job))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SCREEN: egui::Vec2 = egui::vec2(640.0, 480.0);
+
+    /// The taps one click at `pos` produces. Two frames: egui resolves a click
+    /// against the previous frame's rects, so the first lays the screen out.
+    fn tap_at(data: &HomeData, pos: egui::Pos2) -> Vec<AppCommand> {
+        let ctx = egui::Context::default();
+        let mut taps = Vec::new();
+        for frame in 0..2 {
+            taps.clear();
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, SCREEN)),
+                events: if frame == 0 { Vec::new() } else { click(pos) },
+                ..Default::default()
+            };
+            ctx.begin_pass(input);
+            let mut root = egui::Ui::new(
+                ctx.clone(),
+                egui::Id::new("root_ui"),
+                egui::UiBuilder::new().max_rect(ctx.content_rect()),
+            );
+            render(&mut root, data, &mut taps);
+            // Nothing paints the frame here, and an unapplied delta panics on drop.
+            ctx.end_pass().textures_delta.clear();
+        }
+        taps
+    }
+
+    fn click(pos: egui::Pos2) -> Vec<egui::Event> {
+        let button = |pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        vec![egui::Event::PointerMoved(pos), button(true), button(false)]
+    }
+
+    fn data(peers: usize) -> HomeData {
+        HomeData {
+            peers: (0..peers)
+                .map(|i| PeerRow {
+                    alias: format!("peer{i}"),
+                    detail: "192.168.1.2".to_string(),
+                    insecure: false,
+                })
+                .collect(),
+            cursor: Some(0),
+        }
+    }
+
+    #[test]
+    fn tapping_a_radar_row_picks_it_and_sends() {
+        let top_row = egui::pos2(100.0, 4.0);
+        assert_eq!(
+            tap_at(&data(3), top_row),
+            vec![AppCommand::PickRow(0), AppCommand::Confirm]
+        );
+    }
+
+    #[test]
+    fn tapping_past_the_last_row_does_nothing() {
+        let below = egui::pos2(100.0, SCREEN.y / 2.0);
+        assert!(tap_at(&data(1), below).is_empty());
+    }
+
+    #[test]
+    fn tapping_a_hint_presses_the_button_it_names() {
+        // Four slots; "Select · Refresh" is the second, "A · Choose files" the last.
+        let bar_y = SCREEN.y - 12.0;
+        assert_eq!(
+            tap_at(&data(1), egui::pos2(SCREEN.x * 0.375, bar_y)),
+            vec![AppCommand::ReAnnounce]
+        );
+        assert_eq!(
+            tap_at(&data(1), egui::pos2(SCREEN.x * 0.875, bar_y)),
+            vec![AppCommand::Confirm]
+        );
+    }
+
+    #[test]
+    fn the_tabs_hint_names_no_single_button_so_it_stays_inert() {
+        let first_slot = egui::pos2(SCREEN.x * 0.125, SCREEN.y - 12.0);
+        assert!(tap_at(&data(1), first_slot).is_empty());
+    }
 }

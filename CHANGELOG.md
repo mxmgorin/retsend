@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Touch and mouse input**, which the UI had never read: it is painted from a
+  cursor that only a pad or the keyboard moved, so on a phone there was nothing
+  to press. A tap now becomes the same `AppCommand` a button emits — on a row it
+  places the cursor there and confirms, so tapping a device sends to it and
+  tapping a file picks it, and each slot of the footer hint bar *is* the button
+  it names, which is what makes Start/Select/X/Y reachable without a pad. The
+  same applies to a desktop mouse, where clicking used to do nothing.
 ## [0.5.5] - 2026-08-18
 
 ### Changed

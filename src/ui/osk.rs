@@ -2,10 +2,11 @@
 //! anchored to the bottom of the screen.
 
 use super::theme;
+use crate::app::AppCommand;
 use crate::overlay::osk::{Key, Osk};
 use egui_sdl2::egui;
 
-pub fn render(ctx: &egui::Context, osk: &Osk) {
+pub fn render(ctx: &egui::Context, osk: &Osk, taps: &mut Vec<AppCommand>) {
     let screen = ctx.content_rect();
     egui::Area::new(egui::Id::new("osk"))
         .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -8.0))
@@ -39,10 +40,17 @@ pub fn render(ctx: &egui::Context, osk: &Osk) {
                             let width = ui.available_width();
                             let key_w = (width - gap * (row.len() as f32 - 1.0)) / row.len() as f32;
                             for (col_index, key) in row.iter().enumerate() {
-                                let (rect, _) = ui.allocate_exact_size(
+                                let (rect, response) = ui.allocate_exact_size(
                                     egui::vec2(key_w, key_h),
-                                    egui::Sense::hover(),
+                                    egui::Sense::click(),
                                 );
+                                if response.clicked() {
+                                    taps.push(AppCommand::PickKey {
+                                        row: row_index,
+                                        col: col_index,
+                                    });
+                                    taps.push(AppCommand::Confirm);
+                                }
                                 let selected = osk.row == row_index && osk.col == col_index;
                                 let (fill, stroke) = if selected {
                                     (
@@ -89,12 +97,13 @@ pub fn render(ctx: &egui::Context, osk: &Osk) {
                     super::home::hint_bar(
                         ui,
                         &[
-                            ("Select", "Layer"),
-                            ("Start", "OK"),
-                            ("X", "Erase"),
-                            ("B", "Back"),
-                            ("A", "Type"),
+                            ("Select", "Layer", Some(AppCommand::ReAnnounce)),
+                            ("Start", "OK", Some(AppCommand::Start)),
+                            ("X", "Erase", Some(AppCommand::Alt)),
+                            ("B", "Back", Some(AppCommand::Back)),
+                            ("A", "Type", None),
                         ],
+                        taps,
                     );
                 });
         });

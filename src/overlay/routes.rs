@@ -83,6 +83,22 @@ impl RoutesView {
         self.cursor = (current + delta).clamp(0, last) as usize;
     }
 
+    /// Straight to `index`, for a tapped row.
+    pub fn set_cursor(&mut self, index: usize, routes: usize, auto: usize) {
+        self.cursor = index.min(Self::last(routes, auto));
+    }
+
+    /// The flat position a [`RouteCursor`] sits at — the inverse of
+    /// [`Self::cursor`], so a tapped row can name itself without the renderer
+    /// knowing where the add row falls.
+    pub fn flat_index(cursor: RouteCursor, routes: usize) -> usize {
+        match cursor {
+            RouteCursor::Route(i) => i,
+            RouteCursor::Add => routes,
+            RouteCursor::Auto(i) => routes + ADD_ROWS + i,
+        }
+    }
+
     fn last(routes: usize, auto: usize) -> usize {
         routes + ADD_ROWS + auto - 1
     }
@@ -149,5 +165,16 @@ mod tests {
     fn auto_rows_are_empty_without_detection() {
         let v = view(&[]);
         assert!(v.auto_rows(&configured(&[("gba", "gba")])).is_empty());
+    }
+
+    #[test]
+    fn flat_index_inverts_the_cursor_mapping() {
+        let (routes, auto) = (2, 3);
+        let mut view = view(&[("gba", "gba"), ("sfc", "snes"), ("gb", "gb")]);
+        for i in 0..routes + 1 + auto {
+            view.set_cursor(i, routes, auto);
+            let cursor = view.cursor(routes, auto);
+            assert_eq!(RoutesView::flat_index(cursor, routes), i, "row {i}");
+        }
     }
 }
