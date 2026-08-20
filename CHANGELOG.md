@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-20
+
 ### Added
 
 - **An Android build**, `retsend-android-arm64.apk`. SDL2's Android port loads
@@ -311,7 +313,8 @@ use (Knulli, muOS, ROCKNIX), running on desktop Linux too.
 - Brand wordmark and window icon.
 - Builds for Linux x86_64 and aarch64, with PortMaster packaging.
 
-[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.5.5...HEAD
+[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/mxmgorin/retsend/compare/v0.5.5...v0.6.0
 [0.5.5]: https://github.com/mxmgorin/retsend/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/mxmgorin/retsend/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/mxmgorin/retsend/compare/v0.5.2...v0.5.3
