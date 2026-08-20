@@ -2,6 +2,7 @@
 //! finish summary, and the two-step cancel confirmation.
 
 use super::theme;
+use crate::app::AppCommand;
 use egui_sdl2::egui;
 
 pub struct TransferData {
@@ -24,7 +25,7 @@ pub struct FileRow {
     pub frac: f32,
 }
 
-pub fn render(root: &mut egui::Ui, data: &TransferData) {
+pub fn render(root: &mut egui::Ui, data: &TransferData, taps: &mut Vec<AppCommand>) {
     egui::Panel::top(super::TOP_PANEL_ID).show(root, |ui| {
         ui.add_space(6.0);
         ui.label(
@@ -44,12 +45,19 @@ pub fn render(root: &mut egui::Ui, data: &TransferData) {
                         .size(theme::DETAIL_FONT)
                         .strong(),
                 );
-                super::home::hint_bar(ui, &[("B", "Keep going"), ("A", "Yes, cancel")]);
+                super::home::hint_bar(
+                    ui,
+                    &[
+                        ("B", "Keep going", Some(AppCommand::Back)),
+                        ("A", "Yes, cancel", Some(AppCommand::Confirm)),
+                    ],
+                    taps,
+                );
             });
         } else if data.finished {
-            super::home::hint_bar(ui, &[("B", "Back")]);
+            super::home::hint_bar(ui, &[("B", "Back", Some(AppCommand::Back))], taps);
         } else {
-            super::home::hint_bar(ui, &[("B", "Cancel")]);
+            super::home::hint_bar(ui, &[("B", "Cancel", Some(AppCommand::Back))], taps);
         }
         ui.add_space(4.0);
     });

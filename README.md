@@ -88,6 +88,9 @@ cargo test
 
 ## Controls
 
+Touch works too, where there is a touchscreen: tap a row to act on it, or tap a
+hint along the bottom to press the button it names.
+
 | Pad          | Keyboard   | Action                                        |
 |--------------|------------|-----------------------------------------------|
 | D-pad / stick| Arrows     | Navigate · left/right switch tabs             |

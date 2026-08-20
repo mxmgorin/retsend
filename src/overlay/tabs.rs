@@ -30,6 +30,11 @@ impl Tabs {
         self.active
     }
 
+    /// A tapped tab in the bar.
+    pub fn set_active(&mut self, tab: Tab) {
+        self.active = tab;
+    }
+
     /// L1/R1: step to the previous/next tab, wrapping around.
     pub fn cycle(&mut self, delta: i32) {
         let idx = ORDER.iter().position(|t| *t == self.active).unwrap_or(0) as i32;

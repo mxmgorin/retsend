@@ -101,6 +101,9 @@ impl App {
         );
         let mut commands: Vec<AppCommand> = Vec::new();
         while self.running {
+            // Taps land during the render pass, so they precede this frame's
+            // button presses.
+            commands.extend(self.ui.take_taps());
             self.event_handler.wait(&mut self.ui, &mut commands);
             for command in commands.drain(..) {
                 self.execute_command(command);
@@ -160,6 +163,20 @@ impl App {
     /// Interpret a command against the current focus — the single place where
     /// "what does A do right now" is decided.
     fn execute_command(&mut self, command: AppCommand) {
+        // A tap names its target, so it routes by that rather than by focus —
+        // and is dropped if the focus moved on since the frame that drew it.
+        match command {
+            AppCommand::PickRow(index) => return self.pick_row(index),
+            AppCommand::PickKey { row, col } => {
+                if self.focus() == Focus::Osk {
+                    self.ui.osk.set_cursor(row, col);
+                }
+                return;
+            }
+            AppCommand::PickTab(tab) => return self.pick_tab(tab),
+            _ => {}
+        }
+
         match (self.focus(), command) {
             (_, AppCommand::Shutdown) => self.running = false,
 
@@ -312,6 +329,43 @@ impl App {
                 Focus::Tabs,
                 AppCommand::Start | AppCommand::Back | AppCommand::TogglePin | AppCommand::Alt,
             ) => {}
+            (_, AppCommand::PickRow(_) | AppCommand::PickKey { .. } | AppCommand::PickTab(_)) => {
+                unreachable!("taps are routed by their target above, before the focus match")
+            }
+        }
+    }
+
+    /// A tapped row: move the showing list's cursor to it. The renderer's
+    /// trailing `Confirm` is what acts, so a tap equals walking there and A.
+    fn pick_row(&mut self, index: usize) {
+        match self.focus() {
+            Focus::Browser => self.ui.browser.set_cursor(index),
+            Focus::Routes => {
+                let (routes, auto) = self.route_counts();
+                self.ui.routes.set_cursor(index, routes, auto);
+            }
+            Focus::Tabs => match self.ui.tabs.active() {
+                Tab::Send => self.ui.home.set_cursor(index, self.ui.peer_count),
+                Tab::History => self.ui.history.set_cursor(index, self.ui.history_count),
+                Tab::Settings => self.ui.settings.set_cursor(index),
+                Tab::Receive => {}
+            },
+            Focus::Osk | Focus::Prompt | Focus::Transfer | Focus::About => {}
+        }
+    }
+
+    /// A tapped tab, which is where L1/R1 would have landed.
+    fn pick_tab(&mut self, tab: Tab) {
+        if self.focus() != Focus::Tabs || self.ui.tabs.active() == tab {
+            return;
+        }
+        let leaving_settings = self.ui.tabs.active() == Tab::Settings;
+        self.ui.tabs.set_active(tab);
+        if leaving_settings {
+            self.leave_settings();
+        }
+        if tab == Tab::Settings {
+            self.refresh_auto_route_count();
         }
     }
 

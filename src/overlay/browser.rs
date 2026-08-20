@@ -177,6 +177,12 @@ impl FileBrowser {
             (self.cursor.min(self.entries.len() - 1) as i32 + delta).clamp(0, max) as usize;
     }
 
+    /// Straight to `index`, for a tapped row. Clamped: the listing can be
+    /// rebuilt between the tap and its handling.
+    pub fn set_cursor(&mut self, index: usize) {
+        self.cursor = index.min(self.entries.len().saturating_sub(1));
+    }
+
     /// A on the cursor row: enter a directory, or toggle a file's selection.
     /// Returns an error message for the toast when the directory is unreadable.
     pub fn activate(&mut self) -> Result<(), String> {

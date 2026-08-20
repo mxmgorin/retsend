@@ -2,6 +2,7 @@
 //! selection checkboxes, and a footer with the running selection total.
 
 use super::{theme, truncate_middle};
+use crate::app::AppCommand;
 use crate::overlay::browser::{BrowserMode, DirPurpose, FileBrowser};
 use egui_sdl2::egui;
 
@@ -20,6 +21,7 @@ pub fn render(
     browser: &FileBrowser,
     target_alias: &str,
     deadline_secs: Option<u32>,
+    taps: &mut Vec<AppCommand>,
 ) {
     let picking_dir = browser.mode == BrowserMode::PickDir;
     let for_incoming = picking_dir && browser.dir_purpose == DirPurpose::Incoming;
@@ -74,9 +76,12 @@ pub fn render(
                 (true, false) => "Choose here",
                 (false, _) => "Send",
             };
-            let mut hints: Vec<(&str, &str)> = vec![("Select", "Roots"), ("Start", start_hint)];
+            let mut hints: Vec<super::home::Hint> = vec![
+                ("Select", "Roots", Some(AppCommand::ReAnnounce)),
+                ("Start", start_hint, Some(AppCommand::Start)),
+            ];
             if !picking_dir {
-                hints.push(("X", "All"));
+                hints.push(("X", "All", Some(AppCommand::Alt)));
             }
             hints.push((
                 "Y",
@@ -85,10 +90,11 @@ pub fn render(
                 } else {
                     "Pin"
                 },
+                Some(AppCommand::TogglePin),
             ));
-            hints.push(("B", "Up"));
-            hints.push(("A", if picking_dir { "Open" } else { "Select/Open" }));
-            super::home::hint_bar(ui, &hints);
+            hints.push(("B", "Up", Some(AppCommand::Back)));
+            hints.push(("A", if picking_dir { "Open" } else { "Select/Open" }, None));
+            super::home::hint_bar(ui, &hints, taps);
         });
         ui.add_space(4.0);
     });
@@ -126,9 +132,16 @@ pub fn render(
             }
             let first = (viewport.min.y / step).max(0.0) as usize;
             let last = ((viewport.max.y / step).ceil() as usize + 1).min(total);
+            // Hit-tested, not sensed: virtualized rows are painted from rects,
+            // not allocated.
+            let tap = super::home::tap_pos(ui);
             for i in first..last {
                 let entry = &browser.entries[i];
                 let rect = row_rect(i);
+                if tap.is_some_and(|pos| rect.contains(pos)) {
+                    taps.push(AppCommand::PickRow(i));
+                    taps.push(AppCommand::Confirm);
+                }
                 if browser.cursor == i {
                     ui.painter().rect(
                         rect,

@@ -126,6 +126,16 @@ impl Osk {
         }
     }
 
+    /// Straight to a key, for a tapped one. Ignored if the layer changed under
+    /// the tap and the key is gone.
+    pub fn set_cursor(&mut self, row: usize, col: usize) {
+        let rows = self.rows();
+        if rows.get(row).is_some_and(|r| col < r.len()) {
+            self.row = row;
+            self.col = col;
+        }
+    }
+
     /// A: press the key under the cursor.
     pub fn press(&mut self) -> Option<OskEvent> {
         let rows = self.rows();
@@ -234,5 +244,15 @@ mod tests {
             osk.press(),
             Some(OskEvent::Committed(OskTarget::Alias, _))
         ));
+    }
+
+    #[test]
+    fn a_tapped_key_takes_the_cursor_and_an_off_grid_one_is_ignored() {
+        let mut osk = Osk::new();
+        osk.open(OskTarget::Alias, "");
+        osk.set_cursor(1, 2);
+        assert_eq!((osk.row, osk.col), (1, 2));
+        osk.set_cursor(9, 9);
+        assert_eq!((osk.row, osk.col), (1, 2), "off the grid, so unmoved");
     }
 }

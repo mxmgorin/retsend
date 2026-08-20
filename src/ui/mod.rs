@@ -15,6 +15,7 @@ pub mod theme;
 mod transfer;
 mod wordmark;
 
+use crate::app::AppCommand;
 use crate::config::AppConfig;
 use crate::net::server::DECISION_TIMEOUT;
 use crate::net::NetService;
@@ -119,6 +120,9 @@ pub struct AppUi {
     /// History entry count as of the last frame that showed the History tab —
     /// clamps the history cursor.
     pub history_count: usize,
+    /// Commands from taps on the frame just drawn, for `App` to run next pass:
+    /// the screens are painted from a cursor, so a tap has to become a command.
+    taps: Vec<AppCommand>,
     /// Throttled IP/SSID for the Receive screen's diagnostic line.
     net_status: NetStatusCache,
 }
@@ -147,6 +151,7 @@ impl AppUi {
             toasts: Toasts::new(),
             peer_count: 0,
             history_count: 0,
+            taps: Vec::new(),
             net_status: NetStatusCache::new(),
         })
     }
@@ -159,6 +164,11 @@ impl AppUi {
     /// How long the event loop may block before the next frame is due.
     pub fn take_repaint_delay(&mut self) -> Option<Duration> {
         self.repaint_delay.take()
+    }
+
+    /// What the last frame's taps amount to, for the command router.
+    pub fn take_taps(&mut self) -> Vec<AppCommand> {
+        std::mem::take(&mut self.taps)
     }
 
     /// Build the frame. Reads shared net state (brief locks) before entering
@@ -181,6 +191,8 @@ impl AppUi {
         let toasts: Vec<String> = self.toasts.live().map(str::to_string).collect();
         let actual_port = net.http_port();
 
+        // Local, not `self.taps`: the closure already borrows the state it draws.
+        let mut taps: Vec<AppCommand> = Vec::new();
         self.egui.run(|ctx| {
             // egui 0.34 panels are shown inside an explicit root Ui spanning
             // the window (retsurf's pattern; top-level `show` is deprecated).
@@ -196,32 +208,33 @@ impl AppUi {
                     &self.browser,
                     &self.browser.target_alias,
                     deadline_secs,
+                    &mut taps,
                 ),
-                Screen::Routes(data) => routes::render(&mut root, data),
-                Screen::About => about::render(&mut root),
-                Screen::Transfer(data) => transfer::render(&mut root, data),
+                Screen::Routes(data) => routes::render(&mut root, data, &mut taps),
+                Screen::About => about::render(&mut root, &mut taps),
+                Screen::Transfer(data) => transfer::render(&mut root, data, &mut taps),
                 Screen::Send(data) => {
-                    tabs::render_bar(&mut root, active_tab);
-                    home::render(&mut root, data);
+                    tabs::render_bar(&mut root, active_tab, &mut taps);
+                    home::render(&mut root, data, &mut taps);
                 }
                 Screen::Receive(data) => {
-                    tabs::render_bar(&mut root, active_tab);
-                    receive::render(&mut root, data);
+                    tabs::render_bar(&mut root, active_tab, &mut taps);
+                    receive::render(&mut root, data, &mut taps);
                 }
                 Screen::History(data) => {
-                    tabs::render_bar(&mut root, active_tab);
-                    history::render(&mut root, data);
+                    tabs::render_bar(&mut root, active_tab, &mut taps);
+                    history::render(&mut root, data, &mut taps);
                 }
                 Screen::Settings => {
-                    tabs::render_bar(&mut root, active_tab);
-                    settings::render(&mut root, settings_state, config, actual_port);
+                    tabs::render_bar(&mut root, active_tab, &mut taps);
+                    settings::render(&mut root, settings_state, config, actual_port, &mut taps);
                 }
             }
             if let Some(p) = prompt_data.as_ref().filter(|_| !picking_incoming) {
-                prompt::render(ctx, p);
+                prompt::render(ctx, p, &mut taps);
             }
             if self.osk.active {
-                osk::render(ctx, &self.osk);
+                osk::render(ctx, &self.osk, &mut taps);
             }
             render_toasts(ctx, &toasts);
         });
@@ -236,6 +249,11 @@ impl AppUi {
         if prompt_data.is_some() {
             delay = delay.min(PROMPT_REFRESH);
         }
+        // Acted on next pass, so the loop must not block on an event first.
+        if !taps.is_empty() {
+            delay = Duration::ZERO;
+        }
+        self.taps = taps;
         self.repaint_delay = Some(delay);
     }
 

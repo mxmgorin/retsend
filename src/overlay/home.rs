@@ -24,6 +24,12 @@ impl Home {
         let cur = self.cursor.min(len - 1) as i32;
         self.cursor = (cur + delta).clamp(0, len as i32 - 1) as usize;
     }
+
+    /// Straight to `index`, for a tapped row. Clamped: the list is snapshotted
+    /// per frame, so a peer can expire between the tap and its handling.
+    pub fn set_cursor(&mut self, index: usize, len: usize) {
+        self.cursor = index.min(len.saturating_sub(1));
+    }
 }
 
 #[cfg(test)]
@@ -40,5 +46,15 @@ mod tests {
         assert_eq!(home.cursor(0), None);
         home.move_cursor(-10, 3);
         assert_eq!(home.cursor(3), Some(0));
+    }
+
+    #[test]
+    fn a_tapped_row_clamps_to_the_list_it_was_drawn_from() {
+        let mut home = Home::new();
+        home.set_cursor(2, 3);
+        assert_eq!(home.cursor(3), Some(2));
+        // The row was tapped, then its peer expired.
+        home.set_cursor(2, 1);
+        assert_eq!(home.cursor(1), Some(0));
     }
 }
