@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An Android build**, `retsend-android-arm64.apk`. SDL2's Android port loads
+  the Rust code as a cdylib and enters it through `SDL_main`, so windowing, the
+  GLES path, gamepad input and the whole net stack are the ones the handhelds
+  run — what is Android's alone is packaging, storage and the Back button, all of
+  it behind `cfg(target_os = "android")` or additive Cargo entries. The system
+  Back button is B and quits at the top level, and the activity holds a
+  `MulticastLock` so the Wi-Fi driver stops filtering out the announces discovery
+  is built on. It runs landscape, which is both the UI it already had and one
+  less relayout to get wrong. The app asks for all-files access before starting:
+  granted, received files land in `Download/` where an emulator can find them;
+  denied, it keeps to its own external folder, which file managers can't open on
+  Android 11+. Built with
+  `android/scripts/build.sh`; the port is written up in
+  [android/README.md](android/README.md).
 - **Touch and mouse input**, which the UI had never read: it is painted from a
   cursor that only a pad or the keyboard moved, so on a phone there was nothing
   to press. A tap now becomes the same `AppCommand` a button emits — on a row it
@@ -16,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tapping a file picks it, and each slot of the footer hint bar *is* the button
   it names, which is what makes Start/Select/X/Y reachable without a pad. The
   same applies to a desktop mouse, where clicking used to do nothing.
+- `RETSEND_BROWSER_ROOTS` (`:`-separated) adds file-browser roots a launcher
+  knows and no built-in candidate could name, and `RETSEND_ALIAS` seeds the
+  device name where there is no hostname to read. The Android activity passes
+  its storage volumes and `Build.MODEL` through them.
+
 ## [0.5.5] - 2026-08-18
 
 ### Changed

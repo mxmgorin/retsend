@@ -8,6 +8,7 @@
   <a href="https://github.com/mxmgorin/retsend/actions/workflows/ci.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-linux-arm.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-linux-arm.yml/badge.svg" alt="Linux ARM"></a>
   <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-linux.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-linux.yml/badge.svg" alt="Linux"></a>
+  <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-android.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-android.yml/badge.svg" alt="Android"></a>
   <a href="https://deps.rs/repo/github/mxmgorin/retsend"><img src="https://deps.rs/repo/github/mxmgorin/retsend/status.svg" alt="Dependencies"></a>
 </div>
 
@@ -15,7 +16,7 @@
 client for retro handhelds: send and receive files with your phone
 or PC over Wi-Fi, no cable or SSH. Compatible with the official LocalSend apps.
 
-It targets [PortMaster-compatible](https://portmaster.games/supported-devices.html) Linux handhelds and the Miyoo Mini Plus and Flip running OnionOS, both of which are gamepad-only systems without a compositor. It also runs on regular desktop Linux too.
+It targets [PortMaster-compatible](https://portmaster.games/supported-devices.html) Linux handhelds and the Miyoo Mini Plus and Flip running OnionOS, both of which are gamepad-only systems without a compositor. It also runs on regular desktop Linux and on Android handhelds and phones too.
 
 | Receive | Request | Save | Transfer |
 |:---:|:---:|:---:|:---:|
@@ -60,6 +61,18 @@ The zip carries an SDL2 built for the Miyoo's panel and a launcher that asks for
 the software renderer, since the SSD202D has no GPU at all. What ships inside it,
 in full: [onionos/App/Retsend/lib/README.md](onionos/App/Retsend/lib/README.md).
 
+## Install (Android)
+
+Grab `retsend-android-arm64.apk` from
+[Releases](https://github.com/mxmgorin/retsend/releases) and sideload it. Same
+app, driven by touch or by a pad, with the system Back button as B: tap a device
+to send to it, a file to pick it, a row to open it, and the button hints along
+the bottom are themselves the buttons.
+
+Grant **All files access** when it asks and received files land in `Download/`,
+where an emulator or file manager can reach them; deny it and the app is confined
+to its own folder. See [android/README.md](android/README.md).
+
 ## Building & running (desktop)
 
 System SDL2 is the only native dependency. On Debian/Ubuntu:
@@ -85,6 +98,20 @@ Tests are headless (no SDL, no network setup needed):
 ```sh
 cargo test
 ```
+
+### Building the APK
+
+With the Android SDK and an NDK installed:
+
+```sh
+rustup target add aarch64-linux-android
+cargo install cargo-ndk --locked
+./android/scripts/build.sh release   # android/app/build/outputs/apk/release/app-release.apk
+```
+
+It builds `libSDL2.so` on the first run, cross-compiles the Rust cdylib SDL loads,
+and assembles the APK — see [android/README.md](android/README.md) for how the
+port fits together.
 
 ## Controls
 
@@ -114,10 +141,10 @@ Settings screen edits everything in it except:
 - `[transfer] pinned_paths`, `last_send_dir` — written by Y and by sending
 
 Environment variables override paths and control logging at launch:
-`RETSEND_DATA_DIR`, `RETSEND_CONFIG`, `RETSEND_SAVE_DIR`, `RETSEND_SCALE`,
-`RETSEND_GLES=0|1`, `RETSEND_SOFTWARE=1`, `RETSEND_BLIT=1`,
-`RETSEND_KEYMAP=miyoo|desktop`, `RETSEND_LOG_LEVEL`, `RETSEND_LOG_FILE`,
-`RETSEND_PANIC_FILE`.
+`RETSEND_DATA_DIR`, `RETSEND_CONFIG`, `RETSEND_SAVE_DIR`, `RETSEND_BROWSER_ROOTS`
+(`:`-separated), `RETSEND_ALIAS`, `RETSEND_SCALE`, `RETSEND_GLES=0|1`,
+`RETSEND_SOFTWARE=1`, `RETSEND_BLIT=1`, `RETSEND_KEYMAP=miyoo|desktop`,
+`RETSEND_LOG_LEVEL`, `RETSEND_LOG_FILE`, `RETSEND_PANIC_FILE`.
 
 `RETSEND_BLIT=1` rasterizes the UI offscreen and presents it as a single texture
 copy per frame, for drivers that show nothing else — the Miyoo Mini's panel driver

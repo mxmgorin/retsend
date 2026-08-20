@@ -58,7 +58,9 @@ pub fn on_key_down(keymap: Keymap, kc: Keycode, repeat: bool, commands: &mut Vec
 fn desktop(kc: Keycode) -> Option<AppCommand> {
     Some(match kc {
         Keycode::Return | Keycode::KpEnter => AppCommand::Confirm,
-        Keycode::Escape => AppCommand::Back,
+        // AcBack is Android's hardware/gesture Back, trapped into a key event by
+        // the hint `run_app` sets there.
+        Keycode::Escape | Keycode::AcBack => AppCommand::Back,
         // Both the pad's label and the key a desktop hand reaches for.
         Keycode::X | Keycode::Backspace => AppCommand::Alt,
         Keycode::F1 => AppCommand::Start,

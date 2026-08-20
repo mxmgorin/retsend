@@ -1,0 +1,125 @@
+name: Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+env:
+  NDK_VERSION: "27.2.12479018" # r27c
+  ANDROID_API: "24"
+  ABI: "arm64-v8a"
+  RUST_TARGET: "aarch64-linux-android"
+
+jobs:
+  build-android:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK + NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK + platform + build-tools
+        run: |
+          set -eux
+          sdkmanager --install "ndk;${NDK_VERSION}" "platforms;android-34" "build-tools;34.0.0"
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Rust toolchain
+        run: |
+          set -eux
+          # rust-toolchain.toml pins the channel; rustup honors it.
+          rustup show
+          rustup target add "${RUST_TARGET}"
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      # sync-sdl.sh needs the sdl2-sys source for the Java glue and libSDL2.so.
+      - name: Fetch crates
+        run: cargo fetch
+
+      - name: Sync SDL glue + build libSDL2.so
+        run: bash android/scripts/sync-sdl.sh
+
+      - name: Build Rust cdylib
+        env:
+          # CI performance build, kept out of Cargo.toml so local release builds
+          # stay fast to compile.
+          CARGO_PROFILE_RELEASE_LTO: "fat"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+        run: |
+          set -eux
+          # NDK r23+ dropped libgcc but rustc still emits -lgcc; stub it to
+          # libunwind. The -L paths are in .cargo/config.toml.
+          mkdir -p target/ndk-libgcc-stub
+          echo "INPUT(-lunwind)" > target/ndk-libgcc-stub/libgcc.a
+          cargo ndk -t "${ABI}" -P "${ANDROID_API}" \
+            -o android/app/src/main/jniLibs build --release
+
+      # A stable key keeps `adb install -r` updating in place across releases.
+      # Without the secret (a fork) fall back to an ephemeral one so the build
+      # still runs. No `set -x` here: keep the base64 out of the logs.
+      - name: Restore signing keystore
+        env:
+          KS_B64: ${{ secrets.RETSEND_KEYSTORE_BASE64 }}
+        run: |
+          set -eu
+          if [ -n "${KS_B64:-}" ]; then
+            echo "$KS_B64" | base64 -d > android/app/release.keystore
+            echo "Using keystore from RETSEND_KEYSTORE_BASE64 (stable signature)."
+          else
+            keytool -genkeypair -v -keystore android/app/release.keystore \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=retsend,O=retsend,C=US"
+            echo "::warning::RETSEND_KEYSTORE_BASE64 not set; using an ephemeral key (APKs won't update in place)."
+          fi
+
+      - name: Assemble release APK
+        env:
+          RETSEND_KEYSTORE: release.keystore
+          RETSEND_KEYSTORE_PASS: ${{ secrets.RETSEND_KEYSTORE_PASS || 'android' }}
+          RETSEND_KEY_ALIAS: ${{ secrets.RETSEND_KEY_ALIAS || 'androiddebugkey' }}
+          RETSEND_KEY_PASS: ${{ secrets.RETSEND_KEY_PASS || 'android' }}
+        run: |
+          set -eux
+          cd android
+          ./gradlew --no-daemon assembleRelease
+          ls -la app/build/outputs/apk/release/
+
+      - name: Stage the APK
+        run: |
+          set -eux
+          cp android/app/build/outputs/apk/release/app-release.apk retsend-android-arm64.apk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: retsend-android-arm64
+          path: retsend-android-arm64.apk
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        run: sha256sum retsend-android-arm64.apk > retsend-android-arm64.apk.sha256
+
+      - name: Attach APK to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            retsend-android-arm64.apk
+            retsend-android-arm64.apk.sha256

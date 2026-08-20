@@ -325,10 +325,15 @@ impl App {
                     .osk
                     .open(OskTarget::PeerAddress, &local_subnet_prefix());
             }
-            (
-                Focus::Tabs,
-                AppCommand::Start | AppCommand::Back | AppCommand::TogglePin | AppCommand::Alt,
-            ) => {}
+            // Nothing left to leave. Android's Back is a system button that has
+            // to lead somewhere, so there it quits; on the handhelds the
+            // launcher owns quitting and this stays inert.
+            (Focus::Tabs, AppCommand::Back) => {
+                if cfg!(target_os = "android") {
+                    self.running = false;
+                }
+            }
+            (Focus::Tabs, AppCommand::Start | AppCommand::TogglePin | AppCommand::Alt) => {}
             (_, AppCommand::PickRow(_) | AppCommand::PickKey { .. } | AppCommand::PickTab(_)) => {
                 unreachable!("taps are routed by their target above, before the focus match")
             }

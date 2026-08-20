@@ -18,16 +18,33 @@ impl Default for DeviceConfig {
         Self {
             alias: default_alias(),
             device_model: "Retro Handheld".to_string(),
-            device_type: "desktop".to_string(),
+            device_type: default_device_type().to_string(),
         }
     }
 }
 
-/// Hostname when readable (Linux-only targets), else a recognizable fallback.
+/// `RETSEND_ALIAS` (Android has no hostname; the activity passes the device
+/// model), else the hostname, else a recognizable fallback.
 fn default_alias() -> String {
+    if let Ok(alias) = std::env::var("RETSEND_ALIAS") {
+        let alias = alias.trim();
+        if !alias.is_empty() {
+            return alias.to_string();
+        }
+    }
     std::fs::read_to_string("/etc/hostname")
         .ok()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "retsend".to_string())
+}
+
+/// The protocol has no handheld type, so they ride as desktops; Android is a
+/// mobile.
+fn default_device_type() -> &'static str {
+    if cfg!(target_os = "android") {
+        "mobile"
+    } else {
+        "desktop"
+    }
 }

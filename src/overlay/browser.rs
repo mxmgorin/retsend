@@ -396,7 +396,11 @@ fn build_roots(extra: &[String]) -> Vec<PathBuf> {
         .map(PathBuf::from)
         .filter(|p| p.is_dir())
         .collect();
-    for path in extra {
+    for path in extra
+        .iter()
+        .cloned()
+        .chain(crate::config::env_browser_roots())
+    {
         let path = PathBuf::from(path);
         if path.is_dir() && !roots.contains(&path) {
             roots.push(path);

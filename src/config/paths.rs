@@ -46,6 +46,20 @@ pub(super) fn config_path() -> String {
     format!("{}config.toml", data_dir())
 }
 
+/// Extra file-browser roots from `RETSEND_BROWSER_ROOTS`, `:`-separated, joining
+/// the detected mount points and `[transfer] browser_roots`. For launchers that
+/// know paths no built-in candidate could name — the Android activity passes the
+/// storage volumes it can reach, which are per-install.
+pub fn env_browser_roots() -> Vec<String> {
+    std::env::var("RETSEND_BROWSER_ROOTS")
+        .unwrap_or_default()
+        .split(':')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
 /// Default directory for received files: `RETSEND_SAVE_DIR` (the PortMaster
 /// launcher points it at the device's ROMs root), else `~/Downloads` when it
 /// exists, else `received/` inside [`data_dir`].

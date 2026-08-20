@@ -11,8 +11,8 @@ mod ui;
 
 use crate::app::App;
 
-/// Shared startup for the desktop binary (and later the handheld launcher —
-/// same binary, different env). Mirrors retsurf's `run_app`.
+/// Shared startup for the desktop binary, the handheld launcher (same binary,
+/// different env), and Android's `SDL_main`. Mirrors retsurf's `run_app`.
 pub fn run_app() {
     // Capture panics before anything else can panic. On the handheld the
     // launcher usually discards stderr, so a bare panic leaves no trace beyond
@@ -29,6 +29,8 @@ pub fn run_app() {
     if let Ok(v) = std::env::var("RETSEND_GLES") {
         app_config.display.use_gles = v != "0";
     }
+    #[cfg(target_os = "android")]
+    android_startup(&mut app_config);
 
     transfer::files::sweep_stale_parts(std::path::Path::new(&app_config.transfer.save_dir));
 
@@ -42,6 +44,8 @@ pub fn run_app() {
     // On a Wayland desktop SDL still often defaults to x11; align it to
     // Wayland. On the handheld (no WAYLAND_DISPLAY) this is skipped and SDL
     // falls back to its kmsdrm driver. An explicit SDL_VIDEODRIVER wins.
+    // Android has its own video driver and no WAYLAND_DISPLAY, so skip it.
+    #[cfg(not(target_os = "android"))]
     if std::env::var_os("SDL_VIDEODRIVER").is_none()
         && std::env::var_os("WAYLAND_DISPLAY").is_some()
     {
@@ -54,6 +58,46 @@ pub fn run_app() {
     app.run();
 }
 
+/// SDL's Android shell (`SDLActivity`) `dlopen`s our cdylib and calls this on
+/// its own thread — Android's `src/main.rs`.
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub extern "C" fn SDL_main(
+    _argc: std::os::raw::c_int,
+    _argv: *const *const std::os::raw::c_char,
+) -> std::os::raw::c_int {
+    run_app();
+    0
+}
+
+/// What only Android decides. Its paths, alias and UI scale arrive as the same
+/// `RETSEND_*` env vars the handheld launchers set, written by `RetsendActivity`
+/// before SDL starts.
+#[cfg(target_os = "android")]
+fn android_startup(config: &mut config::AppConfig) {
+    // Mali/Adreno/PowerVR expose only GLES, so desktop GL is never an option.
+    config.display.use_gles = true;
+
+    // egui-sdl2 synthesizes a pointer stream from finger events itself; SDL's own
+    // synthesis would deliver every tap twice.
+    std::env::set_var("SDL_TOUCH_MOUSE_EVENTS", "0");
+
+    // Untrapped, Back backgrounds the activity and the app never sees it. Trapped,
+    // it arrives as an AC_BACK key — the only way out of a screen without a pad.
+    std::env::set_var("SDL_ANDROID_TRAP_BACK_BUTTON", "1");
+}
+
+#[cfg(target_os = "android")]
+fn init_logging() {
+    // No stderr on Android; route `log` to logcat (`adb logcat -s retsend`).
+    android_logger::init_once(
+        android_logger::Config::default()
+            .with_max_level(log::LevelFilter::Info)
+            .with_tag("retsend"),
+    );
+}
+
+#[cfg(not(target_os = "android"))]
 fn init_logging() {
     let env = env_logger::Env::default()
         .filter_or("RETSEND_LOG_LEVEL", "info")
