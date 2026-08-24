@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The file browser opened inside the app's own folder on the Miyoo CFWs** and
+  would not leave it. `/mnt/SDCARD` was no known mount point, so the only root
+  left was `$HOME` — which those launchers point at the app folder for a
+  writable path — and a root is the one directory B cannot leave. The card is a
+  root now, and `$HOME` only becomes one when it sits outside every other.
+
 ## [0.7.0] - 2026-08-24
 
 ### Added

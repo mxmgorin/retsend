@@ -7,8 +7,9 @@ use std::path::{Path, PathBuf};
 
 /// Mount points worth offering on handheld CFWs, in preference order.
 /// Only the ones that exist become roots; `$HOME` covers the desktop.
-const ROOT_CANDIDATES: [&str; 5] = [
+const ROOT_CANDIDATES: [&str; 6] = [
     "/roms",
+    "/mnt/SDCARD", // the Miyoo card: Onion, Allium, spruce
     "/mnt/mmc",
     "/mnt/sdcard",
     "/userdata/roms",
@@ -408,7 +409,7 @@ fn build_roots(extra: &[String]) -> Vec<PathBuf> {
     }
     if let Ok(home) = std::env::var("HOME") {
         let home = PathBuf::from(home);
-        if home.is_dir() && !roots.contains(&home) {
+        if home.is_dir() && wants_home_root(&roots, &home) {
             roots.push(home);
         }
     }
@@ -416,6 +417,12 @@ fn build_roots(extra: &[String]) -> Vec<PathBuf> {
         roots.push(PathBuf::from("/"));
     }
     roots
+}
+
+/// `$HOME` earns a root of its own only outside every other one: the handheld
+/// launchers point it at the app folder, and a root is what B cannot leave.
+fn wants_home_root(roots: &[PathBuf], home: &Path) -> bool {
+    !roots.iter().any(|root| home.starts_with(root))
 }
 
 #[cfg(test)]
@@ -750,6 +757,15 @@ mod tests {
         assert!(b.parent()); // back at root
         assert!(!b.parent()); // at root: signal close
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn home_inside_a_root_is_not_a_root_of_its_own() {
+        let card = PathBuf::from("/mnt/SDCARD");
+        let roots = vec![card.clone()];
+        assert!(!wants_home_root(&roots, &card.join("Apps/Retsend.pak")));
+        assert!(wants_home_root(&roots, Path::new("/home/user")));
+        assert!(wants_home_root(&[], Path::new("/home/user")));
     }
 
     #[test]
