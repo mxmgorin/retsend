@@ -13,6 +13,12 @@ const ENTRY_HEIGHT: f32 = 30.0;
 /// Below this many seconds left, the incoming request's countdown turns red.
 const URGENT_SECS: u32 = 10;
 
+/// The pinned band: an accent wash faint enough to stay under the cursor's own
+/// 0.30 fill, the rule closing it, and the padding it grows by past its rows.
+const BAND_TINT: f32 = 0.10;
+const RULE_TINT: f32 = 0.55;
+const BAND_INSET: f32 = 2.0;
+
 /// `deadline_secs` is set only while the browser is picking a destination for
 /// a parked incoming request: the modal (and its countdown bar) is hidden
 /// behind us, so the seconds left have to show up here.
@@ -129,6 +135,25 @@ pub fn render(
             // Keeps the cursor visible even when it jumped past the slice.
             if browser.cursor < total {
                 ui.scroll_to_rect(row_rect(browser.cursor), None);
+            }
+            // Pins lead the listing but belong to other folders: a band behind
+            // them and a rule under the last one keep them from reading as rows
+            // of the folder being looked at.
+            let pins = browser.pinned_rows();
+            if pins > 0 {
+                let band = row_rect(0).union(row_rect(pins - 1));
+                ui.painter().rect_filled(
+                    band.expand2(egui::vec2(0.0, BAND_INSET)),
+                    4.0,
+                    theme::ACCENT.linear_multiply(BAND_TINT),
+                );
+                if pins < total {
+                    ui.painter().hline(
+                        band.x_range(),
+                        band.max.y + spacing * 0.5,
+                        egui::Stroke::new(1.0, theme::DIM.linear_multiply(RULE_TINT)),
+                    );
+                }
             }
             let first = (viewport.min.y / step).max(0.0) as usize;
             let last = ((viewport.max.y / step).ceil() as usize + 1).min(total);

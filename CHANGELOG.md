@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Pinned rows sit in a band of their own** in the file browser, closed by a
+  rule where the folder's own entries start. They lead every listing but belong
+  to other folders, and a star alone left them reading as rows of the folder
+  being looked at.
+
 ### Fixed
 
 - **The file browser opened inside the app's own folder on the Miyoo CFWs** and

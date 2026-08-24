@@ -266,6 +266,12 @@ impl FileBrowser {
         Some((here.len(), bytes, !all_selected))
     }
 
+    /// How many rows at the top of the listing are pins. They always lead, so
+    /// this is also where the folder's own entries begin.
+    pub fn pinned_rows(&self) -> usize {
+        self.entries.iter().take_while(|e| e.pinned).count()
+    }
+
     /// What Y acts on: the row under the cursor, or the folder being looked at
     /// when there is no row to point at (an empty listing).
     pub fn pin_target(&self) -> Option<PathBuf> {
@@ -477,6 +483,8 @@ mod tests {
         // The first row is the pinned one, the second the real child directory.
         assert!(b.entries[0].pinned);
         assert!(!b.entries[1].pinned);
+        // Where the renderer closes the pinned band.
+        assert_eq!(b.pinned_rows(), 1);
 
         std::fs::remove_dir_all(&root).unwrap();
     }
