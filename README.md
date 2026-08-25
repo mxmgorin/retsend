@@ -18,6 +18,10 @@ or PC over Wi-Fi, no cable or SSH. Compatible with the official LocalSend apps.
 
 It targets [PortMaster-compatible](https://portmaster.games/supported-devices.html) Linux handhelds and the Miyoo Mini Plus and Flip running OnionOS or Allium, all of which are gamepad-only systems without a compositor. It also runs on regular desktop Linux and on Android handhelds and phones too.
 
+<p align="center">
+  <img src="resources/retsend-devices.jpg" alt="Three devices on a couch: a handheld showing the radar of nearby devices, a clamshell handheld waiting to receive, and a phone running the official LocalSend app" width="480">
+</p>
+
 | Receive | Request | Save | Transfer |
 |:---:|:---:|:---:|:---:|
 | ![Waiting for a sender, showing the device name, address, Wi-Fi network and the folder files land in](resources/retsend_receive.png) | ![An incoming request naming the sender, its files and where they land, counting down to the automatic decline](resources/retsend_request.png) | ![Picking the folder an incoming transfer lands in, the request still counting down](resources/retsend_save.png) | ![A transfer in progress: overall bar with bytes, speed and ETA, and a percentage per file](resources/retsend_transfer.png) |
