@@ -4,6 +4,7 @@
 use retsend::net::discovery::PeerRegistry;
 use retsend::net::protocol::{self, DeviceInfo};
 use retsend::net::{server, NetShared, TransferSettings, Wake, WakeReason};
+use retsend::transfer::history::HistoryEntry;
 use retsend::transfer::outbound::{self, OutboundPhase};
 use std::net::TcpStream;
 use std::path::PathBuf;
@@ -93,7 +94,7 @@ fn sends_files_end_to_end() {
 
     let session = outbound::spawn(
         "Receiver".into(),
-        base,
+        base.clone(),
         device("Sender"),
         vec![src.join("game.gbc"), src.join("save.dat")],
         Arc::new(NoopWake),
@@ -111,6 +112,18 @@ fn sends_files_end_to_end() {
         b"ROM BYTES"
     );
     assert_eq!(std::fs::read(save_dir.join("save.dat")).unwrap(), b"SAVE");
+
+    // What the History tab needs to repeat this send.
+    let entry = HistoryEntry::from_outbound(&session);
+    assert!(entry.resendable());
+    assert_eq!(
+        entry.files,
+        [
+            src.join("game.gbc").display().to_string(),
+            src.join("save.dat").display().to_string()
+        ]
+    );
+    assert_eq!(entry.peer_base, base);
 
     std::fs::remove_dir_all(&src).unwrap();
     stop();

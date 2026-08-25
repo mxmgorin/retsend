@@ -12,6 +12,10 @@ use std::sync::atomic::Ordering;
 /// Default cap on retained entries when the config omits `transfer.history_limit`.
 pub const DEFAULT_MAX_ENTRIES: usize = 200;
 
+/// Cap on source paths kept for a resend; a bigger send is logged without them
+/// rather than growing `history.json` without bound.
+const MAX_RESEND_FILES: usize = 64;
+
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
     Sent,
@@ -45,9 +49,22 @@ pub struct HistoryEntry {
     /// Empty when nothing moved, or for entries written before this field.
     #[serde(default)]
     pub path: String,
+    /// Source paths of a send, for a resend. Empty on received entries, on
+    /// sends over [`MAX_RESEND_FILES`], and on entries predating this field.
+    #[serde(default)]
+    pub files: Vec<String>,
+    /// `http://ip:port` the send went to — where a resend goes when the peer
+    /// is no longer on the radar.
+    #[serde(default)]
+    pub peer_base: String,
 }
 
 impl HistoryEntry {
+    /// Can this entry be sent again?
+    pub fn resendable(&self) -> bool {
+        self.direction == Direction::Sent && !self.files.is_empty()
+    }
+
     pub fn from_inbound(s: &InboundSession) -> Self {
         let done = s.done_count();
         let total = s.files.len();
@@ -70,6 +87,8 @@ impl HistoryEntry {
                     .filter(|f| *f.state.lock().unwrap() == FileState::Done)
                     .filter_map(|f| f.dest.parent()),
             ),
+            files: Vec::new(),
+            peer_base: String::new(),
         }
     }
 
@@ -97,6 +116,17 @@ impl HistoryEntry {
                     .filter(|f| *f.state.lock().unwrap() == FileState::Done)
                     .filter_map(|f| f.path.parent()),
             ),
+            // A resend repeats the whole selection, so every file is kept —
+            // including the ones that failed, which is when it is worth most.
+            files: if s.files.len() <= MAX_RESEND_FILES {
+                s.files
+                    .iter()
+                    .map(|f| f.path.display().to_string())
+                    .collect()
+            } else {
+                Vec::new()
+            },
+            peer_base: s.base.clone(),
         }
     }
 }
@@ -143,14 +173,48 @@ impl History {
         }
     }
 
-    /// Append and persist. Best-effort write — a read-only SD degrades to an
-    /// in-memory log, not a crash.
+    /// Append and persist.
     pub fn record(&mut self, entry: HistoryEntry) {
         self.entries.push(entry);
         let overflow = self.entries.len().saturating_sub(self.limit);
         if overflow > 0 {
             self.entries.drain(..overflow);
         }
+        self.save();
+    }
+
+    /// Entries oldest-first (the renderer walks them newest-first).
+    pub fn entries(&self) -> &[HistoryEntry] {
+        &self.entries
+    }
+
+    /// Entries newest-first — the order the History tab lists them, and what
+    /// its row indices count.
+    pub fn newest_first(&self) -> impl Iterator<Item = &HistoryEntry> {
+        self.entries.iter().rev()
+    }
+
+    /// The entry a History row shows.
+    pub fn get(&self, row: usize) -> Option<&HistoryEntry> {
+        self.entries.get(self.index_of(row)?)
+    }
+
+    /// Drop the entry a History row shows and persist.
+    pub fn remove(&mut self, row: usize) -> Option<HistoryEntry> {
+        let index = self.index_of(row)?;
+        let entry = self.entries.remove(index);
+        self.save();
+        Some(entry)
+    }
+
+    /// Storage index (oldest-first) of a newest-first row.
+    fn index_of(&self, row: usize) -> Option<usize> {
+        self.entries.len().checked_sub(row + 1)
+    }
+
+    /// Best-effort write — a read-only SD degrades to an in-memory log, not a
+    /// crash.
+    fn save(&self) {
         match serde_json::to_string_pretty(&self.entries) {
             Ok(text) => {
                 if let Err(e) = std::fs::write(&self.path, text) {
@@ -159,11 +223,6 @@ impl History {
             }
             Err(e) => log::warn!("could not serialize history: {e}"),
         }
-    }
-
-    /// Entries oldest-first (the renderer walks them newest-first).
-    pub fn entries(&self) -> &[HistoryEntry] {
-        &self.entries
     }
 }
 
@@ -196,6 +255,8 @@ mod tests {
             outcome: Outcome::Completed,
             at: 0,
             path: "/save".to_string(),
+            files: vec!["/save/rom.gbc".to_string()],
+            peer_base: "http://10.0.0.2:53317".to_string(),
         }
     }
 
@@ -211,6 +272,24 @@ mod tests {
             h.record(entry(&format!("p{i}")));
         }
         assert_eq!(peers(&h), ["p2", "p3", "p4"]);
+        std::fs::remove_dir_all(dir.trim_end_matches('/')).unwrap();
+    }
+
+    #[test]
+    fn remove_takes_the_newest_first_row_and_persists() {
+        let dir = temp_dir("remove");
+        {
+            let mut h = History::load(&dir, 10);
+            for i in 0..3 {
+                h.record(entry(&format!("p{i}")));
+            }
+            // Row 0 is the newest ("p2"), row 2 the oldest.
+            assert_eq!(h.get(0).unwrap().peer, "p2");
+            assert_eq!(h.remove(1).unwrap().peer, "p1");
+            assert!(h.remove(2).is_none());
+            assert_eq!(peers(&h), ["p0", "p2"]);
+        }
+        assert_eq!(peers(&History::load(&dir, 10)), ["p0", "p2"]);
         std::fs::remove_dir_all(dir.trim_end_matches('/')).unwrap();
     }
 

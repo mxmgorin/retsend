@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A send can be repeated from the History tab**, with A on its row. The log
+  now keeps the source paths of a send and the address it went to; the resend
+  dials the peer under that alias as the radar has it *now*, so a device that
+  changed address in between is still reached, and falls back to the recorded
+  address when it is off the radar. Files deleted since are left out — the rest
+  still go, and a toast says how many were missing. Sends of more than 64 files
+  are logged without their paths rather than growing `history.json` without
+  bound, and their rows offer no resend.
+- **A history row can be dropped from the log**, with X.
+
 ## [0.7.1] - 2026-08-24
 
 ### Changed

@@ -1,8 +1,9 @@
 //! The History tab: the persisted transfer log, newest first. Rows show the
 //! peer + direction, a counts/size/relative-time detail line, the directory the
-//! files landed in (or came from), and an outcome glyph. Read-only; the cursor
-//! just scrolls.
+//! files landed in (or came from), and an outcome glyph. A row can be dropped
+//! from the log (X), and a send can be repeated from it (A).
 
+use super::home::Hint;
 use super::{fmt_bytes, theme, truncate_middle, PATH_CHARS};
 use crate::app::AppCommand;
 use crate::transfer::history::{Direction, HistoryEntry, Outcome};
@@ -23,6 +24,9 @@ pub struct HistoryRow {
 pub struct HistoryData {
     pub rows: Vec<HistoryRow>,
     pub cursor: Option<usize>,
+    /// The row under the cursor is a send whose files are still recorded, so
+    /// the resend hint is offered.
+    pub can_resend: bool,
 }
 
 /// Build a row from an entry, resolving the relative time against `now`
@@ -56,7 +60,14 @@ pub fn row(e: &HistoryEntry, now: u64) -> HistoryRow {
 pub fn render(root: &mut egui::Ui, data: &HistoryData, taps: &mut Vec<AppCommand>) {
     egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
-        super::home::hint_bar(ui, &[("← →", "Tabs", None)], taps);
+        let mut hints: Vec<Hint> = vec![("← →", "Tabs", None)];
+        if !data.rows.is_empty() {
+            hints.push(("X", "Delete", Some(AppCommand::Alt)));
+        }
+        if data.can_resend {
+            hints.push(("A", "Send again", Some(AppCommand::Confirm)));
+        }
+        super::home::hint_bar(ui, &hints, taps);
         ui.add_space(4.0);
     });
 
@@ -101,7 +112,8 @@ pub fn render(root: &mut egui::Ui, data: &HistoryData, taps: &mut Vec<AppCommand
             let first = tops
                 .partition_point(|&t| t <= viewport.min.y)
                 .saturating_sub(1);
-            // Read-only rows, so a tap only carries the cursor there.
+            // A tap only carries the cursor; deleting and resending stay on
+            // their hints, so neither fires from a mis-tap on a row.
             let tap = super::home::tap_pos(ui);
             for (i, row) in data.rows.iter().enumerate().skip(first) {
                 if tops[i] > viewport.max.y {

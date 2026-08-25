@@ -38,6 +38,7 @@ this is the missing end: a client built for a gamepad and screen.
   a manually typed IP address for the networks that block multicast.
 - **Receive** — accept/decline dialog with countdown, speed/ETA, and cancel from either side; X picks a folder for that one transfer; quick-save mode auto-accepts.
 - **Send** — gamepad file browser with multi-select and per-file progress; pin the folders and files you send often and they lead every listing.
+- **History** — every transfer logged; A repeats a send from its row, X drops the row.
 - **Save routes** — received ROMs land in the console folder they belong to, detected from the card; per-extension overrides on top.
 - **Folders** — a folder sent from the official app arrives as a folder, its tree rebuilt under the save folder.
 - **Encryption** — the protocol's HTTPS mode, on by default; works with the official app's default settings both ways.
@@ -124,9 +125,9 @@ hint along the bottom to press the button it names.
 | Pad          | Keyboard   | Action                                        |
 |--------------|------------|-----------------------------------------------|
 | D-pad / stick| Arrows     | Navigate · left/right switch tabs             |
-| A            | Enter      | Send to device · select file · accept · type  |
+| A            | Enter      | Send to device · select file · accept · repeat a send · type |
 | B            | Esc        | Back · decline · cancel · leave the keyboard  |
-| X            | X / Bksp   | Add a device by IP · pick where an incoming transfer lands · erase a character · take every file in the folder |
+| X            | X / Bksp   | Add a device by IP · pick where an incoming transfer lands · delete a history row · erase a character · take every file in the folder |
 | Y            | Y          | Pin / unpin the row under the cursor          |
 | Start        | F1         | Confirm send · OK (keyboard)                  |
 | Select       | Tab / F5   | Refresh radar · switch roots · layer (keyboard)|

@@ -326,12 +326,14 @@ impl AppUi {
             Tab::History => {
                 self.history_count = history.entries().len();
                 let now = unix_now();
+                let cursor = self.history.cursor(self.history_count);
                 Screen::History(history::HistoryData {
-                    cursor: self.history.cursor(self.history_count),
+                    cursor,
+                    can_resend: cursor
+                        .and_then(|row| history.get(row))
+                        .is_some_and(|e| e.resendable()),
                     rows: history
-                        .entries()
-                        .iter()
-                        .rev()
+                        .newest_first()
                         .map(|e| history::row(e, now))
                         .collect(),
                 })

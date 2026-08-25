@@ -36,6 +36,8 @@ pub struct OutboundFile {
 
 pub struct OutboundSession {
     pub peer_alias: String,
+    /// `http://ip:port` this send dials; the history keeps it for a resend.
+    pub base: String,
     pub files: Vec<OutboundFile>,
     pub total_bytes: u64,
     pub sent_total: AtomicU64,
@@ -116,6 +118,7 @@ pub fn spawn(
 
     let session = Arc::new(OutboundSession {
         peer_alias,
+        base,
         files,
         total_bytes: total,
         sent_total: AtomicU64::new(0),
@@ -127,13 +130,14 @@ pub fn spawn(
     let worker = session.clone();
     std::thread::Builder::new()
         .name("outbound".into())
-        .spawn(move || run(worker, base, me, wake))?;
+        .spawn(move || run(worker, me, wake))?;
     Ok(session)
 }
 
-fn run(session: Arc<OutboundSession>, base: String, me: DeviceInfo, wake: Arc<dyn Wake>) {
+fn run(session: Arc<OutboundSession>, me: DeviceInfo, wake: Arc<dyn Wake>) {
+    let base = &session.base;
     let metas: Vec<FileMeta> = session.files.iter().map(|f| f.meta.clone()).collect();
-    let response = match client::prepare_upload(&base, &me, &metas) {
+    let response = match client::prepare_upload(base, &me, &metas) {
         Ok(r) => r,
         Err(e) => {
             let phase = match e {
@@ -152,7 +156,7 @@ fn run(session: Arc<OutboundSession>, base: String, me: DeviceInfo, wake: Arc<dy
     };
     if session.cancel.load(Ordering::SeqCst) {
         // The user gave up while the peer was deciding.
-        client::cancel(&base, &response.session_id);
+        client::cancel(base, &response.session_id);
         session.set_phase(OutboundPhase::Cancelled, wake.as_ref());
         return;
     }
@@ -190,7 +194,7 @@ fn run(session: Arc<OutboundSession>, base: String, me: DeviceInfo, wake: Arc<dy
                 };
                 client::upload_file(
                     &agent,
-                    &base,
+                    base,
                     &response.session_id,
                     &file.meta.id,
                     token,
@@ -220,7 +224,7 @@ fn run(session: Arc<OutboundSession>, base: String, me: DeviceInfo, wake: Arc<dy
                 *state = FileState::Failed("cancelled".into());
             }
         }
-        client::cancel(&base, &response.session_id);
+        client::cancel(base, &response.session_id);
         session.set_phase(OutboundPhase::Cancelled, wake.as_ref());
     } else {
         session.set_phase(OutboundPhase::Done, wake.as_ref());

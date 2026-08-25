@@ -15,7 +15,7 @@ use crate::overlay::settings::SettingsRow;
 use crate::overlay::tabs::Tab;
 use crate::overlay::transfer::Viewed;
 use crate::overlay::Focus;
-use crate::transfer::history::History;
+use crate::transfer::history::{History, HistoryEntry};
 use crate::transfer::outbound::{self, OutboundSession};
 use crate::ui::AppUi;
 use std::path::PathBuf;
@@ -325,6 +325,10 @@ impl App {
                     .osk
                     .open(OskTarget::PeerAddress, &local_subnet_prefix());
             }
+            // X on the history: drop the row from the log.
+            (Focus::Tabs, AppCommand::Alt) if self.ui.tabs.active() == Tab::History => {
+                self.delete_history_entry();
+            }
             // Nothing left to leave. Android's Back is a system button that has
             // to lead somewhere, so there it quits; on the handhelds the
             // launcher owns quitting and this stays inert.
@@ -408,8 +412,8 @@ impl App {
         }
     }
 
-    /// A on a tab: Send opens the browser for the selected device, Settings
-    /// edits the current row, Receive does nothing.
+    /// A on a tab: Send opens the browser for the selected device, History
+    /// repeats the selected send, Settings edits the current row.
     fn tab_confirm(&mut self) {
         match self.ui.tabs.active() {
             Tab::Send => {
@@ -418,9 +422,65 @@ impl App {
                 }
             }
             Tab::Receive => {}
-            Tab::History => {}
+            Tab::History => self.resend_history_entry(),
             Tab::Settings => self.edit_setting(),
         }
+    }
+
+    /// X on a History row: drop it from the log. The count is refreshed here
+    /// because the cursor is clamped against it before the next frame builds it.
+    fn delete_history_entry(&mut self) {
+        let Some(row) = self.ui.history.cursor(self.ui.history_count) else {
+            return;
+        };
+        if self.history.remove(row).is_some() {
+            self.ui.history_count = self.history.entries().len();
+            self.ui.toasts.push("Entry removed");
+        }
+    }
+
+    /// A on a History row: send the same files to the same peer again.
+    fn resend_history_entry(&mut self) {
+        let Some(row) = self.ui.history.cursor(self.ui.history_count) else {
+            return;
+        };
+        let Some(entry) = self.history.get(row).cloned() else {
+            return;
+        };
+        if !entry.resendable() {
+            self.ui.toasts.push("Only a send can be repeated");
+            return;
+        }
+        let Some(base) = self.resend_base(&entry) else {
+            self.ui
+                .toasts
+                .push(format!("{} is not on the network", entry.peer));
+            return;
+        };
+        let (files, gone) = existing_files(&entry.files);
+        if files.is_empty() {
+            self.ui.toasts.push("Those files are gone");
+            return;
+        }
+        if gone > 0 {
+            self.ui
+                .toasts
+                .push(format!("{gone} files are gone — sending the rest"));
+        }
+        self.start_send(entry.peer, base, files);
+    }
+
+    /// Where a resend dials: the peer under that alias as the radar has it now
+    /// (its address may have moved since), else the recorded address.
+    fn resend_base(&self, entry: &HistoryEntry) -> Option<String> {
+        self.net
+            .shared
+            .peers
+            .snapshot()
+            .iter()
+            .find(|p| p.info.alias == entry.peer)
+            .map(|p| p.base_url())
+            .or_else(|| (!entry.peer_base.is_empty()).then(|| entry.peer_base.clone()))
     }
 
     /// A on a settings row: open its editor or toggle it.
@@ -782,8 +842,18 @@ impl App {
         let files = self.ui.browser.selected_paths();
         self.remember_send_dir();
         self.ui.browser.close();
+        self.start_send(target.alias, target.base, files);
+    }
+
+    /// Start the worker for a send and take over the screen with it. Shared by
+    /// the browser's Start and the History tab's resend.
+    fn start_send(&mut self, alias: String, base: String, files: Vec<PathBuf>) {
+        if self.outbound.as_ref().is_some_and(|o| !o.is_finished()) {
+            self.ui.toasts.push("A send is already running");
+            return;
+        }
         let me = self.net.shared.me.lock().unwrap().clone();
-        match outbound::spawn(target.alias, target.base, me, files, self.wake.clone()) {
+        match outbound::spawn(alias, base, me, files, self.wake.clone()) {
             Ok(session) => {
                 self.net
                     .shared
@@ -821,6 +891,18 @@ impl App {
             None => {}
         }
     }
+}
+
+/// Recorded paths that are still files, and how many of them vanished — a
+/// resend takes what is left rather than failing on the first missing one.
+fn existing_files(paths: &[String]) -> (Vec<PathBuf>, usize) {
+    let files: Vec<PathBuf> = paths
+        .iter()
+        .map(PathBuf::from)
+        .filter(|p| p.is_file())
+        .collect();
+    let gone = paths.len() - files.len();
+    (files, gone)
 }
 
 /// Vertical lists: up/down move the cursor; left/right are reserved for value
