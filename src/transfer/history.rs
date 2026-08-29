@@ -12,8 +12,8 @@ use std::sync::atomic::Ordering;
 /// Default cap on retained entries when the config omits `transfer.history_limit`.
 pub const DEFAULT_MAX_ENTRIES: usize = 200;
 
-/// Cap on source paths kept for a resend; a bigger send is logged without them
-/// rather than growing `history.json` without bound.
+/// Cap on picked paths kept for a resend; a bigger selection is logged without
+/// them rather than growing `history.json` without bound.
 const MAX_RESEND_FILES: usize = 64;
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -116,13 +116,10 @@ impl HistoryEntry {
                     .filter(|f| *f.state.lock().unwrap() == FileState::Done)
                     .filter_map(|f| f.path.parent()),
             ),
-            // A resend repeats the whole selection, so every file is kept —
+            // A resend repeats the whole selection, so every source is kept —
             // including the ones that failed, which is when it is worth most.
-            files: if s.files.len() <= MAX_RESEND_FILES {
-                s.files
-                    .iter()
-                    .map(|f| f.path.display().to_string())
-                    .collect()
+            files: if s.sources.len() <= MAX_RESEND_FILES {
+                s.sources.iter().map(|p| p.display().to_string()).collect()
             } else {
                 Vec::new()
             },

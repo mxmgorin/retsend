@@ -8,7 +8,7 @@ use crate::config::AppConfig;
 use crate::event::user::UserEventSender;
 use crate::event::AppEventHandler;
 use crate::net::NetService;
-use crate::overlay::browser::{BrowserMode, DirPurpose};
+use crate::overlay::browser::{BrowserMode, DirPurpose, Taken};
 use crate::overlay::osk::{OskEvent, OskTarget};
 use crate::overlay::routes::RouteCursor;
 use crate::overlay::settings::SettingsRow;
@@ -82,10 +82,10 @@ impl App {
         let staged: Vec<PathBuf> = std::env::args_os()
             .skip(1)
             .map(PathBuf::from)
-            .filter(|p| p.is_file())
+            .filter(|p| p.exists())
             .collect();
         if !staged.is_empty() {
-            log::info!("{} files staged for sending", staged.len());
+            log::info!("{} paths staged for sending", staged.len());
         }
 
         let history = History::load(&crate::config::data_dir(), config.transfer.history_limit);
@@ -306,7 +306,7 @@ impl App {
                 }
             }
             (Focus::Browser, AppCommand::TogglePin) => self.toggle_pin(),
-            (Focus::Browser, AppCommand::Alt) => self.select_folder_contents(),
+            (Focus::Browser, AppCommand::Alt) => self.take_into_selection(),
 
             // Routes editor: up/down over the routes, the add row and the auto
             // routes; A adds or removes; B goes back to Settings.
@@ -472,8 +472,8 @@ impl App {
                 .push(format!("{} is not on the network", entry.peer));
             return;
         };
-        let (files, gone) = existing_files(&entry.files);
-        if files.is_empty() {
+        let (sources, gone) = existing_sources(&entry.files);
+        if sources.is_empty() {
             self.ui.toasts.push("Those files are gone");
             return;
         }
@@ -482,7 +482,7 @@ impl App {
                 .toasts
                 .push(format!("{gone} files are gone — sending the rest"));
         }
-        self.start_send(entry.peer, base, files);
+        self.start_send(entry.peer, base, sources);
     }
 
     /// Where a resend dials: the peer under that alias as the radar has it now
@@ -627,21 +627,33 @@ impl App {
         }
     }
 
-    /// X in the browser: take every file of this folder into the selection (or
-    /// drop them again). Subfolders are left alone — the protocol has no notion
-    /// of a directory, so a send is always a flat list of files.
-    fn select_folder_contents(&mut self) {
-        let Some((count, bytes, selected)) = self.ui.browser.toggle_folder_files() else {
-            if self.ui.browser.mode == BrowserMode::PickFiles {
-                self.ui.toasts.push("No files in this folder");
-            }
+    /// X in the browser: take a folder or the files of the cwd, or drop them.
+    fn take_into_selection(&mut self) {
+        let Some(taken) = self.ui.browser.take() else {
             return;
         };
-        let size = crate::ui::fmt_bytes(bytes);
-        self.ui.toasts.push(if selected {
-            format!("Selected {count} files · {size}")
-        } else {
-            format!("Cleared {count} files")
+        let size = crate::ui::fmt_bytes;
+        self.ui.toasts.push(match taken {
+            Taken::Folder {
+                name,
+                files,
+                bytes,
+                partial,
+            } => {
+                let mut toast = format!("{name} · {files} files · {}", size(bytes));
+                if partial {
+                    toast.push_str(" — some left out");
+                }
+                toast
+            }
+            Taken::Files { files, bytes } => format!("Selected {files} files · {}", size(bytes)),
+            Taken::Given {
+                name: Some(name),
+                files,
+            } => format!("Cleared {name} · {files} files"),
+            Taken::Given { name: None, files } => format!("Cleared {files} files"),
+            Taken::Nothing => "No files in this folder".to_string(),
+            Taken::Covered { name } => format!("Already in {name}"),
         });
     }
 
@@ -663,11 +675,7 @@ impl App {
         };
         self.config.transfer.pinned_paths = change.paths;
         self.config.save();
-        let name = change
-            .path
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| change.path.display().to_string());
+        let name = crate::transfer::files::base_name(&change.path);
         self.ui.toasts.push(if change.pinned {
             format!("★ {name}")
         } else {
@@ -923,16 +931,16 @@ impl App {
     }
 }
 
-/// Recorded paths that are still files, and how many of them vanished — a
-/// resend takes what is left rather than failing on the first missing one.
-fn existing_files(paths: &[String]) -> (Vec<PathBuf>, usize) {
-    let files: Vec<PathBuf> = paths
+/// Recorded paths still on disk, and how many vanished — a resend takes what
+/// is left rather than failing on the first missing one.
+fn existing_sources(paths: &[String]) -> (Vec<PathBuf>, usize) {
+    let sources: Vec<PathBuf> = paths
         .iter()
         .map(PathBuf::from)
-        .filter(|p| p.is_file())
+        .filter(|p| p.exists())
         .collect();
-    let gone = paths.len() - files.len();
-    (files, gone)
+    let gone = paths.len() - sources.len();
+    (sources, gone)
 }
 
 /// Vertical lists: up/down move the cursor; left/right are reserved for value

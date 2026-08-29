@@ -87,7 +87,12 @@ pub fn render(
                 ("Start", start_hint, Some(AppCommand::Start)),
             ];
             if !picking_dir {
-                hints.push(("X", "All", Some(AppCommand::Alt)));
+                let what = if browser.cursor_is_dir() {
+                    "Folder"
+                } else {
+                    "All"
+                };
+                hints.push(("X", what, Some(AppCommand::Alt)));
             }
             hints.push((
                 "Y",
@@ -180,19 +185,24 @@ pub fn render(
                 let padding = 10.0;
 
                 // A star for pinned rows, a slash for directories, a checkbox
-                // for files — and both for a pinned file, whose selection state
-                // still has to be readable. No checkboxes when only a directory
-                // is being picked.
-                let checked = browser.selected.contains_key(&entry.path);
+                // for whatever is picked — and both for a pinned file, whose
+                // selection state still has to be readable. No checkboxes when
+                // only a directory is being picked.
+                let picked = browser.selected.get(&entry.path);
+                // Checked, but dimmed: a picked folder put it there.
+                let covered = picked.is_none() && browser.covered_by(&entry.path).is_some();
+                let checked = picked.is_some() || covered;
                 let (marker, marker_color) = match (entry.pinned, entry.is_dir) {
+                    (true, _) if checked => ("★[x]", theme::ACCENT),
                     (true, true) => ("  ★", theme::ACCENT),
-                    (true, false) if checked => ("★[x]", theme::ACCENT),
                     (true, false) => ("★[ ]", theme::ACCENT),
+                    (false, true) if checked => ("[x]/", theme::ACCENT),
                     (false, true) => ("   /", theme::DIM),
                     (false, false) if picking_dir => ("", theme::DIM),
                     (false, false) if checked => ("[x]", theme::ACCENT),
                     (false, false) => ("[ ]", theme::DIM),
                 };
+                let marker_color = if covered { theme::DIM } else { marker_color };
                 painter.text(
                     rect.left_center() + egui::vec2(padding, 0.0),
                     egui::Align2::LEFT_CENTER,
@@ -208,11 +218,12 @@ pub fn render(
                     ui.visuals().text_color(),
                 );
                 // Pinned rows show where they lead: two cards can carry folders
-                // with the same name.
+                // with the same name. A picked folder shows what it weighs —
+                // nothing else on the row can say it.
                 let trailing = if entry.pinned {
                     truncate_middle(&entry.path.display().to_string(), 40)
                 } else if entry.is_dir {
-                    String::new()
+                    picked.map_or_else(String::new, |p| super::fmt_bytes(p.bytes))
                 } else {
                     super::fmt_bytes(entry.size)
                 };

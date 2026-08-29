@@ -455,9 +455,13 @@ impl AppUi {
     }
 }
 
+/// Room a transfer row has for a name. Reached by the files of a sent folder,
+/// which are named by their path.
+const ROW_NAME_CHARS: usize = 44;
+
 fn file_row(name: String, size: u64, state: &FileState, moved: u64) -> transfer::FileRow {
     transfer::FileRow {
-        name,
+        name: truncate_middle(&name, ROW_NAME_CHARS),
         size,
         glyph: match state {
             FileState::Done => "√",

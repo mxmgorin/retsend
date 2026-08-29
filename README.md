@@ -41,10 +41,10 @@ this is the missing end: a client built for a gamepad and screen.
 - **Discovery** — a live radar of nearby devices (LocalSend protocol v2.1), with
   a manually typed IP address for the networks that block multicast.
 - **Receive** — accept/decline dialog with countdown, speed/ETA, and cancel from either side; X picks a folder for that one transfer; quick-save mode auto-accepts.
-- **Send** — gamepad file browser with multi-select and per-file progress; pin the folders and files you send often and they lead every listing.
+- **Send** — gamepad file browser with multi-select and per-file progress; X on a folder sends the whole thing; pin the folders and files you send often and they lead every listing.
 - **History** — every transfer logged; A repeats a send from its row, X drops the row.
 - **Save routes** — received ROMs land in the console folder they belong to, detected from the card; per-extension overrides on top.
-- **Folders** — a folder sent from the official app arrives as a folder, its tree rebuilt under the save folder.
+- **Folders** — send a folder and it arrives as a folder; one sent from the official app is rebuilt under the save folder the same way.
 - **Encryption** — the protocol's HTTPS mode, on by default; works with the official app's default settings both ways.
 - **Settings on device** — alias, save folder, and port, applied live.
 - **Headless** — `retsend --receive` runs with no screen, for SSH and scripting.
@@ -139,7 +139,7 @@ hint along the bottom to press the button it names.
 | D-pad / stick| Arrows     | Navigate · left/right switch tabs, or step a settings value |
 | A            | Enter      | Send to device · select file · accept · repeat a send · type |
 | B            | Esc        | Back · decline · cancel · leave the keyboard  |
-| X            | X / Bksp   | Add a device by IP · pick where an incoming transfer lands · delete a history row · erase a character · take every file in the folder |
+| X            | X / Bksp   | Add a device by IP · pick where an incoming transfer lands · delete a history row · erase a character · take the folder under the cursor, or every file in the folder |
 | Y            | Y          | Pin / unpin the row under the cursor          |
 | Start        | F1         | Confirm send · OK (keyboard)                  |
 | Select       | Tab / F5   | Refresh radar · switch roots · layer (keyboard)|
@@ -189,6 +189,20 @@ png = "/roms/screenshots"
 
 Extensions match case-insensitively, folders are created on demand, and anything
 unrouted lands in `save_dir`.
+
+### Sent folders
+
+**X** on a directory row takes the whole folder — every file of its tree, under
+the folder's own name, so `roms/gb/zelda.gbc` arrives at `roms/gb/zelda.gbc` on
+the other side. The folder is walked as it is picked, so the footer totals it
+before Start; its rows then read as taken, and picking one of them separately
+does nothing, since the folder already carries it. What the listing hides the
+send leaves out too: dotfiles and symlinks. A send stops at 2048 files, and a
+toast says when a pick ran past that.
+
+X anywhere else still takes every file of the folder being looked at, without
+its subfolders. The History tab repeats a send from the folder it was given, so
+a resend picks up whatever is in there now.
 
 ### Received folders
 

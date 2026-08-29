@@ -38,6 +38,9 @@ pub struct OutboundSession {
     pub peer_alias: String,
     /// `http://ip:port` this send dials; the history keeps it for a resend.
     pub base: String,
+    /// The paths the user picked, folders unexpanded: a resend walks them
+    /// again rather than repeating the files they held.
+    pub sources: Vec<PathBuf>,
     pub files: Vec<OutboundFile>,
     pub total_bytes: u64,
     pub sent_total: AtomicU64,
@@ -82,43 +85,46 @@ impl OutboundSession {
     }
 }
 
-/// Build the session (stat every file) and start the worker thread.
-/// `base` is `http://ip:port`; `me` is our announced identity.
+/// Build the session (expanding picked folders into their files) and start the
+/// worker thread. `base` is `http://ip:port`; `me` is our announced identity.
 pub fn spawn(
     peer_alias: String,
     base: String,
     me: DeviceInfo,
-    paths: Vec<PathBuf>,
+    sources: Vec<PathBuf>,
     wake: Arc<dyn Wake>,
 ) -> std::io::Result<Arc<OutboundSession>> {
-    let mut files = Vec::with_capacity(paths.len());
-    let mut total = 0u64;
-    for path in paths {
-        let size = std::fs::metadata(&path)?.len();
-        let file_name = path
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "file".to_string());
-        total += size;
-        files.push(OutboundFile {
+    let list = super::files::expand_sources(&sources)?;
+    if list.files.is_empty() {
+        return Err(std::io::Error::other("nothing to send"));
+    }
+    if list.partial {
+        log::warn!("`{peer_alias}` is not getting every file: the walk left some out");
+    }
+    let total = list.bytes;
+    let files: Vec<OutboundFile> = list
+        .files
+        .into_iter()
+        .map(|file| OutboundFile {
             meta: FileMeta {
                 id: protocol::random_token(8),
-                file_name,
-                size,
-                file_type: super::files::mime_for(&path).to_string(),
+                file_name: file.name,
+                size: file.size,
+                file_type: super::files::mime_for(&file.path).to_string(),
                 sha256: None,
                 preview: None,
                 metadata: None,
             },
-            path,
+            path: file.path,
             state: Mutex::new(FileState::Pending),
             sent: AtomicU64::new(0),
-        });
-    }
+        })
+        .collect();
 
     let session = Arc::new(OutboundSession {
         peer_alias,
         base,
+        sources,
         files,
         total_bytes: total,
         sent_total: AtomicU64::new(0),

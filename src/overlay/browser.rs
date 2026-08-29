@@ -2,6 +2,7 @@
 //! multi-select across directories, and a root carousel for the handheld's
 //! mount points. Pure state — `crate::ui::browser` renders it.
 
+use crate::transfer::files;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -26,6 +27,35 @@ pub struct Entry {
     /// keeps the cursor, paging, and `activate` untouched: a pin is just a
     /// directory that happens to sit above the listing.
     pub pinned: bool,
+}
+
+/// What one picked row contributes to a send. A folder is walked as it is
+/// picked, so the footer can total it before Start.
+#[derive(Clone, Copy)]
+pub struct Picked {
+    pub bytes: u64,
+    /// 1 for a file; the tree's file count for a folder.
+    pub files: usize,
+    pub is_dir: bool,
+}
+
+/// What [`FileBrowser::take`] did, for the toast that reports it.
+pub enum Taken {
+    /// `partial` when the walk left something out.
+    Folder {
+        name: String,
+        files: usize,
+        bytes: u64,
+        partial: bool,
+    },
+    /// The files of the folder being looked at.
+    Files { files: usize, bytes: u64 },
+    /// Given back; `name` is `None` when it was the files of the cwd.
+    Given { name: Option<String>, files: usize },
+    /// Nothing here to send.
+    Nothing,
+    /// A picked folder already carries this row.
+    Covered { name: String },
 }
 
 /// Outcome of a [`FileBrowser::toggle_pin`]: the new list for the config, and
@@ -68,8 +98,9 @@ pub struct FileBrowser {
     pub cwd: PathBuf,
     pub entries: Vec<Entry>,
     pub cursor: usize,
-    /// Selected files (full path → size), surviving directory navigation.
-    pub selected: BTreeMap<PathBuf, u64>,
+    /// Picked files and folders, surviving directory navigation. No entry ever
+    /// sits inside another: a folder carries its own tree.
+    pub selected: BTreeMap<PathBuf, Picked>,
     roots: Vec<PathBuf>,
     root_index: usize,
     /// Pinned folders, shown above every listing so the jump is one press from
@@ -95,7 +126,7 @@ impl FileBrowser {
     }
 
     /// Open for picking files to send. `extra_roots` and `pinned_paths` come
-    /// from the config; `initial` pre-selects files (the CLI staging list); `start`
+    /// from the config; `initial` pre-selects paths (the CLI staging list); `start`
     /// is where the last send began, empty on a first run.
     pub fn open_for_send(
         &mut self,
@@ -112,8 +143,18 @@ impl FileBrowser {
         self.root_index = 0;
         self.selected = initial
             .iter()
-            .filter_map(|p| Some((p.clone(), std::fs::metadata(p).ok()?.len())))
+            .filter_map(|p| Some((p.clone(), pick_of(p)?)))
             .collect();
+        // The CLI can name both a folder and something under it; the folder
+        // carries it.
+        let dirs: Vec<PathBuf> = self
+            .selected
+            .iter()
+            .filter(|(_, picked)| picked.is_dir)
+            .map(|(path, _)| path.clone())
+            .collect();
+        self.selected
+            .retain(|path, _| !dirs.iter().any(|dir| files::is_inside(dir, path)));
         self.cursor = 0;
         self.open = true;
         self.start_at(start);
@@ -159,13 +200,29 @@ impl FileBrowser {
         self.selected.clear();
     }
 
-    /// (count, total bytes) of the selection.
+    /// (files, total bytes) of the selection; a picked folder counts its tree.
     pub fn selection_totals(&self) -> (usize, u64) {
-        (self.selected.len(), self.selected.values().sum())
+        self.selected.values().fold((0, 0), |(files, bytes), p| {
+            (files + p.files, bytes + p.bytes)
+        })
     }
 
     pub fn selected_paths(&self) -> Vec<PathBuf> {
         self.selected.keys().cloned().collect()
+    }
+
+    /// The picked folder whose tree already holds `path`, which is then not
+    /// pickable on its own.
+    pub fn covered_by(&self, path: &Path) -> Option<&Path> {
+        self.selected
+            .iter()
+            .find(|(picked, entry)| entry.is_dir && files::is_inside(picked, path))
+            .map(|(picked, _)| picked.as_path())
+    }
+
+    /// Whether X takes a folder rather than the files of the cwd.
+    pub fn cursor_is_dir(&self) -> bool {
+        self.entries.get(self.cursor).is_some_and(|e| e.is_dir)
     }
 
     pub fn move_cursor(&mut self, delta: i32) {
@@ -191,17 +248,27 @@ impl FileBrowser {
             return Ok(());
         };
         if entry.is_dir {
-            self.change_dir(entry.path.clone())
-        } else if self.mode == BrowserMode::PickFiles {
-            let path = entry.path.clone();
-            let size = entry.size;
-            if self.selected.remove(&path).is_none() {
-                self.selected.insert(path, size);
-            }
-            Ok(())
-        } else {
-            Ok(()) // PickDir: files aren't selectable
+            return self.change_dir(entry.path.clone());
         }
+        if self.mode != BrowserMode::PickFiles {
+            return Ok(()); // PickDir: files aren't selectable
+        }
+        let (path, size) = (entry.path.clone(), entry.size);
+        if self.selected.remove(&path).is_some() {
+            return Ok(());
+        }
+        if let Some(folder) = self.covered_by(&path).map(files::base_name) {
+            return Err(format!("Already in {folder}"));
+        }
+        self.selected.insert(
+            path,
+            Picked {
+                bytes: size,
+                files: 1,
+                is_dir: false,
+            },
+        );
+        Ok(())
     }
 
     /// B: go to the parent directory. Returns `false` at a root — the caller
@@ -234,36 +301,99 @@ impl FileBrowser {
         Some(&self.roots[self.root_index])
     }
 
-    /// X: select every file of the folder being looked at, or clear them when
-    /// they are all selected already. Returns `(count, bytes, selected)`, or
-    /// `None` when the folder holds no file to take.
-    ///
-    /// Pinned rows are skipped on purpose: they lead the listing but belong to
-    /// other folders, and "everything here" must not reach into them.
-    pub fn toggle_folder_files(&mut self) -> Option<(usize, u64, bool)> {
+    /// X: the folder under the cursor with its whole tree, or — anywhere else —
+    /// every file of the folder being looked at. Pressing it again gives back
+    /// what it took. `None` while a folder is being chosen.
+    pub fn take(&mut self) -> Option<Taken> {
         if self.mode != BrowserMode::PickFiles {
             return None;
         }
+        Some(if self.cursor_is_dir() {
+            self.take_dir()
+        } else {
+            self.take_here()
+        })
+    }
+
+    fn take_dir(&mut self) -> Taken {
+        let entry = &self.entries[self.cursor]; // the caller checked the row
+        let (path, name) = (entry.path.clone(), entry.name.clone());
+        if let Some(given) = self.selected.remove(&path) {
+            return Taken::Given {
+                name: Some(name),
+                files: given.files,
+            };
+        }
+        if let Some(folder) = self.covered_by(&path).map(files::base_name) {
+            return Taken::Covered { name: folder };
+        }
+        let walked = files::walk_folder(&path);
+        if walked.files.is_empty() {
+            return Taken::Nothing;
+        }
+        let (files, bytes, partial) = (walked.files.len(), walked.bytes, walked.partial);
+        // The folder carries its tree from here on.
+        self.selected.retain(|p, _| !files::is_inside(&path, p));
+        self.selected.insert(
+            path,
+            Picked {
+                bytes,
+                files,
+                is_dir: true,
+            },
+        );
+        Taken::Folder {
+            name,
+            files,
+            bytes,
+            partial,
+        }
+    }
+
+    /// Pinned rows are skipped on purpose: they lead the listing but belong to
+    /// other folders, and "everything here" must not reach into them.
+    fn take_here(&mut self) -> Taken {
         let here: Vec<(PathBuf, u64)> = self
             .entries
             .iter()
             .filter(|e| !e.is_dir && !e.pinned)
             .map(|e| (e.path.clone(), e.size))
             .collect();
-        if here.is_empty() {
-            return None;
+        let Some((first, _)) = here.first() else {
+            return Taken::Nothing;
+        };
+        // One answer for the lot: they share the folder they sit in.
+        if let Some(folder) = self.covered_by(first).map(files::base_name) {
+            return Taken::Covered { name: folder };
         }
-        let all_selected = here.iter().all(|(p, _)| self.selected.contains_key(p));
+        let all_picked = here.iter().all(|(p, _)| self.selected.contains_key(p));
         let mut bytes = 0;
         for (path, size) in &here {
-            if all_selected {
+            if all_picked {
                 self.selected.remove(path);
             } else {
-                self.selected.insert(path.clone(), *size);
+                self.selected.insert(
+                    path.clone(),
+                    Picked {
+                        bytes: *size,
+                        files: 1,
+                        is_dir: false,
+                    },
+                );
             }
             bytes += size;
         }
-        Some((here.len(), bytes, !all_selected))
+        if all_picked {
+            Taken::Given {
+                name: None,
+                files: here.len(),
+            }
+        } else {
+            Taken::Files {
+                files: here.len(),
+                bytes,
+            }
+        }
     }
 
     /// How many rows at the top of the listing are pins. They always lead, so
@@ -342,10 +472,7 @@ impl FileBrowser {
                     return None;
                 }
                 Some(Entry {
-                    name: path
-                        .file_name()
-                        .map(|n| n.to_string_lossy().into_owned())
-                        .unwrap_or_else(|| path.display().to_string()),
+                    name: files::base_name(path),
                     path: path.clone(),
                     is_dir: meta.is_dir(),
                     size: if meta.is_dir() { 0 } else { meta.len() },
@@ -356,32 +483,37 @@ impl FileBrowser {
     }
 }
 
-/// Directory listing: dirs first, case-insensitive name order, dotfiles
-/// hidden, symlinks skipped (a looped symlink tree on an SD card must not
-/// hang navigation).
+/// The folder's own rows, in the order a folder send walks them.
 fn read_entries(dir: &Path) -> std::io::Result<Vec<Entry>> {
-    let mut entries = Vec::new();
-    for entry in std::fs::read_dir(dir)? {
-        let Ok(entry) = entry else { continue };
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if name.starts_with('.') {
-            continue;
-        }
-        let Ok(meta) = entry.metadata() else { continue };
-        if entry.file_type().map(|t| t.is_symlink()).unwrap_or(true) {
-            continue;
-        }
-        entries.push(Entry {
-            path: entry.path(),
-            is_dir: meta.is_dir(),
-            size: if meta.is_dir() { 0 } else { meta.len() },
-            name,
+    Ok(files::list_dir(dir)?
+        .into_iter()
+        .map(|e| Entry {
+            name: e.name,
+            path: e.path,
+            is_dir: e.is_dir,
+            size: e.size,
             pinned: false,
+        })
+        .collect())
+}
+
+/// A staged path as a selection entry: a file's size, or a folder walked.
+/// `None` when it is gone, or a folder with nothing to send.
+fn pick_of(path: &Path) -> Option<Picked> {
+    let meta = std::fs::metadata(path).ok()?;
+    if !meta.is_dir() {
+        return Some(Picked {
+            bytes: meta.len(),
+            files: 1,
+            is_dir: false,
         });
     }
-    // Cached key: one lowercase per entry, not two per comparison.
-    entries.sort_by_cached_key(|e| (!e.is_dir, e.name.to_lowercase()));
-    Ok(entries)
+    let walked = files::walk_folder(path);
+    (!walked.files.is_empty()).then_some(Picked {
+        bytes: walked.bytes,
+        files: walked.files.len(),
+        is_dir: true,
+    })
 }
 
 /// Config paths that exist right now, folders or files, deduplicated, order
@@ -614,17 +746,21 @@ mod tests {
     fn x_takes_every_file_of_the_folder_and_gives_them_back() {
         let root = temp_tree();
         let mut b = browser_at(&root);
+        b.move_cursor(2); // readme.txt; on a directory row X takes the folder
 
-        let (count, bytes, selected) = b.toggle_folder_files().expect("readme.txt is here");
-        assert!(selected);
-        assert_eq!(count, 1, "only files; games/ and saves/ are not sent");
+        let Taken::Files { files, bytes } = b.take().expect("files are selectable") else {
+            panic!("readme.txt is here");
+        };
+        assert_eq!(files, 1, "only files; games/ and saves/ are their own rows");
         assert_eq!(bytes, 2);
         assert!(b.selected.contains_key(&root.join("readme.txt")));
 
         // Pressing it again on a fully selected folder clears it.
-        let (count, _, selected) = b.toggle_folder_files().expect("readme.txt is here");
-        assert!(!selected);
-        assert_eq!(count, 1);
+        let Taken::Given { name, files } = b.take().expect("files are selectable") else {
+            panic!("everything here was already taken");
+        };
+        assert!(name.is_none(), "the folder itself was never picked");
+        assert_eq!(files, 1);
         assert!(b.selected.is_empty());
 
         std::fs::remove_dir_all(&root).unwrap();
@@ -638,9 +774,10 @@ mod tests {
         b.activate().unwrap(); // mario.gb, the first row
         assert_eq!(b.selected.len(), 1);
 
-        let (count, _, selected) = b.toggle_folder_files().expect("two roms here");
-        assert!(selected, "one of two was selected, so X takes the rest");
-        assert_eq!(count, 2);
+        let Taken::Files { files, .. } = b.take().expect("files are selectable") else {
+            panic!("one of two was selected, so X takes the rest");
+        };
+        assert_eq!(files, 2);
         assert_eq!(b.selected.len(), 2);
 
         std::fs::remove_dir_all(&root).unwrap();
@@ -651,10 +788,86 @@ mod tests {
         let root = temp_tree();
         let pinned_file = root.join("games/zelda.gbc");
         let mut b = browser_with_pins(&root, &[pinned_file.to_str().unwrap()]);
+        b.set_cursor(3); // the pin, games/, saves/, then readme.txt
 
-        let (count, _, _) = b.toggle_folder_files().expect("readme.txt is here");
-        assert_eq!(count, 1, "the pinned row belongs to games/, not here");
+        let Taken::Files { files, .. } = b.take().expect("files are selectable") else {
+            panic!("readme.txt is here");
+        };
+        assert_eq!(files, 1, "the pinned row belongs to games/, not here");
         assert!(!b.selected.contains_key(&pinned_file));
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn x_takes_the_folder_under_the_cursor_and_gives_it_back() {
+        let root = temp_tree();
+        let games = root.join("games");
+        let mut b = browser_at(&root); // cursor on games/
+
+        let Taken::Folder {
+            name,
+            files,
+            bytes,
+            partial,
+        } = b.take().expect("files are selectable")
+        else {
+            panic!("the cursor is on a directory");
+        };
+        assert_eq!(name, "games");
+        assert_eq!((files, bytes), (2, 150));
+        assert!(!partial);
+        assert_eq!(b.selection_totals(), (2, 150), "the tree, not the row");
+        assert!(b.selected[&games].is_dir);
+
+        let Taken::Given { name, files } = b.take().expect("files are selectable") else {
+            panic!("it was picked a moment ago");
+        };
+        assert_eq!((name.as_deref(), files), (Some("games"), 2));
+        assert!(b.selected.is_empty());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_picked_folder_carries_what_is_under_it() {
+        let root = temp_tree();
+        let games = root.join("games");
+        let mut b = browser_at(&root);
+        b.change_dir(games.clone()).unwrap();
+        b.activate().unwrap(); // mario.gb
+        assert_eq!(b.selection_totals(), (1, 50));
+
+        b.parent();
+        b.take().expect("the cursor landed back on games/");
+        assert_eq!(
+            b.selected.keys().collect::<Vec<_>>(),
+            vec![&games],
+            "the file it already held went with it"
+        );
+        assert_eq!(b.selection_totals(), (2, 150));
+
+        // Back inside, its files read as taken and cannot be taken again.
+        b.change_dir(games.clone()).unwrap();
+        assert_eq!(b.covered_by(&games.join("mario.gb")), Some(games.as_path()));
+        assert_eq!(
+            b.activate().unwrap_err(),
+            "Already in games",
+            "A on a file the folder already carries"
+        );
+        assert_eq!(b.selection_totals(), (2, 150));
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn x_reports_a_folder_with_nothing_in_it() {
+        let root = temp_tree();
+        let mut b = browser_at(&root);
+        b.move_cursor(1); // saves/, which is empty
+
+        assert!(matches!(b.take(), Some(Taken::Nothing)));
+        assert!(b.selected.is_empty(), "an empty pick would total nothing");
 
         std::fs::remove_dir_all(&root).unwrap();
     }
@@ -665,7 +878,28 @@ mod tests {
         let mut b = FileBrowser::new();
         b.roots = vec![root.to_path_buf()];
         b.open_for_dir(&root, &[], &[], DirPurpose::SaveDir, "");
-        assert!(b.toggle_folder_files().is_none());
+        assert!(b.take().is_none());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_staged_folder_opens_the_browser_already_holding_its_tree() {
+        let root = temp_tree();
+        let games = root.join("games");
+        let mut b = FileBrowser::new();
+        b.roots = vec![root.to_path_buf()];
+        // The CLI can name both a folder and a file inside it.
+        b.open_for_send(
+            "Phone",
+            &[],
+            &[],
+            &[games.clone(), games.join("mario.gb")],
+            &root,
+        );
+
+        assert_eq!(b.selected.keys().collect::<Vec<_>>(), vec![&games]);
+        assert_eq!(b.selection_totals(), (2, 150));
+
         std::fs::remove_dir_all(&root).unwrap();
     }
 

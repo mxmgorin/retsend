@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A folder can be sent, not just files.** X on a directory row takes its whole
+  tree, under the folder's own name, so it arrives as a folder on the other side
+  — the mirror of what already worked on the way in. The folder is walked as it
+  is picked, so the footer totals it before Start; its rows then read as taken
+  and cannot be picked separately, and picking a folder over files already
+  chosen inside it takes them with it, so nothing is sent twice. Dotfiles and
+  symlinks stay out, as they are already out of the listing. A send stops at
+  2048 files, which is what a receiver's prepare-upload body has room for.
+
+  The History tab now records the folder rather than the files it held, so a
+  resend walks it again and picks up whatever is in there now. `retsend <path>`
+  takes a folder too.
+
 ## [0.8.0] - 2026-08-26
 
 ### Changed

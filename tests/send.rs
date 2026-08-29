@@ -130,6 +130,59 @@ fn sends_files_end_to_end() {
 }
 
 #[test]
+fn sends_a_folder_as_a_folder() {
+    let (_shared, base, save_dir, stop) = start_receiver(true);
+
+    let src = temp_dir("src-folder");
+    let games = src.join("games");
+    std::fs::create_dir_all(games.join("gb/saves")).unwrap();
+    std::fs::write(games.join("gb/zelda.gbc"), b"ROM").unwrap();
+    std::fs::write(games.join("gb/saves/zelda.sav"), b"SAVE").unwrap();
+    std::fs::write(games.join("readme.txt"), b"hi").unwrap();
+    // A loose file beside the folder travels with it, unnested.
+    std::fs::write(src.join("loose.dat"), b"LOOSE").unwrap();
+
+    let session = outbound::spawn(
+        "Receiver".into(),
+        base.clone(),
+        device("Sender"),
+        vec![games.clone(), src.join("loose.dat")],
+        Arc::new(NoopWake),
+    )
+    .unwrap();
+
+    assert_eq!(wait_finished(&session), OutboundPhase::Done);
+    assert_eq!(session.done_count(), 4);
+    // The tree is rebuilt under the receiver's save folder, name included.
+    assert_eq!(
+        std::fs::read(save_dir.join("games/gb/zelda.gbc")).unwrap(),
+        b"ROM"
+    );
+    assert_eq!(
+        std::fs::read(save_dir.join("games/gb/saves/zelda.sav")).unwrap(),
+        b"SAVE"
+    );
+    assert_eq!(
+        std::fs::read(save_dir.join("games/readme.txt")).unwrap(),
+        b"hi"
+    );
+    assert_eq!(std::fs::read(save_dir.join("loose.dat")).unwrap(), b"LOOSE");
+
+    // A resend repeats the picked folder, not the files it happened to hold.
+    let entry = HistoryEntry::from_outbound(&session);
+    assert_eq!(
+        entry.files,
+        [
+            games.display().to_string(),
+            src.join("loose.dat").display().to_string()
+        ]
+    );
+
+    std::fs::remove_dir_all(&src).unwrap();
+    stop();
+}
+
+#[test]
 fn decline_ends_the_send_as_declined() {
     let (shared, base, _save_dir, stop) = start_receiver(false);
 
