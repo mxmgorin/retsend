@@ -23,8 +23,8 @@ env:
   TARGET: aarch64-unknown-linux-gnu
   # Checksums of the pinned external inputs, verified before use. The zig
   # shasum is the official one from ziglang.org/download/index.json; the SDL2
-  # ones were taken from the .deb files over a verified HTTPS fetch of the
-  # Debian pool. Re-derive these when bumping any version above.
+  # ones were taken from the .deb files over the HTTPS Debian pool.
+  # Re-derive these when bumping any version above.
   ZIG_SHA256: "02aa270f183da276e5b5920b1dac44a63f1a49e55050ebde3aecc9eb82f93239"
   ZIGBUILD_SHA256: "f0aa9cc8220a84788c6e4a9b6d80422f041659227b680fdef982d5a8ddffddb4"
   LIBSDL2_2_0_0_SHA256: "7d875b119108a240015e7739c7a0de402616975281bcd8169cb434326fa93a66"
@@ -67,7 +67,7 @@ jobs:
           # Debian's, like the ARM workflow: Ubuntu 22.04's predates
           # SDL_RenderGeometry. Extracted for link symbols only; nothing here
           # is distributed.
-          pool=http://deb.debian.org/debian/pool/main/libs/libsdl2
+          pool=https://deb.debian.org/debian/pool/main/libs/libsdl2
           mkdir -p /opt/sdl2
           for entry in \
             "libsdl2-2.0-0:$LIBSDL2_2_0_0_SHA256" \
@@ -152,12 +152,13 @@ jobs:
           # The inventory is checked in the tests; this records it for the
           # release notes and the candidate manifest.
           (cd knulli-dist && find RetSend -type f | sort) | tee archive-inventory.txt
-          compressed=$(du -sb knulli-dist | cut -f1)
+          tree_bytes=$(du -sb knulli-dist | cut -f1)
           extracted=$(du -sk knulli-dist/RetSend | cut -f1)
           {
             echo "package: RetSend (Knulli, generic AArch64)"
             echo "archive entry count: $(wc -l < archive-inventory.txt)"
             echo "extracted size: ${extracted} KiB"
+            echo "tree size: ${tree_bytes} bytes (pre-zip)"
           } | tee archive-metadata.txt
 
       - name: Upload package artifact
@@ -180,7 +181,8 @@ jobs:
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        # SHA pinned like the others; version updated with the comment.
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           files: |
             retsend-knulli.zip
