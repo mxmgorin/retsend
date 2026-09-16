@@ -4,3 +4,5 @@
 /onionos/App/Retsend/retsend
 /onionos/App/Retsend/log.txt
 /onionos/App/Retsend/data/
+# Implementation logs are working notes, not committed artifacts.
+/.planning/

@@ -1,0 +1,56 @@
+RetSend — third-party notices
+=============================
+
+RetSend is licensed under the GNU General Public License v3.0 (see the
+LICENSE file in this package; source at https://github.com/mxmgorin/retsend).
+This file lists the third-party components carried by the `retsend` binary,
+beyond the Rust standard library.
+
+Rust crates (from the crate registry; licences as declared by each project)
+----------------------------------------------------------------------------
+
+- sdl2 (sdl2-sys) — Rust SDL2 bindings; MIT OR Apache-2.0.
+  Links the system SDL2 library at runtime, see below.
+- egui-sdl2 — egui integration for SDL2, by the RetSend author
+  (https://github.com/mxmgorin/egui-sdl2). Pulls in egui/epaint, eframe
+  support crates, glow and bytemuck.
+- egui, epaint, emath, ecolor, ab_glyph — the egui UI toolkit;
+  MIT OR Apache-2.0.
+- glow — OpenGL loader; MIT OR Apache-2.0.
+- serde, serde_json, serde_derive — MIT OR Apache-2.0.
+- toml, toml_edit, toml_writer — MIT OR Apache-2.0.
+- log, env_logger — MIT OR Apache-2.0.
+- ureq — HTTP client; MIT OR Apache-2.0. Pulls in (among others) rustls,
+  webpki-roots, http, url, percent-encoding, base64, once_cell.
+- rustls, rustls-pki-types, rustls-webpki, ring — TLS; rustls stack is
+  MIT OR Apache-2.0 / ISC (ring). Uses the `ring` provider as configured.
+- rcgen — self-signed certificate generation; MIT OR Apache-2.0.
+- pem — PEM decoding; MIT OR Apache-2.0.
+- sha2, digest, block-buffer, crypto-common — MIT OR Apache-2.0.
+- getrandom — MIT OR Apache-2.0.
+- socket2 — MIT OR Apache-2.0.
+- libc — MIT OR Apache-2.0.
+- png — PNG decoding (startup logo); MIT OR Apache-2.0. Pulls in crc32fast,
+  flate2/miniz_oxide, fdeflate, bitflags.
+- android_logger (Android builds only; not shipped in this package) —
+  MIT OR Apache-2.0.
+
+The complete dependency list with exact versions is recorded in Cargo.lock
+in the source repository at the release tag. A per-crate licence inventory
+(SBOM) is planned; where a crate above ships its own licence file, that file
+is authoritative.
+
+System libraries (not shipped; loaded from the device)
+------------------------------------------------------
+
+- libSDL2-2.0.so.0 — Simple DirectMedia Layer, zlib licence. Knulli supplies
+  it; this package does not distribute it. RetSend requires SDL 2.0.18+
+  (SDL_RenderGeometry).
+- libc (glibc) — GNU C library, LGPL-2.1+. Provided by the device firmware.
+- libm, libdl, libpthread — glibc components, as above.
+
+Trademarks
+----------
+
+"LocalSend" is a project name of the LocalSend project; RetSend is not
+affiliated with it, but implements its transfer protocol.

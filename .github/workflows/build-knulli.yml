@@ -1,0 +1,189 @@
+name: Knulli
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "feat/knulli-support"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+env:
+  # Same toolchain decisions as the Linux ARM workflow: the glibc floor is
+  # 2.28 there, and a binary that runs on the oldest userland runs on Knulli.
+  GLIBC_FLOOR: "2.28"
+  ZIG_VERSION: "0.15.2"
+  ZIGBUILD_VERSION: "0.23.0"
+  SDL_VERSION: "2.26.5+dfsg-1"
+  # AArch64 only: Knulli targets are all 64-bit; add a matrix here if that
+  # ever changes.
+  TARGET: aarch64-unknown-linux-gnu
+  # Checksums of the pinned external inputs, verified before use. The zig
+  # shasum is the official one from ziglang.org/download/index.json; the SDL2
+  # ones were taken from the .deb files over a verified HTTPS fetch of the
+  # Debian pool. Re-derive these when bumping any version above.
+  ZIG_SHA256: "02aa270f183da276e5b5920b1dac44a63f1a49e55050ebde3aecc9eb82f93239"
+  ZIGBUILD_SHA256: "f0aa9cc8220a84788c6e4a9b6d80422f041659227b680fdef982d5a8ddffddb4"
+  LIBSDL2_2_0_0_SHA256: "7d875b119108a240015e7739c7a0de402616975281bcd8169cb434326fa93a66"
+  LIBSDL2_DEV_SHA256: "b69722e33bdce9102c8608a648a9969c7e9e03bdb9c894f1ba441f9229d3e273"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      # Pinned by commit (see tools/knulli/README): every external input this
+      # workflow fetches is version-pinned and verified by SHA-256 before use.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Rust toolchain
+        run: |
+          set -eux
+          # rust-toolchain.toml pins the channel; rustup honors it.
+          rustup target add $TARGET
+          rustc --version
+
+      - name: zig and cargo-zigbuild
+        run: |
+          set -eux
+          curl --retry 5 -fsSL -o /tmp/zig.tar.xz \
+            "https://ziglang.org/download/$ZIG_VERSION/zig-x86_64-linux-$ZIG_VERSION.tar.xz"
+          echo "$ZIG_SHA256  /tmp/zig.tar.xz" | sha256sum -c -
+          tar -xJ -C /opt -f /tmp/zig.tar.xz
+          echo "/opt/zig-x86_64-linux-$ZIG_VERSION" >> "$GITHUB_PATH"
+          curl --retry 5 -fsSL -o /tmp/cargo-zigbuild.tar.xz \
+            "https://github.com/rust-cross/cargo-zigbuild/releases/download/v$ZIGBUILD_VERSION/cargo-zigbuild-x86_64-unknown-linux-musl.tar.xz"
+          echo "$ZIGBUILD_SHA256  /tmp/cargo-zigbuild.tar.xz" | sha256sum -c -
+          sudo tar -xJ -C /usr/local/bin --strip-components=1 \
+            -f /tmp/cargo-zigbuild.tar.xz \
+            "cargo-zigbuild-x86_64-unknown-linux-musl/cargo-zigbuild"
+
+      - name: SDL2 for linking
+        run: |
+          set -eux
+          # Only its symbols matter; the device loads its own SDL2. Take
+          # Debian's, like the ARM workflow: Ubuntu 22.04's predates
+          # SDL_RenderGeometry. Extracted for link symbols only; nothing here
+          # is distributed.
+          pool=http://deb.debian.org/debian/pool/main/libs/libsdl2
+          mkdir -p /opt/sdl2
+          for entry in \
+            "libsdl2-2.0-0:$LIBSDL2_2_0_0_SHA256" \
+            "libsdl2-dev:$LIBSDL2_DEV_SHA256"; do
+            pkg=${entry%%:*}
+            sha=${entry#*:}
+            curl --retry 5 -fsSLO "$pool/${pkg}_${SDL_VERSION}_arm64.deb"
+            echo "$sha  ${pkg}_${SDL_VERSION}_arm64.deb" | sha256sum -c -
+            dpkg -x "${pkg}_${SDL_VERSION}_arm64.deb" /opt/sdl2
+          done
+          ls -l /opt/sdl2/usr/lib/aarch64-linux-gnu/libSDL2*
+
+      - name: Build
+        env:
+          # CI performance build, as in the ARM workflow; no -C target-cpu.
+          CARGO_PROFILE_RELEASE_LTO: "fat"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+          # --allow-shlib-undefined: this libSDL2 pulls in X11/wayland/alsa/gbm,
+          # which the sysroot lacks and we never call.
+          RUSTFLAGS: "-L /opt/sdl2/usr/lib/aarch64-linux-gnu -C link-arg=-Wl,--allow-shlib-undefined"
+        run: |
+          set -eux
+          cargo zigbuild --release --target $TARGET.$GLIBC_FLOOR
+
+      - name: Check the glibc floor
+        run: |
+          set -eux
+          newer=$(readelf -V target/$TARGET/release/retsend | grep -o 'GLIBC_2\.[0-9]*' | sort -uV \
+            | awk -F. -v f="${GLIBC_FLOOR#2.}" '$2 > f' | tr '\n' ' ')
+          if [ -n "$newer" ]; then
+            echo "binary requires $newer; the floor is GLIBC_$GLIBC_FLOOR" >&2
+            exit 1
+          fi
+
+      - name: Stage the binary for packaging
+        run: |
+          set -eux
+          mkdir -p bin
+          cp target/$TARGET/release/retsend bin/retsend
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: retsend-linux-aarch64
+          path: bin/retsend
+
+  package:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: retsend-linux-aarch64
+          path: bin
+
+      - name: Assemble the package
+        run: |
+          set -eux
+          pkg=knulli-dist/RetSend
+          rm -rf knulli-dist
+          mkdir -p "$pkg"
+          cp knulli/RetSend.sh "$pkg/"
+          cp knulli/README.md knulli/NOTICES "$pkg/"
+          # Artifacts travel as zips, which drop file modes.
+          install -m 755 bin/retsend "$pkg/retsend"
+          chmod 755 "$pkg/RetSend.sh"
+          # The GPL text ships with every package; this is the same file the
+          # PortMaster and OnionOS packages carry.
+          cp LICENSE "$pkg/LICENSE"
+          ls -laR knulli-dist
+
+      - name: Verify the package
+        run: |
+          set -eux
+          tools/knulli/verify-package.sh knulli-dist/RetSend aarch64
+
+      - name: Record the archive inventory and sizes
+        run: |
+          set -eux
+          # The inventory is checked in the tests; this records it for the
+          # release notes and the candidate manifest.
+          (cd knulli-dist && find RetSend -type f | sort) | tee archive-inventory.txt
+          compressed=$(du -sb knulli-dist | cut -f1)
+          extracted=$(du -sk knulli-dist/RetSend | cut -f1)
+          {
+            echo "package: RetSend (Knulli, generic AArch64)"
+            echo "archive entry count: $(wc -l < archive-inventory.txt)"
+            echo "extracted size: ${extracted} KiB"
+          } | tee archive-metadata.txt
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: retsend-knulli
+          path: |
+            knulli-dist
+            archive-inventory.txt
+            archive-metadata.txt
+
+      - name: Zip for release
+        if: github.event_name == 'release'
+        run: |
+          set -eux
+          (cd knulli-dist && zip -r ../retsend-knulli.zip RetSend)
+          # Compressed size of the published archive, recorded beside it.
+          du -b retsend-knulli.zip | cut -f1 | tee -a archive-metadata.txt
+          sha256sum retsend-knulli.zip > retsend-knulli.zip.sha256
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            retsend-knulli.zip
+            retsend-knulli.zip.sha256
+            archive-inventory.txt
+            archive-metadata.txt
