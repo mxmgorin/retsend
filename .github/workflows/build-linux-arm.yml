@@ -274,6 +274,57 @@ jobs:
             retsend-spruceos.zip
             retsend-spruceos.zip.sha256
 
+  spruce-aarch64:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: retsend-linux-aarch64
+          path: bin
+
+      - name: Assemble the card layout
+        run: |
+          set -eux
+          pkg=spruce-aarch64-dist
+          app=$pkg/App/Retsend
+          rm -rf "$pkg"
+          mkdir -p "$app/retsend"
+          # The port as an app: its launcher beside the retsend/ gamedir.
+          cp spruce-aarch64/App/Retsend/config.json spruce-aarch64/App/Retsend/launch.sh "$app/"
+          cp onionos/App/Retsend/icon.png "$app/"
+          cp portmaster/Retsend.sh "$app/"
+          cp portmaster/port.json portmaster/gameinfo.xml portmaster/README.md \
+            portmaster/screenshot.png "$app/retsend/"
+          cp -r portmaster/retsend/. "$app/retsend/"
+          rm -f "$app/retsend/.gitkeep"
+          install -m 755 bin/retsend "$app/retsend/retsend.aarch64"
+          chmod 755 "$app/launch.sh" "$app/Retsend.sh"
+          ls -laR "$pkg"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: retsend-spruceos-aarch64
+          path: spruce-aarch64-dist
+
+      - name: Zip for release
+        if: github.event_name == 'release'
+        run: |
+          set -eux
+          (cd spruce-aarch64-dist && zip -r ../retsend-spruceos-aarch64.zip .)
+          sha256sum retsend-spruceos-aarch64.zip > retsend-spruceos-aarch64.zip.sha256
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            retsend-spruceos-aarch64.zip
+            retsend-spruceos-aarch64.zip.sha256
+
   allium:
     needs: build
     runs-on: ubuntu-22.04

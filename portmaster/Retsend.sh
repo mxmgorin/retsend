@@ -16,7 +16,8 @@ source "$controlfolder/control.txt"
 [ -f "${controlfolder}/mod_${CFW_NAME}.txt" ] && source "${controlfolder}/mod_${CFW_NAME}.txt"
 get_controls
 
-GAMEDIR=/$directory/ports/retsend/
+# RETSEND_GAMEDIR overrides the location for installs outside ports/.
+GAMEDIR="${RETSEND_GAMEDIR:-/$directory/ports/retsend/}"
 
 BINNAME="retsend.${DEVICE_ARCH:-aarch64}"
 [ -x "$GAMEDIR/$BINNAME" ] || BINNAME="retsend"

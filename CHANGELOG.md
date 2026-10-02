@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A spruceOS package for its aarch64 handhelds**, `retsend-spruceos-aarch64.zip`,
+  for the Miyoo Flip, the TrimUI Brick and Smart Pro (S), the Anbernic RG-XX series
+  and the rest. It is the PortMaster port wrapped as an app under `App/Retsend/`,
+  handed to spruce's own ports launcher; `RETSEND_GAMEDIR` points the port's
+  launcher at a gamedir outside `ports/`.
+
 ## [0.9.0] - 2026-09-03
 
 ### Added

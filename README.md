@@ -80,6 +80,17 @@ root of the SD card.
 The app will appear in the respective Apps menu. **MENU quits** the app on all
 three systems.
 
+## Install (spruceOS on aarch64 handhelds)
+
+For the Miyoo Flip, the TrimUI Brick and Smart Pro (S), the Anbernic RG-XX series
+and the other aarch64 devices spruce runs on, grab `retsend-spruceos-aarch64.zip`
+from [Releases](https://github.com/mxmgorin/retsend/releases) and unzip it at the
+root of the SD card, so the app lands in `App/Retsend/`. It shows up under Apps,
+and **Select + Start quits** it, as for any port.
+
+It is the PortMaster port wrapped as an app: `launch.sh` hands it to spruce's own
+ports launcher with the gamedir beside it.
+
 ## Install (Android)
 
 Grab `retsend-android-arm64.apk` from

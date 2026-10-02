@@ -6,8 +6,8 @@ wifi, using [LocalSend](https://localsend.org).
 **Miyoo Mini Plus and Mini Flip only.** The original Mini has no wifi, so there is
 nothing for this to talk over, and it is left out of the device list in
 `config.json`. spruceOS also runs on the Miyoo Flip, the TrimUI handhelds and the
-Anbernic RG-XX series; those are aarch64 and mostly PortMaster devices, so
-`retsend-portmaster.zip` is the package for them.
+Anbernic RG-XX series; those are aarch64, and `retsend-spruceos-aarch64.zip` is the
+package for them.
 
 ## Install
 
