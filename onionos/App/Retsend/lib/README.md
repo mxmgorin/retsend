@@ -8,7 +8,7 @@ files are ours.
 ## libSDL2-2.0.so.0
 
 Built from our fork [mxmgorin/sdl2](https://github.com/mxmgorin/sdl2), branch
-`miyoo-flip-panel` (`24c32243`), which is [steward-fu/sdl2](https://github.com/steward-fu/sdl2)
+`miyoomini-flip` (`03338482`), which is [steward-fu/sdl2](https://github.com/steward-fu/sdl2)
 at `0631abc8` plus one commit, made in the upstream Docker recipe,
 `mini_toolchain-v1.0`, `make cfg && make sdl2`. It reports itself as
 `libSDL2-2.0.so.0.18.2`, so SDL 2.0.18 — which is the floor retsend builds
