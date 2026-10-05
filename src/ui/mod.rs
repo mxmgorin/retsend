@@ -5,6 +5,7 @@ mod about;
 mod browser;
 mod history;
 mod home;
+mod mark;
 mod osk;
 mod prompt;
 mod receive;
@@ -13,7 +14,6 @@ mod settings;
 mod tabs;
 pub mod theme;
 mod transfer;
-mod wordmark;
 
 use crate::app::AppCommand;
 use crate::config::AppConfig;

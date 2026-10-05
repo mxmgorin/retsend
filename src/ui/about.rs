@@ -1,9 +1,9 @@
-//! The About screen: the wordmark hero over a small block of build metadata
+//! The About screen: the brand mark hero over a small block of build metadata
 //! (version, build date, commit), the project URL and author. Read-only — B
 //! backs out to Settings. All values are compile-time constants (`CARGO_PKG_*`
 //! plus the `RETSEND_*` vars stamped by `build.rs`), so nothing is threaded in.
 
-use super::{theme, wordmark};
+use super::{mark, theme};
 use crate::app::AppCommand;
 use egui_sdl2::egui;
 
@@ -28,12 +28,12 @@ pub fn render(root: &mut egui::Ui, taps: &mut Vec<AppCommand>) {
     });
 
     egui::CentralPanel::default().show(root, |ui| {
-        const HERO_H: f32 = 220.0; // wordmark + gaps + info block, roughly
+        const HERO_H: f32 = 256.0; // mark + gaps + info block, roughly
         let top = ((ui.available_height() - HERO_H) / 2.0).max(8.0);
         ui.vertical_centered(|ui| {
             ui.add_space(top);
-            let (_, rect) = ui.allocate_space(wordmark::measure(ui, wordmark::HERO_SIZE));
-            wordmark::paint(ui, rect.center(), wordmark::HERO_SIZE, 1.0);
+            let (_, rect) = ui.allocate_space(mark::measure(mark::HERO_SIZE));
+            mark::paint(ui, rect.center(), mark::HERO_SIZE, 1.0);
             ui.add_space(6.0);
             ui.label(
                 egui::RichText::new(env!("CARGO_PKG_DESCRIPTION"))

@@ -2,7 +2,7 @@
 //! The tab bar above it is drawn by `super::tabs`; our identity moved to the
 //! Receive tab.
 
-use super::{theme, wordmark};
+use super::{mark, theme};
 use crate::app::AppCommand;
 use egui_sdl2::egui;
 
@@ -51,12 +51,12 @@ pub fn render(root: &mut egui::Ui, data: &HomeData, taps: &mut Vec<AppCommand>) 
     egui::CentralPanel::default().show(root, |ui| {
         if data.peers.is_empty() {
             // Same branded hero as the Receive tab, with a discovery hint.
-            const HERO_H: f32 = 150.0; // wordmark + gap + hint, roughly
+            const HERO_H: f32 = 186.0; // mark + gap + hint, roughly
             let top = ((ui.available_height() - HERO_H) / 2.0).max(8.0);
             ui.vertical_centered(|ui| {
                 ui.add_space(top);
-                let (_, rect) = ui.allocate_space(wordmark::measure(ui, wordmark::HERO_SIZE));
-                wordmark::paint(ui, rect.center(), wordmark::HERO_SIZE, 1.0);
+                let (_, rect) = ui.allocate_space(mark::measure(mark::HERO_SIZE));
+                mark::paint(ui, rect.center(), mark::HERO_SIZE, 1.0);
                 ui.add_space(24.0);
                 ui.label(
                     egui::RichText::new("Open LocalSend on your phone or PC\non the same network.")
