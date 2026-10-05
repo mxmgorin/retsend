@@ -27,7 +27,16 @@ fn main() {
     println!("cargo:rustc-env=RETSEND_GIT_COMMIT={commit}");
 
     println!("cargo:rustc-env=RETSEND_BUILD_DATE={}", build_date());
+
+    // vita-elf-create appends its SCE tables after the text segment, and current
+    // VitaSDK binutils leave no gap there unless asked (vita-toolchain#303).
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("vita") {
+        println!("cargo:rustc-link-arg-bins=-Wl,--defsym=__sce_headroom={VITA_SCE_HEADROOM:#x}");
+    }
 }
+
+/// Room reserved for the SCE tables; the figure VitaSDK recommends.
+const VITA_SCE_HEADROOM: u32 = 0x10000;
 
 /// Today's UTC date as `YYYY-MM-DD`, dependency-free.
 fn build_date() -> String {

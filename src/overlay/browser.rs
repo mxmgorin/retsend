@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 
 /// Mount points worth offering on handheld CFWs, in preference order.
 /// Only the ones that exist become roots; `$HOME` covers the desktop.
-const ROOT_CANDIDATES: [&str; 6] = [
+#[cfg(not(target_os = "vita"))]
+const ROOT_CANDIDATES: &[&str] = &[
     "/roms",
     "/mnt/SDCARD", // the Miyoo card: Onion, Allium, spruce
     "/mnt/mmc",
@@ -16,6 +17,11 @@ const ROOT_CANDIDATES: [&str; 6] = [
     "/userdata/roms",
     "/storage/roms",
 ];
+
+/// The Vita's storage: the memory card or what StorageMgr mounts in its place,
+/// StorageMgr's other mount points, and the PCH-2000's internal memory.
+#[cfg(target_os = "vita")]
+const ROOT_CANDIDATES: &[&str] = &["ux0:/", "uma0:/", "imc0:/", "xmc0:/", "grw0:/"];
 
 pub struct Entry {
     pub name: String,
@@ -533,7 +539,8 @@ fn build_roots(extra: &[String]) -> Vec<PathBuf> {
     let mut roots: Vec<PathBuf> = ROOT_CANDIDATES
         .iter()
         .map(PathBuf::from)
-        .filter(|p| p.is_dir())
+        // A Vita device root may refuse stat yet still list.
+        .filter(|p| p.is_dir() || p.read_dir().is_ok())
         .collect();
     for path in extra
         .iter()

@@ -11,7 +11,10 @@ use sdl2::Sdl;
 /// instead of an exit code. `RETSEND_SOFTWARE=1` skips GL entirely.
 pub fn open(sdl: &Sdl, config: &DisplayConfig) -> Result<EguiWindow, String> {
     let video_subsystem = sdl.video()?;
-    let order: &[Renderer] = if blit_first() {
+    let order: &[Renderer] = if cfg!(target_os = "vita") {
+        // VitaSDK's SDL draws through its own GXM renderer and offers no GL.
+        &[Renderer::Canvas, Renderer::CanvasBlit]
+    } else if blit_first() {
         log::info!("RETSEND_BLIT set; presenting the canvas as a texture copy");
         &[Renderer::CanvasBlit, Renderer::Canvas]
     } else if software_only() {
@@ -50,10 +53,11 @@ pub fn open(sdl: &Sdl, config: &DisplayConfig) -> Result<EguiWindow, String> {
     Ok(window)
 }
 
-/// The panel's own size on a Miyoo, where a window smaller than the framebuffer
-/// is drawn centred with a black border round it — the Flip's is 752x560.
+/// The panel's own size, on drivers whose window cannot usefully be another:
+/// a Miyoo draws a smaller one centred in a black border (the Flip's panel is
+/// 752x560), and the Vita's screen is fixed at 960x544.
 fn panel_size(video: &sdl2::VideoSubsystem) -> Option<(u32, u32)> {
-    if !matches!(video.current_video_driver(), "Mini" | "mmiyoo") {
+    if !matches!(video.current_video_driver(), "Mini" | "mmiyoo" | "VITA") {
         return None;
     }
     // An older bundled SDL leaves the mode zeroed, so treat a small one as no

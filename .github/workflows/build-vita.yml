@@ -1,0 +1,67 @@
+name: PS Vita
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+env:
+  # The target is tier 3: std is built from source, which takes a nightly. A
+  # dated one, so a nightly regression can't break the build overnight.
+  VITA_TOOLCHAIN: "nightly-2026-05-31"
+  CARGO_VITA_VERSION: "0.2.2"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    env:
+      VITASDK: /usr/local/vitasdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: VitaSDK and its SDL2
+        run: |
+          set -eux
+          git clone --depth 1 https://github.com/vitasdk/vdpm /tmp/vdpm
+          sudo mkdir -p "$VITASDK"
+          sudo chown "$USER" "$VITASDK"
+          /tmp/vdpm/bootstrap-vitasdk.sh --install-dir "$VITASDK"
+          yes | "$VITASDK/bin/vdpm" install sdl2
+          echo "$VITASDK/bin" >> "$GITHUB_PATH"
+
+      - name: Rust toolchain and cargo-vita
+        run: |
+          set -eux
+          rustup toolchain install "$VITA_TOOLCHAIN" --profile minimal --component rust-src
+          cargo install cargo-vita --version "$CARGO_VITA_VERSION" --locked
+
+      - name: Build
+        env:
+          # The vita profile inherits release; CI gives it the slow settings.
+          CARGO_PROFILE_VITA_LTO: "fat"
+          CARGO_PROFILE_VITA_CODEGEN_UNITS: "1"
+        run: |
+          set -eux
+          vita/build.sh
+          cp target/armv7-sony-vita-newlibeabihf/vita/retsend.vpk retsend-vita.vpk
+          sha256sum retsend-vita.vpk > retsend-vita.vpk.sha256
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: retsend-vita
+          path: retsend-vita.vpk
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            retsend-vita.vpk
+            retsend-vita.vpk.sha256

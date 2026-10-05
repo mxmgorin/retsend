@@ -287,14 +287,24 @@ fn due_a_reply(
 }
 
 fn bind_multicast(port: u16) -> std::io::Result<UdpSocket> {
+    use super::context;
     use socket2::{Domain, Protocol, Socket, Type};
-    let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
-    socket.set_reuse_address(true)?;
-    socket.set_reuse_port(true)?;
-    socket.bind(&SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)).into())?;
+    let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))
+        .map_err(context("udp socket"))?;
+    socket
+        .set_reuse_address(true)
+        .map_err(context("SO_REUSEADDR"))?;
+    socket
+        .set_reuse_port(true)
+        .map_err(context("SO_REUSEPORT"))?;
+    socket
+        .bind(&SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)).into())
+        .map_err(context("udp bind"))?;
     let udp: UdpSocket = socket.into();
-    udp.set_multicast_loop_v4(true)?;
-    udp.set_read_timeout(Some(Duration::from_secs(1)))?;
+    udp.set_multicast_loop_v4(true)
+        .map_err(context("IP_MULTICAST_LOOP"))?;
+    udp.set_read_timeout(Some(Duration::from_secs(1)))
+        .map_err(context("udp read timeout"))?;
     Ok(udp)
 }
 

@@ -31,6 +31,12 @@ strip = true
 debug-assertions = false
 overflow-checks = false
 
+# `vita-elf-create` needs the relocations `strip` would drop; cargo-vita strips
+# the ELF itself once they are read.
+[profile.vita]
+inherits = "release"
+strip = false
+
 [dependencies]
 sdl2 = { version = "0.38", default-features = false }
 egui-sdl2 = { version = "0.12", default-features = false, features = ["glow-backend"] }
@@ -74,3 +80,19 @@ libc = "0.2"
 # stderr to mirror to a file, so `log` goes to logcat via android_logger.
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.15"
+
+# PS Vita: SDL2 comes from VitaSDK as a static library, and only its pkg-config
+# file lists the Sce*_stub libraries it needs after it.
+[target.'cfg(target_os = "vita")'.dependencies]
+sdl2 = { version = "0.38", default-features = false, features = ["use-pkgconfig"] }
+
+[package.metadata.vita]
+title_id = "RTSD00001"
+title_name = "Retsend"
+assets = "vita/assets"
+# Not safe mode (cargo-vita's default `-s`): a safe app may not bind a socket,
+# and the receiver has to listen.
+vita_make_fself_flags = []
+
+[package.metadata.vita.profile.vita]
+strip_symbols = true

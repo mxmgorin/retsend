@@ -14,6 +14,10 @@ use crate::app::App;
 /// Shared startup for the desktop binary, the handheld launcher (same binary,
 /// different env), and Android's `SDL_main`. Mirrors retsurf's `run_app`.
 pub fn run_app() {
+    // Ahead of the panic hook and the logger, which read the paths it sets.
+    #[cfg(target_os = "vita")]
+    vita_env();
+
     // Capture panics before anything else can panic. On the handheld the
     // launcher usually discards stderr, so a bare panic leaves no trace beyond
     // exit code 101; mirroring it to a file is how we recover the message.
@@ -90,6 +94,36 @@ fn android_startup(config: &mut config::AppConfig) {
     // Untrapped, Back backgrounds the activity and the app never sees it. Trapped,
     // it arrives as an AC_BACK key — the only way out of a screen without a pad.
     std::env::set_var("SDL_ANDROID_TRAP_BACK_BUTTON", "1");
+}
+
+/// What a handheld launcher would export, for a platform that runs the binary
+/// with no launcher at all. Explicit values still win.
+#[cfg(target_os = "vita")]
+fn vita_env() {
+    let data = config::data_dir();
+    for (key, file) in [
+        // Nothing reads stderr on the Vita.
+        ("RETSEND_LOG_FILE", "retsend.log"),
+        // The working directory is app0:, which is read-only.
+        ("RETSEND_PANIC_FILE", "retsend-panic.log"),
+    ] {
+        if std::env::var_os(key).is_none() {
+            std::env::set_var(key, format!("{data}{file}"));
+        }
+    }
+    for (key, value) in [
+        // The log goes to a file, where colour codes are noise.
+        ("RETSEND_LOG_STYLE", "never"),
+        // There is no hostname to name the device by.
+        ("RETSEND_ALIAS", "PS Vita"),
+    ] {
+        if std::env::var_os(key).is_none() {
+            std::env::set_var(key, value);
+        }
+    }
+    // egui-sdl2 synthesizes a pointer stream from the front panel's fingers
+    // itself; SDL's own synthesis would deliver every tap twice.
+    std::env::set_var("SDL_TOUCH_MOUSE_EVENTS", "0");
 }
 
 #[cfg(target_os = "android")]

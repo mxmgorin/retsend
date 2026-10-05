@@ -81,6 +81,9 @@ impl AppEventHandler {
     }
 
     fn handle_event(&mut self, event: Event, ui: &mut AppUi, commands: &mut Vec<AppCommand>) {
+        if is_indirect_touch(&event) {
+            return;
+        }
         // Feed egui first (pointer hover, window resize/DPI bookkeeping). Our
         // navigation is command-driven, so egui never consumes the keys we
         // care about — no text fields exist yet.
@@ -118,4 +121,19 @@ impl AppEventHandler {
             _ => {}
         }
     }
+}
+
+/// A finger on a pad that does not overlay the screen, such as the Vita's rear
+/// touchpad: its coordinates are not window positions, so it must not tap.
+fn is_indirect_touch(event: &Event) -> bool {
+    use sdl2::sys::{SDL_GetTouchDeviceType, SDL_TouchDeviceType};
+    let touch_id = match event {
+        Event::FingerDown { touch_id, .. }
+        | Event::FingerUp { touch_id, .. }
+        | Event::FingerMotion { touch_id, .. } => *touch_id,
+        _ => return false,
+    };
+    // SAFETY: a lookup by id; an unknown id yields SDL_TOUCH_DEVICE_INVALID.
+    let kind = unsafe { SDL_GetTouchDeviceType(touch_id) };
+    kind != SDL_TouchDeviceType::SDL_TOUCH_DEVICE_DIRECT
 }

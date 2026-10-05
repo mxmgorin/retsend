@@ -157,7 +157,10 @@ pub fn spawn(
     }
     let listener = match bound {
         Some(l) => l,
-        None => return Err(last_err.expect("no bind attempts made")),
+        None => {
+            let e = last_err.expect("no bind attempts made");
+            return Err(super::context("tcp bind")(e));
+        }
     };
     // Re-read from the OS: asking for port 0 (tests) binds an ephemeral one.
     let port = listener.local_addr()?.port();

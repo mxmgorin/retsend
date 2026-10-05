@@ -9,6 +9,7 @@
   <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-linux-arm.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-linux-arm.yml/badge.svg" alt="Linux ARM"></a>
   <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-linux.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-linux.yml/badge.svg" alt="Linux"></a>
   <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-android.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-android.yml/badge.svg" alt="Android"></a>
+  <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-vita.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-vita.yml/badge.svg" alt="PS Vita"></a>
   <a href="https://deps.rs/repo/github/mxmgorin/retsend"><img src="https://deps.rs/repo/github/mxmgorin/retsend/status.svg" alt="Dependencies"></a>
 </div>
 
@@ -16,7 +17,7 @@
 client for retro handhelds: send and receive files with your phone
 or PC over Wi-Fi, no cable or SSH. Compatible with the official LocalSend apps.
 
-It targets [PortMaster-compatible](https://portmaster.games/supported-devices.html) Linux handhelds, the handhelds running [muOS](https://muos.dev), and the Miyoo Mini Plus and Flip running [OnionOS](https://github.com/OnionUI/Onion), [spruceOS](https://github.com/spruceUI/spruceOS) or [Allium](https://github.com/goweiwen/Allium), all of which are gamepad-only systems without a compositor. It also runs on regular desktop Linux and on Android.
+It targets [PortMaster-compatible](https://portmaster.games/supported-devices.html) Linux handhelds, the handhelds running [muOS](https://muos.dev), and the Miyoo Mini Plus and Flip running [OnionOS](https://github.com/OnionUI/Onion), [spruceOS](https://github.com/spruceUI/spruceOS) or [Allium](https://github.com/goweiwen/Allium), all of which are gamepad-only systems without a compositor. It also runs on the PS Vita, on regular desktop Linux and on Android.
 
 <p align="center">
   <img src="resources/retsend-devices.jpg" alt="Three devices on a couch: a handheld showing the radar of nearby devices, a clamshell handheld waiting to receive, and a phone running the official LocalSend app" width="480">
@@ -91,6 +92,14 @@ and **Select + Start quits** it, as for any port.
 It is the PortMaster port wrapped as an app: `launch.sh` hands it to spruce's own
 ports launcher with the gamedir beside it.
 
+## Install (PS Vita)
+
+On a Vita running HENkaku, grab `retsend-vita.vpk` from
+[Releases](https://github.com/mxmgorin/retsend/releases) and install it with
+VitaShell. Received files land in `ux0:/data/mxmgorin/retsend/received/` by
+default; the file browser offers `ux0:` and whichever of `uma0:`, `imc0:`,
+`xmc0:` and `grw0:` are mounted. Close it from the LiveArea.
+
 ## Install (Android)
 
 Grab `retsend-android-arm64.apk` from
@@ -140,10 +149,23 @@ It builds `libSDL2.so` on the first run, cross-compiles the Rust cdylib SDL load
 and assembles the APK — see [android/README.md](android/README.md) for how the
 port fits together.
 
+### Building the Vita package
+
+With [VitaSDK](https://vitasdk.org) and its `sdl2` package installed, a nightly
+toolchain with `rust-src`, and `cargo install cargo-vita`:
+
+```sh
+VITASDK=/usr/local/vitasdk vita/build.sh   # target/armv7-sony-vita-newlibeabihf/vita/retsend.vpk
+```
+
+The script also stands in a patched copy of ring until a release builds its
+assembly for the Vita; see its header.
+
 ## Controls
 
 Touch works too, where there is a touchscreen: tap a row to act on it, or tap a
-hint along the bottom to press the button it names.
+hint along the bottom to press the button it names. On the Vita, A, B, X and Y
+are Cross, Circle, Square and Triangle, and L1 / R1 are L / R.
 
 | Pad          | Keyboard   | Action                                        |
 |--------------|------------|-----------------------------------------------|

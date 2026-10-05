@@ -2,11 +2,11 @@
 //! down. It arrives as SDL's quit event, which the loop answers by stopping the
 //! net threads.
 
-use sdl2::sys::{SDL_Event, SDL_EventType, SDL_PushEvent, SDL_QuitEvent};
-
 /// Ask the loop to close. Callable from any thread: `SDL_PushEvent` is
 /// thread-safe, and the pump wakes on what it queues.
+#[cfg(all(unix, not(any(target_os = "android", target_os = "vita"))))]
 pub fn push() {
+    use sdl2::sys::{SDL_Event, SDL_EventType, SDL_PushEvent, SDL_QuitEvent};
     unsafe {
         let mut evt = SDL_Event {
             quit: SDL_QuitEvent {
@@ -24,7 +24,7 @@ pub fn push() {
 ///
 /// Call before the first thread is spawned: the mask is inherited, and blocking
 /// it everywhere is what leaves the signal to the waiter.
-#[cfg(all(unix, not(target_os = "android")))]
+#[cfg(all(unix, not(any(target_os = "android", target_os = "vita"))))]
 pub fn on_termination() {
     let mut set: libc::sigset_t = unsafe { std::mem::zeroed() };
     unsafe {
@@ -53,7 +53,7 @@ pub fn on_termination() {
     });
 }
 
-/// Android terminates its own way, and a platform without POSIX signals has
-/// nothing to install.
-#[cfg(not(all(unix, not(target_os = "android"))))]
+/// Android terminates its own way, and a platform without POSIX signals (the
+/// Vita's newlib among them) has nothing to install.
+#[cfg(not(all(unix, not(any(target_os = "android", target_os = "vita")))))]
 pub fn on_termination() {}

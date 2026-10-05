@@ -169,7 +169,8 @@ impl NetService {
 
         // Bind TCP first: the announce must carry the real port.
         let tls = identity.filter(|_| serving_tls).map(|i| i.server_config);
-        let (server_handle, actual_port) = server::spawn(shared.clone(), network.port, tls)?;
+        let (server_handle, actual_port) =
+            server::spawn(shared.clone(), network.port, tls).map_err(context("http server"))?;
         shared.me.lock().unwrap().port = Some(actual_port);
         if actual_port != network.port {
             log::warn!(
@@ -178,11 +179,13 @@ impl NetService {
             );
         }
 
-        let listener_handle = discovery::spawn_listener(shared.clone())?;
+        let listener_handle =
+            discovery::spawn_listener(shared.clone()).map_err(context("discovery listener"))?;
         let (announcer_handle, announcer_tx) = discovery::spawn_announcer(
             shared.clone(),
             Duration::from_secs(network.announce_interval_secs),
-        )?;
+        )
+        .map_err(context("announcer"))?;
 
         Ok(Self {
             shared,
@@ -235,6 +238,11 @@ pub struct NetStatus {
     pub ssid: Option<String>,
 }
 
+/// Prefix an error with the step that raised it; a bare errno names no socket.
+pub(crate) fn context(step: &'static str) -> impl FnOnce(std::io::Error) -> std::io::Error {
+    move |e| std::io::Error::new(e.kind(), format!("{step}: {e}"))
+}
+
 /// Sample the current network status. Not free — opens a probe socket and may
 /// shell out to `iw` — so callers should throttle rather than call per frame.
 pub fn sample_status() -> NetStatus {
@@ -244,9 +252,9 @@ pub fn sample_status() -> NetStatus {
     }
 }
 
-/// Android has neither wireless tool, and the framework's SSID needs the
-/// location permission — the Receive screen shows the address alone.
-#[cfg(target_os = "android")]
+/// Android and the Vita have neither wireless tool (and Android's framework SSID
+/// needs the location permission), so the Receive screen shows the address alone.
+#[cfg(any(target_os = "android", target_os = "vita"))]
 pub fn wifi_ssid() -> Option<String> {
     None
 }
@@ -254,7 +262,7 @@ pub fn wifi_ssid() -> Option<String> {
 /// Best-effort connected Wi-Fi SSID. Tries `iwgetid -r`, then `iw dev <iface>
 /// link` for each wireless interface under `/sys/class/net`. None if no
 /// wireless link is up or neither tool exists (e.g. desktop on ethernet).
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "vita")))]
 pub fn wifi_ssid() -> Option<String> {
     if let Some(out) = run_stdout("iwgetid", &["-r"]) {
         let ssid = out.trim();
@@ -280,7 +288,7 @@ pub fn wifi_ssid() -> Option<String> {
 
 /// Run a command, returning its stdout on a zero exit (None if it can't spawn
 /// or fails). Used only for the optional Wi-Fi probes above.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "vita")))]
 fn run_stdout(cmd: &str, args: &[&str]) -> Option<String> {
     let out = std::process::Command::new(cmd).args(args).output().ok()?;
     out.status
@@ -290,7 +298,7 @@ fn run_stdout(cmd: &str, args: &[&str]) -> Option<String> {
 
 /// Wireless interface names: `/sys/class/net` entries exposing a `wireless`
 /// subdirectory.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "vita")))]
 fn wireless_interfaces() -> Vec<String> {
     let Ok(entries) = std::fs::read_dir("/sys/class/net") else {
         return Vec::new();

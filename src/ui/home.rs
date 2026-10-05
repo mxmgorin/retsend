@@ -143,7 +143,10 @@ pub fn hint_bar(ui: &mut egui::Ui, hints: &[Hint], taps: &mut Vec<AppCommand>) {
     // are hit-tested against the slots for the same reason.
     let galleys: Vec<_> = hints
         .iter()
-        .map(|(button, action, _)| hint_galley(ui, button, action))
+        .map(|(button, action, _)| match pad_face(button) {
+            Some(_) => hint_galley(ui, "", action, FACE_SIZE + HINT_GAP),
+            None => hint_galley(ui, pad_label(button), action, HINT_GAP),
+        })
         .collect();
     let row_h = galleys.iter().map(|g| g.size().y).fold(0.0_f32, f32::max);
     let full_w = ui.available_width();
@@ -161,8 +164,13 @@ pub fn hint_bar(ui: &mut egui::Ui, hints: &[Hint], taps: &mut Vec<AppCommand>) {
                 taps.push(command);
             }
         }
-        ui.painter()
-            .galley(center - galley.size() / 2.0, galley, theme::DIM);
+        let origin = center - galley.size() / 2.0;
+        if let Some(face) = pad_face(hints[i].0) {
+            let mid_y = cap_middle(&galley).map_or(center.y, |y| origin.y + y);
+            let face_center = egui::pos2(origin.x + FACE_SIZE / 2.0, mid_y);
+            paint_face(ui.painter(), face, face_center);
+        }
+        ui.painter().galley(origin, galley, theme::DIM);
     }
 }
 
@@ -184,9 +192,116 @@ pub fn tap_pos(ui: &egui::Ui) -> Option<egui::Pos2> {
     .filter(|pos| ui.ctx().layer_id_at(*pos) == Some(ui.layer_id()))
 }
 
+/// A face button its pad marks with a shape rather than a letter.
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_os = "vita"), allow(dead_code))]
+enum Face {
+    Cross,
+    Circle,
+    Square,
+    Triangle,
+}
+
+/// The shape the device's pad prints for a button the hints name by SDL's
+/// positional layout (A south, B east, X west, Y north).
+#[cfg(target_os = "vita")]
+fn pad_face(button: &str) -> Option<Face> {
+    match button {
+        "A" => Some(Face::Cross),
+        "B" => Some(Face::Circle),
+        "X" => Some(Face::Square),
+        "Y" => Some(Face::Triangle),
+        _ => None,
+    }
+}
+
+#[cfg(not(target_os = "vita"))]
+fn pad_face(_button: &str) -> Option<Face> {
+    None
+}
+
+/// The name the device's pad prints for a button without a [`Face`].
+fn pad_label(button: &str) -> &str {
+    match button {
+        "L1 R1" if cfg!(target_os = "vita") => "L R",
+        other => other,
+    }
+}
+
+/// Side of the box a [`Face`] is drawn in: about the cap height of the hint
+/// text, so the shapes sit level with the letters of the other hints.
+const FACE_SIZE: f32 = theme::DETAIL_FONT * 0.8;
+const FACE_STROKE: f32 = 1.5;
+/// Share of the box the square spans: drawn to its edges, it reads larger than
+/// the circle.
+const FACE_ANGULAR_SPAN: f32 = 0.85;
+/// Share of the box the cross spans: thin diagonals read smaller than their box.
+const CROSS_SPAN: f32 = 1.0;
+/// The square's height share: a true square reads squat beside the others.
+const SQUARE_HEIGHT_SPAN: f32 = 0.95;
+/// Space between a hint's button and its action.
+const HINT_GAP: f32 = 6.0;
+
+/// Height of the middle of the first capital in `galley`, from its top: the
+/// line a shape must sit on to look level with the text. The row's own middle
+/// is off it by the font's ascender and descender room.
+fn cap_middle(galley: &egui::Galley) -> Option<f32> {
+    let row = galley.rows.first()?;
+    let glyph = row.glyphs.iter().find(|g| g.chr.is_uppercase())?;
+    let ink = glyph.uv_rect;
+    Some(row.pos.y + glyph.pos.y + ink.offset.y + ink.size.y / 2.0)
+}
+
+/// Draw `face` centred on `center`, every shape filling the same box.
+fn paint_face(painter: &egui::Painter, face: Face, center: egui::Pos2) {
+    let half = FACE_SIZE / 2.0;
+    let stroke = egui::Stroke::new(FACE_STROKE, theme::ACCENT);
+    match face {
+        Face::Cross => {
+            let d = half * CROSS_SPAN;
+            painter.line_segment(
+                [center + egui::vec2(-d, -d), center + egui::vec2(d, d)],
+                stroke,
+            );
+            painter.line_segment(
+                [center + egui::vec2(-d, d), center + egui::vec2(d, -d)],
+                stroke,
+            );
+        }
+        Face::Circle => {
+            painter.circle_stroke(center, half, stroke);
+        }
+        Face::Square => {
+            let size = egui::vec2(
+                FACE_SIZE * FACE_ANGULAR_SPAN,
+                FACE_SIZE * SQUARE_HEIGHT_SPAN,
+            );
+            let rect = egui::Rect::from_center_size(center, size);
+            painter.rect_stroke(rect, 0.0, stroke, egui::StrokeKind::Middle);
+        }
+        Face::Triangle => {
+            // Centred on its bounding box, not its centroid, to sit on the line.
+            let h = FACE_SIZE;
+            let w = h / 3.0_f32.sqrt();
+            let points = vec![
+                center + egui::vec2(0.0, -h / 2.0),
+                center + egui::vec2(w, h / 2.0),
+                center + egui::vec2(-w, h / 2.0),
+            ];
+            painter.add(egui::Shape::closed_line(points, stroke));
+        }
+    }
+}
+
 /// A `button` (accent) + `action` (dim) hint laid out as one galley so it can
-/// be centered in its slot as a unit.
-fn hint_galley(ui: &egui::Ui, button: &str, action: &str) -> std::sync::Arc<egui::Galley> {
+/// be centered in its slot as a unit. `gap` leads the action; a [`Face`] hint
+/// passes no button and reserves its box in the gap.
+fn hint_galley(
+    ui: &egui::Ui,
+    button: &str,
+    action: &str,
+    gap: f32,
+) -> std::sync::Arc<egui::Galley> {
     let font = egui::FontId::proportional(theme::DETAIL_FONT);
     let mut job = egui::text::LayoutJob::default();
     job.append(
@@ -200,7 +315,7 @@ fn hint_galley(ui: &egui::Ui, button: &str, action: &str) -> std::sync::Arc<egui
     );
     job.append(
         action,
-        6.0,
+        gap,
         egui::TextFormat {
             font_id: font,
             color: theme::DIM,
