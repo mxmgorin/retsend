@@ -1,27 +1,24 @@
-<h1 align="center">
+<p align="center">
   <img src="resources/retsend-banner.png" alt="retsend: a LocalSend client for retro handhelds" width="640">
-</h1>
-
-<p align="center">Wireless file transfer for retro handhelds.</p>
+</p>
 
 <div align="center">
-  <a href="https://github.com/mxmgorin/retsend/actions/workflows/ci.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-linux-arm.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-linux-arm.yml/badge.svg" alt="Linux ARM"></a>
-  <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-linux.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-linux.yml/badge.svg" alt="Linux"></a>
-  <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-android.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-android.yml/badge.svg" alt="Android"></a>
-  <a href="https://github.com/mxmgorin/retsend/actions/workflows/build-vita.yml"><img src="https://github.com/mxmgorin/retsend/actions/workflows/build-vita.yml/badge.svg" alt="PS Vita"></a>
-  <a href="https://deps.rs/repo/github/mxmgorin/retsend"><img src="https://deps.rs/repo/github/mxmgorin/retsend/status.svg" alt="Dependencies"></a>
+  <a href="https://github.com/mxmgorin/retsend/releases/latest"><img src="https://img.shields.io/github/v/release/mxmgorin/retsend?style=flat-square&labelColor=16171a&color=3fb8a0&cacheSeconds=180&label=release" alt="Latest release"></a>
+  <!-- The check workflow, not a platform build: it is the one a push and a pull request run, and it carries the tests and clippy. -->
+  <a href="https://github.com/mxmgorin/retsend/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mxmgorin/retsend/ci.yml?branch=main&style=flat-square&labelColor=16171a&color=3fb8a0&cacheSeconds=180&logo=githubactions&logoColor=white&label=ci" alt="CI"></a>
 </div>
 
-`retsend` (**ret**ro + **send**ing) is a Rust [LocalSend](https://localsend.org)
-client for retro handhelds: send and receive files with your phone
-or PC over Wi-Fi, no cable or SSH. Compatible with the official LocalSend apps.
-
-It targets [PortMaster-compatible](https://portmaster.games/supported-devices.html) Linux handhelds, the handhelds running [muOS](https://muos.dev), and the Miyoo Mini Plus and Flip running [OnionOS](https://github.com/OnionUI/Onion), [spruceOS](https://github.com/spruceUI/spruceOS) or [Allium](https://github.com/goweiwen/Allium), all of which are gamepad-only systems without a compositor. It also runs on the PS Vita, on regular desktop Linux and on Android.
-
 <p align="center">
-  <img src="resources/retsend-devices.jpg" alt="Three devices on a couch: a handheld showing the radar of nearby devices, a clamshell handheld waiting to receive, and a phone running the official LocalSend app" width="480">
+  <a href="#install">Install</a> &middot;
+  <a href="docs/CONFIGURATION.md">Docs</a> &middot;
+  <a href="https://github.com/mxmgorin/retsend/issues">Issues</a>
 </p>
+
+retsend is a [LocalSend](https://localsend.org) client for retro handhelds, written in Rust with [SDL2](https://www.libsdl.org/) and [egui](https://github.com/emilk/egui). It sends and receives files with your phone or PC over Wi-Fi, without a cable, SSH or pulling the SD card, and works with the official LocalSend apps. Built for the gamepad; keyboard, touch and mouse work too.
+
+**[Install](#install)** on handhelds through PortMaster, muOS, OnionOS, Allium or spruceOS, on the PS Vita, and on Android or Linux.
+
+## Screenshots
 
 | Receive | Request | Save | Transfer |
 |:---:|:---:|:---:|:---:|
@@ -31,220 +28,91 @@ It targets [PortMaster-compatible](https://portmaster.games/supported-devices.ht
 |:---:|:---:|:---:|:---:|
 | ![Radar of a discovered device with its model and address](resources/retsend_send.png) | ![Sent and received transfers with file counts, sizes, times and the folders they used](resources/retsend_history.png) | ![Settings on the device: name, save folder, quick save, file handling and port](resources/retsend_settings.png) | ![Save routes: received files go to a folder by extension, over the console folders detected on the card](resources/retsend_routes.png) |
 
-## Why?
-
-Getting files onto a handheld usually means pulling the SD card or
-setting up SSH/SMB. Phones and desktops already have LocalSend —
-this is the missing end: a client built for a gamepad and screen.
-
 ## Features
 
-- **Discovery** — a live radar of nearby devices (LocalSend protocol v2.1), with
-  a manually typed IP address for the networks that block multicast.
-- **Receive** — accept/decline dialog with countdown, speed/ETA, and cancel from either side; X picks a folder for that one transfer; quick-save mode auto-accepts.
-- **Send** — gamepad file browser with multi-select and per-file progress; X on a folder sends the whole thing; pin the folders and files you send often and they lead every listing.
-- **History** — every transfer logged; A repeats a send from its row, X drops the row.
-- **Save routes** — received ROMs land in the console folder they belong to, detected from the card; per-extension overrides on top.
-- **Folders** — send a folder and it arrives as a folder; one sent from the official app is rebuilt under the save folder the same way.
-- **Encryption** — the protocol's HTTPS mode, on by default; works with the official app's default settings both ways.
-- **Settings on device** — alias, save folder, and port, applied live.
-- **Headless** — `retsend --receive` runs with no screen, for SSH and scripting.
-- **Small and simple** — no async runtime, a minimal HTTP server, and the
-  system's own SDL2 wherever one can drive the screen.
+- **Discovery**<br>
+  A live radar of nearby devices over LocalSend protocol v2.1, plus a device typed in by IP for networks that block multicast.
 
-## Install (PortMaster devices)
+- **Receive**<br>
+  Accept or decline with a countdown, speed and ETA, cancel from either side. X picks the folder for one transfer; quick save accepts everything.
 
-Grab `retsend-portmaster.zip` from
-[Releases](https://github.com/mxmgorin/retsend/releases) and unpack it
-into your ports folder (e.g. `/roms/ports/`).
+- **Send**<br>
+  A gamepad file browser with multi-select, whole folders and per-file progress. Pinned folders and files lead every listing.
 
-## Install (muOS)
+- **Save routes**<br>
+  Received ROMs land in the console folder they belong to, detected from the card, with per-extension overrides. See [Configuration](docs/CONFIGURATION.md#save-routes).
 
-Copy `retsend-muos.muxapp` from
-[Releases](https://github.com/mxmgorin/retsend/releases) to `ARCHIVE/` on the SD
-card and install it from **Applications → Archive Manager**. It then sits under
-**Applications**, and **B on the home screen quits** — muOS keeps no way out of
-its own. See [muos/README.md](muos/README.md).
+- **Folders**<br>
+  A folder sent either way arrives as a folder.
 
-## Install (Miyoo Mini Plus / Flip)
+- **History**<br>
+  Every transfer is logged. A repeats a send, X deletes the row.
 
-Download the appropriate zip from
-[Releases](https://github.com/mxmgorin/retsend/releases) and unzip it at the
-root of the SD card.
+- **Encryption**<br>
+  The protocol's HTTPS mode, on by default, compatible with the official apps' defaults.
 
-| OS       | Package                | Location            |
-| -------- | ---------------------- | ------------------- |
-| OnionOS  | `retsend-onionos.zip`  | `App/Retsend/`      |
-| Allium   | `retsend-allium.zip`   | `Apps/Retsend.pak/` |
-| spruceOS | `retsend-spruceos.zip` | `App/Retsend/`      |
+- **Headless mode**<br>
+  `retsend --receive` runs without a screen, for SSH and scripting. See [Command line](docs/CLI.md).
 
-The app will appear in the respective Apps menu. **MENU quits** the app on all
-three systems.
+- **Small**<br>
+  No async runtime, a minimal HTTP server, and the system's own SDL2 wherever it can drive the screen.
 
-## Install (spruceOS on aarch64 handhelds)
+## Install
 
-For the Miyoo Flip, the TrimUI Brick and Smart Pro (S), the Anbernic RG-XX series
-and the other aarch64 devices spruce runs on, grab `retsend-spruceos-aarch64.zip`
-from [Releases](https://github.com/mxmgorin/retsend/releases) and unzip it at the
-root of the SD card, so the app lands in `App/Retsend/`. It shows up under Apps,
-and **Select + Start quits** it, as for any port.
+Download the package for your system. All builds are on
+[Releases](https://github.com/mxmgorin/retsend/releases).
 
-It is the PortMaster port wrapped as an app: `launch.sh` hands it to spruce's own
-ports launcher with the gamedir beside it.
+| OS | Package | Where it goes |
+| --- | --- | --- |
+| [PortMaster](https://portmaster.games/supported-devices.html) | [`retsend-portmaster.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-portmaster.zip) | ports folder, e.g. `/roms/ports/` |
+| [muOS](https://muos.dev) | [`retsend-muos.muxapp`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-muos.muxapp) | `ARCHIVE/` on the SD card, then **Applications → Archive Manager** |
+| [OnionOS](https://onionui.github.io/) | [`retsend-onionos.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-onionos.zip) | root of the SD card, lands in `App/Retsend/` |
+| [Allium](https://github.com/goweiwen/Allium) | [`retsend-allium.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-allium.zip) | root of the SD card, lands in `Apps/Retsend.pak/` |
+| [spruceOS](https://github.com/spruceUI/spruceOS) | [`retsend-spruceos-aarch64.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-spruceos-aarch64.zip), [`retsend-spruceos.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-spruceos.zip) (Miyoo Mini) | root of the SD card, lands in `App/Retsend/` |
+| PS Vita ([HENkaku](https://henkaku.xyz/)) | [`retsend-vita.vpk`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-vita.vpk) | install with VitaShell |
+| Android | [`retsend-android-arm64.apk`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-android-arm64.apk) | sideload it |
+| Linux | [`retsend-linux-x86_64.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-linux-x86_64.zip), [`retsend-linux-aarch64.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-linux-aarch64.zip), [`retsend-linux-armhf.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-linux-armhf.zip) | unpack and run |
 
-## Install (PS Vita)
+The app shows up in the Apps (or Applications) menu. How to quit on each system is
+in [Controls](docs/CONTROLS.md#quitting). The Miyoo Mini build needs the Mini Plus
+or Mini Flip: the original Mini has no Wi-Fi.
 
-On a Vita running HENkaku, grab `retsend-vita.vpk` from
-[Releases](https://github.com/mxmgorin/retsend/releases) and install it with
-VitaShell. Received files land in `ux0:/data/mxmgorin/retsend/received/` by
-default; the file browser offers `ux0:` and whichever of `uma0:`, `imc0:`,
-`xmc0:` and `grw0:` are mounted. Close it from the LiveArea.
+On Android, grant **All files access** and received files land in `Download/`;
+otherwise the app keeps to its own folder. See [android/README.md](android/README.md).
 
-## Install (Android)
+## Building
 
-Grab `retsend-android-arm64.apk` from
-[Releases](https://github.com/mxmgorin/retsend/releases) and sideload it. 
-
-Grant **All files access** when it asks and received files land in `Download/`,
-where an emulator or file manager can reach them; deny it and the app is confined
-to its own folder. See [android/README.md](android/README.md).
-
-## Building & running (desktop)
-
-System SDL2 is the only native dependency. On Debian/Ubuntu:
-
-```sh
-sudo apt-get install -y build-essential pkg-config libsdl2-dev
-cargo run
-```
-
-Files passed as arguments (`cargo run -- file1 file2`) come pre-selected in the
-send browser.
-
-Two instances on one machine discover each other (multicast loopback) — handy
-for trying both sides of a transfer without a second device:
-
-```sh
-RETSEND_DATA_DIR=/tmp/ls-a cargo run &
-RETSEND_DATA_DIR=/tmp/ls-b cargo run
-```
-
-Tests are headless (no SDL, no network setup needed):
-
-```sh
-cargo test
-```
-
-### Building the APK
-
-With the Android SDK and an NDK installed:
-
-```sh
-rustup target add aarch64-linux-android
-cargo install cargo-ndk --locked
-./android/scripts/build.sh release   # android/app/build/outputs/apk/release/app-release.apk
-```
-
-It builds `libSDL2.so` on the first run, cross-compiles the Rust cdylib SDL loads,
-and assembles the APK — see [android/README.md](android/README.md) for how the
-port fits together.
-
-### Building the Vita package
-
-With [VitaSDK](https://vitasdk.org) and its `sdl2` package installed, a nightly
-toolchain with `rust-src`, and `cargo install cargo-vita`:
-
-```sh
-VITASDK=/usr/local/vitasdk vita/build.sh   # target/armv7-sony-vita-newlibeabihf/vita/retsend.vpk
-```
-
-The script also stands in a patched copy of ring until a release builds its
-assembly for the Vita; see its header.
-
-## Controls
-
-Touch works too, where there is a touchscreen: tap a row to act on it, or tap a
-hint along the bottom to press the button it names. On the Vita, A, B, X and Y
-are Cross, Circle, Square and Triangle, and L1 / R1 are L / R.
-
-| Pad          | Keyboard   | Action                                        |
-|--------------|------------|-----------------------------------------------|
-| D-pad / stick| Arrows     | Navigate · left/right switch tabs, or step a settings value |
-| A            | Enter      | Send to device · select file · accept · repeat a send · type |
-| B            | Esc        | Back · decline · cancel · leave the keyboard  |
-| X            | X / Bksp   | Add a device by IP · pick where an incoming transfer lands · delete a history row · erase a character · take the folder under the cursor, or every file in the folder |
-| Y            | Y          | Pin / unpin the row under the cursor          |
-| Start        | F1         | Confirm send · OK (keyboard)                  |
-| Select       | Tab / F5   | Refresh radar · switch roots · layer (keyboard)|
-| L1 / R1      | PgUp / PgDn| Switch tabs · page the file browser           |
+`cargo run` with SDL2 installed. See **[Building from source](docs/BUILDING.md)**
+for handhelds, Android and the PS Vita.
 
 ## Configuration
 
-`config.toml` lives in the data dir (created with defaults on first run). The
-Settings screen edits everything in it except:
+`config.toml` is in the data dir (`SDL_GetPrefPath`, e.g.
+`~/.local/share/mxmgorin/retsend/` on Linux) and is written with the defaults on
+first run. See **[Configuration](docs/CONFIGURATION.md)** for the options, save
+routes and folders, **[Controls](docs/CONTROLS.md)** for buttons and touch, and
+**[Command line](docs/CLI.md)** for arguments and environment variables.
 
-- `[network] https = false` — fall back to the protocol's plain-http mode
-- `[network] announce_interval_secs` — multicast announce cadence
-- `[transfer] browser_roots` — extra mount points for the file browser
-- `[transfer] history_limit` — max transfers kept in the History tab (default 200)
-- `[transfer] pinned_paths`, `last_send_dir` — written by Y and by sending
-- `[display] scale` — UI size over what the screen itself asks for (0.6–1.6,
-  the "UI scale" setting; every screen is drawn for 640×480 and fitted from there)
+## How to help
 
-Environment variables override paths and control logging at launch:
-`RETSEND_DATA_DIR`, `RETSEND_CONFIG`, `RETSEND_SAVE_DIR`, `RETSEND_BROWSER_ROOTS`
-(`:`-separated), `RETSEND_ALIAS`, `RETSEND_SCALE` (pins the base the `[display]
-scale` setting is read over, replacing the fit), `RETSEND_GLES=0|1`,
-`RETSEND_SOFTWARE=1`, `RETSEND_BLIT=1`, `RETSEND_KEYMAP=miyoo|desktop`,
-`RETSEND_LOG_LEVEL`, `RETSEND_LOG_FILE`, `RETSEND_PANIC_FILE`.
+If you find the project useful, here is how you can help:
 
-`RETSEND_BLIT=1` rasterizes the UI offscreen and presents it as a single texture
-copy per frame, for drivers that show nothing else — the Miyoo Mini's panel driver
-drops geometry and window-surface updates without reporting an error.
+- **Tell other people about it.** Sharing the project helps it reach more users.
+- **Report bugs and request features** in [Issues](https://github.com/mxmgorin/retsend/issues). Feedback is welcome.
+- **Star the repo.** It helps the project get noticed and keeps me motivated.
+- **[Buy me a coffee](https://ko-fi.com/mxmgorin)** on Ko-fi.
 
-### Save routes
+## Credits
 
-Received files land in `save_dir`, except ROMs: those are routed by extension
-into the console folders already present in `save_dir` — `.gba` into `gba`,
-`.sfc` into `snes`. Nothing is created, so a missing folder gets no route, and ambiguous
-extensions (`.zip`, `.iso`, `.bin`, `.md`) never take part. Off via
-**Settings → Auto save routes** or `[transfer] auto_routes = false`.
+retsend is built on:
 
-Per-extension overrides win over the detected routes — **Settings → Save routes**
-on the device, or:
-
-```toml
-[transfer.routes]
-gbc = "gb"                    # relative → <save_dir>/gb
-gba = "/roms/gba"             # absolute → used as-is
-png = "/roms/screenshots"
-```
-
-Extensions match case-insensitively, folders are created on demand, and anything
-unrouted lands in `save_dir`.
-
-### Sent folders
-
-**X** on a directory row takes the whole folder — every file of its tree, under
-the folder's own name, so `roms/gb/zelda.gbc` arrives at `roms/gb/zelda.gbc` on
-the other side. The folder is walked as it is picked, so the footer totals it
-before Start; its rows then read as taken, and picking one of them separately
-does nothing, since the folder already carries it. What the listing hides the
-send leaves out too: dotfiles and symlinks. A send stops at 2048 files, and a
-toast says when a pick ran past that.
-
-X anywhere else still takes every file of the folder being looked at, without
-its subfolders. The History tab repeats a send from the folder it was given, so
-a resend picks up whatever is in there now.
-
-### Received folders
-
-Protocol v2 carries a folder transfer as ordinary files whose names hold the
-relative path, so a folder sent from the official app is rebuilt under
-`save_dir`: `Zelda/saves/Zelda.sav` arrives at `<save_dir>/Zelda/saves/Zelda.sav`.
-Files inside a folder skip the save routes — a folder arrives whole rather than
-split across console folders — while loose files route as usual. Sender-supplied
-paths are sanitized component by component and can never leave `save_dir`.
-
-Switch it off with **Settings → Received folders** or `[transfer] keep_folders =
-false`, and every file lands flat, placed by the routes as before.
+- the [LocalSend](https://localsend.org) protocol, so it works with the official apps
+- [SDL2](https://libsdl.org) through [rust-sdl2](https://github.com/Rust-SDL2/rust-sdl2)
+  for the window and input
+- [egui](https://github.com/emilk/egui) for the UI
+- [rustls](https://github.com/rustls/rustls) over [ring](https://github.com/briansmith/ring)
+  for TLS, [rcgen](https://github.com/rustls/rcgen) for certificates and
+  [ureq](https://github.com/algesten/ureq) as the HTTP client
+- [Steward Fu's SDL2](https://github.com/steward-fu/sdl2) with the Miyoo Mini display driver
+- [VitaSDK](https://vitasdk.org) and [vita-rust](https://github.com/vita-rust) for the PS Vita build
+- [PortMaster](https://portmaster.games) for running on Linux handhelds
