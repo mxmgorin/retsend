@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="resources/retsend-wordmark.png" alt="retsend" width="320">
+  <img src="resources/retsend-banner.png" alt="retsend: a LocalSend client for retro handhelds" width="640">
 </h1>
 
 <p align="center">Wireless file transfer for retro handhelds.</p>
