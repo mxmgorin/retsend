@@ -1,0 +1,3 @@
+# Read only by builds started here (build.sh); other targets keep crates.io ring.
+[patch.crates-io]
+ring = { path = "../../target/vita-ring" }

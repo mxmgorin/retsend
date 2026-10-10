@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the rest. It is the PortMaster port wrapped as an app under `App/Retsend/`,
   handed to spruce's own ports launcher; `RETSEND_GAMEDIR` points the port's
   launcher at a gamedir outside `ports/`.
-- **A PS Vita port**, `retsend-vita.vpk`, built by `vita/build.sh` with VitaSDK
+- **A PS Vita port**, `retsend-vita.vpk`, built by `packaging/vita/build.sh` with VitaSDK
   and cargo-vita. It draws through SDL's GXM renderer at 960x544, keeps its
   config, log and received files under `ux0:/data/mxmgorin/retsend/`, offers the
   Vita's storage devices as browser roots, and labels the hints with the pad's
@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The Miyoo Mini spruceOS package is now `retsend-spruceos-armhf.zip`**, beside
+  `retsend-spruceos-aarch64.zip`.
 - **Touch only taps where it lands on the screen.** Fingers on a pad beside it,
   such as the Vita's rear touchpad, no longer move the pointer.
 - **A network start-up failure names the step that failed**, not just the errno.

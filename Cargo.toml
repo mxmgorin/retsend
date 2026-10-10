@@ -7,8 +7,8 @@ license = "GPL-3.0"
 description = "LocalSend client for retro handhelds (SDL2 + egui)"
 repository = "https://github.com/mxmgorin/retsend"
 
-# `cdylib` is the `libretsend.so` SDL's Android shell loads (named in
-# RetsendActivity.getLibraries()); `lib` keeps `src/main.rs` and the tests linkable.
+# `cdylib`: the `libretsend.so` SDL's Android shell loads. `lib`: for main.rs
+# and the tests.
 [lib]
 name = "retsend"
 crate-type = ["lib", "cdylib"]
@@ -17,22 +17,18 @@ crate-type = ["lib", "cdylib"]
 default = ["software-render"]
 sdl2-bundled = ["sdl2/bundled"]
 sdl2-static-link = ["sdl2/static-link"]
-# The fallback to SDL's renderer. egui's canvas painter calls
-# SDL_RenderGeometry, which is SDL 2.0.18+, so a build for a userland older
-# than that (armhf) drops this and stays glow-only — the symbol would otherwise
-# stop the binary from loading at all.
+# The SDL-renderer fallback. Needs SDL_RenderGeometry (2.0.18+): a build for an
+# older userland drops it, or the binary won't load.
 software-render = ["egui-sdl2/canvas-backend"]
 
-# Local release builds stay cheap to compile (Cargo's release defaults); the
-# slow, fully-optimized settings are CI-only via CARGO_PROFILE_RELEASE_* env
-# vars, same scheme as retsurf.
+# Slow optimizations are CI-only (CARGO_PROFILE_RELEASE_*), so local release
+# builds stay fast.
 [profile.release]
 strip = true
 debug-assertions = false
 overflow-checks = false
 
-# `vita-elf-create` needs the relocations `strip` would drop; cargo-vita strips
-# the ELF itself once they are read.
+# vita-elf-create needs the relocations `strip` drops; cargo-vita strips after.
 [profile.vita]
 inherits = "release"
 strip = false
@@ -40,8 +36,7 @@ strip = false
 [dependencies]
 sdl2 = { version = "0.38", default-features = false }
 egui-sdl2 = { version = "0.12", default-features = false, features = ["glow-backend"] }
-# Pinned to what egui_glow (via egui-sdl2) uses — we hand it our glow::Context,
-# so the versions must match. Can only move when egui_glow bumps glow.
+# Must match egui_glow's glow: we hand it our glow::Context.
 glow = "0.17"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -49,49 +44,37 @@ toml = "1.1"
 log = "0.4"
 env_logger = "0.11"
 png = "0.18"
-# Outbound HTTP(S): register replies + uploads. Verification is disabled per
-# request — LocalSend's trust model is the certificate fingerprint, not a CA.
+# Certificate verification is off: LocalSend trusts the fingerprint, not a CA.
 ureq = { version = "3", default-features = false, features = ["rustls"] }
-# The HTTPS mode of the protocol: our self-signed identity (rcgen, generated
-# once, persisted in the data dir) served via rustls; the announce fingerprint
-# is the SHA-256 of the certificate.
-# Patch floor, not a pin: bare "0.23" also admits 0.23.13..=0.23.17, which panic
-# in Acceptor::accept (RUSTSEC-2024-0399, fixed in 0.23.18).
+# A floor, not a pin: 0.23.13..=0.23.17 panic in Acceptor::accept
+# (RUSTSEC-2024-0399).
 rustls = { version = "0.23.42", default-features = false, features = ["ring", "std"] }
-# Default features are off only to drop rcgen's `pem`: we read its DER output,
-# and that feature pins pem 3, duplicating the crate against our own.
+# No default features: its `pem` pins pem 3 against our pem 4.
 rcgen = { version = "0.14", default-features = false, features = ["ring"] }
-# Only to hand ureq the stored identity: its client-auth types parse PEM, and
-# the DER constructor's `KeyKind` is not exported.
+# ureq's client-auth types take PEM only; the DER constructor's KeyKind is private.
 pem = "4"
 sha2 = "0.11"
-# Only for SO_REUSEADDR/SO_REUSEPORT before binding UDP 53317 — std can't set
-# them pre-bind, and without them we can't coexist with the official LocalSend
-# app on the dev machine. The socket converts into std::net::UdpSocket after.
+# SO_REUSEADDR/SO_REUSEPORT before bind, which std can't set: shares UDP 53317
+# with the official app on one machine.
 socket2 = { version = "0.6", features = ["all"] }
-# Random session ids / tokens / fingerprint; a hex helper in net::protocol is
-# all we need on top, so no uuid/rand.
+# Session ids, tokens and fingerprints; no uuid/rand needed.
 getrandom = "0.4"
-# `sigwait`, so the launcher's SIGTERM stops the net threads rather than killing
-# the process where it stands. Already in the tree under SDL.
+# `sigwait`, so a launcher's SIGTERM shuts down cleanly.
 libc = "0.2"
 
-# Android: SDL loads our cdylib and calls the C `SDL_main` we export. There is no
-# stderr to mirror to a file, so `log` goes to logcat via android_logger.
+# Android has no stderr: logs go to logcat.
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.15"
 
-# PS Vita: SDL2 comes from VitaSDK as a static library, and only its pkg-config
-# file lists the Sce*_stub libraries it needs after it.
+# VitaSDK's static SDL2: only its pkg-config file lists the Sce*_stub libraries.
 [target.'cfg(target_os = "vita")'.dependencies]
 sdl2 = { version = "0.38", default-features = false, features = ["use-pkgconfig"] }
 
 [package.metadata.vita]
 title_id = "RTSD00001"
 title_name = "Retsend"
-assets = "vita/assets"
-# Not safe mode (cargo-vita's default `-s`): a safe app may not bind a socket,
-# and the receiver has to listen.
+assets = "packaging/vita/assets"
+# Not safe mode (cargo-vita's default `-s`): a safe app may not listen on a port.
 vita_make_fself_flags = []
 
 [package.metadata.vita.profile.vita]

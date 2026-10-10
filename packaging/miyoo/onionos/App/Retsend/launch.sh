@@ -5,16 +5,13 @@ miyoodir=/mnt/SDCARD/miyoo
 gamedir=$(cd "$(dirname "$0")" && pwd)
 cd "$gamedir" || exit 1
 
-# Our SDL2 first, preloaded like every SDL2 port here; the card and the firmware
-# carry what it links against. `lib/fallback` goes last, unused here.
+# Bundled SDL2 first (lib/README.md); lib/fallback last, for libraries the card lacks.
 export LD_LIBRARY_PATH="$gamedir/lib:$sysdir/lib/parasyte:$sysdir/lib:$miyoodir/lib:/lib:/config/lib:/customer/lib:$gamedir/lib/fallback"
 export LD_PRELOAD="$gamedir/lib/libSDL2-2.0.so.0"
 export SDL_VIDEODRIVER=Mini
 export EGL_VIDEODRIVER=Mini
-# SDL lists its own `software` driver ahead of the panel's, and what that one
-# draws never reaches the screen, so name the panel's outright.
+# SDL's `software` driver comes first otherwise and never reaches the panel.
 export SDL_RENDER_DRIVER="Miyoo Mini"
-# No SDL_AUDIODRIVER: a file transfer never opens the audio subsystem.
 
 # The stock HOME is read-only rootfs; keep writable paths on the card.
 export HOME="$gamedir"
@@ -23,11 +20,11 @@ export RETSEND_SAVE_DIR=/mnt/SDCARD/Roms
 export RETSEND_PANIC_FILE="$gamedir/retsend-panic.log"
 export RETSEND_SOFTWARE=1 # no GPU on the SSD202
 export RETSEND_BLIT=1     # the panel driver shows texture copies and nothing else
-# The pad layout follows the video driver's name, which this build spells `Mini`.
+# Layout detection expects the driver name `mmiyoo`; this build says `Mini`.
 export RETSEND_KEYMAP=miyoo
 #export RETSEND_LOG_LEVEL=debug
 
-# Nothing here raises an SDL quit event, so MENU is the way out.
+# Onion's helper kills the app on MENU.
 "$sysdir/bin/pressMenu2Kill" retsend &
 ./retsend >log.txt 2>&1
 pkill -9 pressMenu2Kill

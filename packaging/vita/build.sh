@@ -1,18 +1,16 @@
 #!/bin/sh
-# Builds the PS Vita package, target/armv7-sony-vita-newlibeabihf/vita/retsend.vpk.
+# Builds target/armv7-sony-vita-newlibeabihf/vita/retsend.vpk.
 #
-# Needs VitaSDK (with its sdl2 package) in $VITASDK, cargo-vita, and a nightly
-# toolchain with rust-src, `nightly` unless $VITA_TOOLCHAIN names one: the
-# target is tier 3, so std is built from source.
+# Needs VitaSDK with its sdl2 package in $VITASDK, cargo-vita, and a nightly with
+# rust-src ($VITA_TOOLCHAIN, default `nightly`).
 #
-# ring 0.17.14 compiles its ARM assembly only for the OSes it lists, and the
-# Vita joined that list after the release (briansmith/ring#2749). Until a
-# release carries it, a patched copy of the registry crate stands in, wired up
-# by vita/.cargo/config.toml, which cargo reads only when run from vita/.
-# TODO: drop the copy once a ring release names the Vita among its asm targets.
+# ring 0.17.14 builds no ARM assembly for the Vita (fixed upstream after the
+# release, briansmith/ring#2749), so a patched copy stands in, wired by
+# .cargo/config.toml beside this script.
+# TODO: drop the copy once a ring release includes the fix.
 set -eu
 
-root=$(cd "$(dirname "$0")/.." && pwd)
+root=$(cd "$(dirname "$0")/../.." && pwd)
 : "${VITASDK:?VITASDK must point at the VitaSDK install}"
 export PATH="$VITASDK/bin:$PATH"
 toolchain=${VITA_TOOLCHAIN:-nightly}
@@ -29,10 +27,9 @@ grep -q '"horizon", "vita"' "$ring_dst/build.rs" || {
   exit 1
 }
 
-# The patch rewrites ring's lock entry as a path dependency; the committed
-# lockfile stays the crates.io one.
+# The patch rewrites ring's lock entry; keep the committed one.
 cp "$root/Cargo.lock" "$root/target/Cargo.lock.vita-orig"
 trap 'mv "$root/target/Cargo.lock.vita-orig" "$root/Cargo.lock"' EXIT
 
-cd "$root/vita"
+cd "$root/packaging/vita"
 cargo "+$toolchain" vita build vpk --profile vita "$@"

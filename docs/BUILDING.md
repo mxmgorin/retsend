@@ -48,7 +48,7 @@ With [VitaSDK](https://vitasdk.org) and its `sdl2` package, a nightly toolchain
 with `rust-src`, and `cargo install cargo-vita`:
 
 ```sh
-VITASDK=/usr/local/vitasdk vita/build.sh   # target/armv7-sony-vita-newlibeabihf/vita/retsend.vpk
+VITASDK=/usr/local/vitasdk packaging/vita/build.sh   # target/armv7-sony-vita-newlibeabihf/vita/retsend.vpk
 ```
 
 The script patches a copy of ring until a release builds its assembly for the

@@ -12,8 +12,8 @@ permissions:
   contents: write
 
 env:
-  # The target is tier 3: std is built from source, which takes a nightly. A
-  # dated one, so a nightly regression can't break the build overnight.
+  # Tier 3: std is built from source, which needs nightly. Dated, so a nightly
+  # regression can't break the build.
   VITA_TOOLCHAIN: "nightly-2026-05-31"
   CARGO_VITA_VERSION: "0.2.2"
 
@@ -43,12 +43,11 @@ jobs:
 
       - name: Build
         env:
-          # The vita profile inherits release; CI gives it the slow settings.
           CARGO_PROFILE_VITA_LTO: "fat"
           CARGO_PROFILE_VITA_CODEGEN_UNITS: "1"
         run: |
           set -eux
-          vita/build.sh
+          packaging/vita/build.sh
           cp target/armv7-sony-vita-newlibeabihf/vita/retsend.vpk retsend-vita.vpk
           sha256sum retsend-vita.vpk > retsend-vita.vpk.sha256
 

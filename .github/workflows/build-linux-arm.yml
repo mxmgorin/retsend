@@ -12,9 +12,8 @@ permissions:
   contents: write
 
 env:
-  # The oldest userland we target: OnionOS (Miyoo Mini Plus) is glibc 2.28, ArkOS
-  # 2.30. zig supplies stubs for it, so this is the whole floor decision — no
-  # archived distro to build in. Keep in step with tools/arm/glibc-floor.
+  # Oldest userland targeted (OnionOS); zig links against its stubs.
+  # Keep in step with tools/arm/glibc-floor.
   GLIBC_FLOOR: "2.28"
   ZIG_VERSION: "0.15.2"
   ZIGBUILD_VERSION: "0.23.0"
@@ -22,8 +21,7 @@ env:
 
 jobs:
   build:
-    # One build per arch, shared by every package below, so the binary in the
-    # PortMaster zip is the same file the OnionOS zip ships.
+    # One binary per arch, shared by every package below.
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -42,7 +40,6 @@ jobs:
       - name: Rust toolchain
         run: |
           set -eux
-          # rust-toolchain.toml pins the channel; rustup honors it.
           rustup target add ${{ matrix.target }}
           rustc --version
 
@@ -61,8 +58,7 @@ jobs:
       - name: SDL2 for linking
         run: |
           set -eux
-          # Only its symbols matter; the device loads its own SDL2. Ubuntu's is
-          # 2.0.20, which predates SDL_RenderGeometry, so take Debian's.
+          # Link-time only; Debian's, as Ubuntu's 2.0.20 lacks SDL_RenderGeometry.
           pool=http://deb.debian.org/debian/pool/main/libs/libsdl2
           mkdir -p /opt/sdl2
           for pkg in libsdl2-2.0-0 libsdl2-dev; do
@@ -73,14 +69,11 @@ jobs:
 
       - name: Build
         env:
-          # CI performance build; kept out of Cargo.toml so local release builds
-          # stay fast to compile. No -C target-cpu: any ARMv7/ARMv8.0+ core.
+          # Kept out of Cargo.toml so local release builds stay fast.
           CARGO_PROFILE_RELEASE_LTO: "fat"
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
-          # No linker override: cargo-zigbuild points the linker and cc at zig,
-          # and a -C linker of our own would opt out of it.
-          # --allow-shlib-undefined: this libSDL2 pulls in X11/wayland/alsa/gbm,
-          # which the sysroot lacks and we never call.
+          # This libSDL2 needs X11/wayland/alsa/gbm, absent from the sysroot and
+          # never called.
           RUSTFLAGS: "-L /opt/sdl2/usr/lib/${{ matrix.libdir }} -C link-arg=-Wl,--allow-shlib-undefined"
         run: |
           set -eux
@@ -96,8 +89,7 @@ jobs:
       - name: Check the glibc floor
         run: |
           set -eux
-          # Above the floor the loader refuses the binary on the device, which is
-          # how this port broke the first time. Fail here instead of there.
+          # A symbol above the floor makes the device's loader refuse the binary.
           newer=$(readelf -V dist/retsend | grep -o 'GLIBC_2\.[0-9]*' | sort -uV \
             | awk -F. -v f="${GLIBC_FLOOR#2.}" '$2 > f' | tr '\n' ' ')
           if [ -n "$newer" ]; then
@@ -133,14 +125,13 @@ jobs:
           pm=portmaster-dist
           rm -rf "$pm"
           mkdir -p "$pm/retsend"
-          # Only the launcher sits at the port root; everything else lives in
-          # the retsend/ gamedir, matching installed-port layout.
-          cp "portmaster/Retsend.sh" "$pm/"
-          cp portmaster/port.json "$pm/retsend/"
-          cp portmaster/gameinfo.xml "$pm/retsend/"
-          cp portmaster/README.md "$pm/retsend/"
-          cp portmaster/screenshot.png "$pm/retsend/"
-          cp -r portmaster/retsend/. "$pm/retsend/"
+          # Installed-port layout: the launcher at the root, the rest in retsend/.
+          cp packaging/portmaster/Retsend.sh "$pm/"
+          cp packaging/portmaster/port.json "$pm/retsend/"
+          cp packaging/portmaster/gameinfo.xml "$pm/retsend/"
+          cp packaging/portmaster/README.md "$pm/retsend/"
+          cp packaging/portmaster/screenshot.png "$pm/retsend/"
+          cp -r packaging/portmaster/retsend/. "$pm/retsend/"
           rm -f "$pm/retsend/.gitkeep"
           # Artifacts travel as zips, which drop file modes.
           install -m 755 bin/aarch64/retsend "$pm/retsend/retsend.aarch64"
@@ -194,10 +185,11 @@ jobs:
           pkg=onionos-dist
           rm -rf "$pkg"
           mkdir -p "$pkg"
-          # The zip mirrors the card, so it unzips at the SD root and the app
-          # lands in App/Retsend/ where MainUI looks for it.
-          cp -r onionos/App "$pkg/"
-          cp onionos/README.md "$pkg/App/Retsend/"
+          # Mirrors the card: unzipped at the SD root.
+          cp -r packaging/miyoo/onionos/App "$pkg/"
+          cp packaging/miyoo/onionos/README.md "$pkg/App/Retsend/"
+          cp packaging/miyoo/shared/icon.png "$pkg/App/Retsend/"
+          cp -r packaging/miyoo/shared/lib "$pkg/App/Retsend/"
           install -m 755 bin/retsend "$pkg/App/Retsend/retsend"
           chmod 755 "$pkg/App/Retsend/launch.sh"
           ls -laR "$pkg"
@@ -223,7 +215,7 @@ jobs:
             retsend-onionos.zip
             retsend-onionos.zip.sha256
 
-  spruce:
+  spruce-armhf:
     needs: build
     runs-on: ubuntu-22.04
     steps:
@@ -237,18 +229,15 @@ jobs:
       - name: Assemble the card layout
         run: |
           set -eux
-          pkg=spruce-dist
+          pkg=spruce-armhf-dist
           app=$pkg/App/Retsend
           rm -rf "$pkg"
           mkdir -p "$app"
-          # spruce reads App/ as OnionOS does; what differs is the launcher and a
-          # config.json carrying the device list and the Simple Mode flag. The
-          # icon and the bundled SDL2 come from the one tree rather than a second
-          # copy that would drift from it.
-          cp spruce/App/Retsend/config.json spruce/App/Retsend/launch.sh "$app/"
-          cp spruce/README.md "$app/"
-          cp onionos/App/Retsend/icon.png "$app/"
-          cp -r onionos/App/Retsend/lib "$app/"
+          # The OnionOS layout with spruce's launcher and config.json.
+          cp packaging/miyoo/spruceos/App/Retsend/config.json packaging/miyoo/spruceos/App/Retsend/launch.sh "$app/"
+          cp packaging/miyoo/spruceos/README.md "$app/"
+          cp packaging/miyoo/shared/icon.png "$app/"
+          cp -r packaging/miyoo/shared/lib "$app/"
           install -m 755 bin/retsend "$app/retsend"
           chmod 755 "$app/launch.sh"
           ls -laR "$pkg"
@@ -256,23 +245,23 @@ jobs:
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: retsend-spruceos
-          path: spruce-dist
+          name: retsend-spruceos-armhf
+          path: spruce-armhf-dist
 
       - name: Zip for release
         if: github.event_name == 'release'
         run: |
           set -eux
-          (cd spruce-dist && zip -r ../retsend-spruceos.zip .)
-          sha256sum retsend-spruceos.zip > retsend-spruceos.zip.sha256
+          (cd spruce-armhf-dist && zip -r ../retsend-spruceos-armhf.zip .)
+          sha256sum retsend-spruceos-armhf.zip > retsend-spruceos-armhf.zip.sha256
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            retsend-spruceos.zip
-            retsend-spruceos.zip.sha256
+            retsend-spruceos-armhf.zip
+            retsend-spruceos-armhf.zip.sha256
 
   spruce-aarch64:
     needs: build
@@ -292,13 +281,13 @@ jobs:
           app=$pkg/App/Retsend
           rm -rf "$pkg"
           mkdir -p "$app/retsend"
-          # The port as an app: its launcher beside the retsend/ gamedir.
-          cp spruce-aarch64/App/Retsend/config.json spruce-aarch64/App/Retsend/launch.sh "$app/"
-          cp onionos/App/Retsend/icon.png "$app/"
-          cp portmaster/Retsend.sh "$app/"
-          cp portmaster/port.json portmaster/gameinfo.xml portmaster/README.md \
-            portmaster/screenshot.png "$app/retsend/"
-          cp -r portmaster/retsend/. "$app/retsend/"
+          # The PortMaster port as an app, run by spruce's ports launcher.
+          cp packaging/spruce/App/Retsend/config.json packaging/spruce/App/Retsend/launch.sh "$app/"
+          cp packaging/miyoo/shared/icon.png "$app/"
+          cp packaging/portmaster/Retsend.sh "$app/"
+          cp packaging/portmaster/port.json packaging/portmaster/gameinfo.xml \
+            packaging/portmaster/README.md packaging/portmaster/screenshot.png "$app/retsend/"
+          cp -r packaging/portmaster/retsend/. "$app/retsend/"
           rm -f "$app/retsend/.gitkeep"
           install -m 755 bin/retsend "$app/retsend/retsend.aarch64"
           chmod 755 "$app/launch.sh" "$app/Retsend.sh"
@@ -343,20 +332,15 @@ jobs:
           app=$pkg/Apps/Retsend.pak
           rm -rf "$pkg"
           mkdir -p "$app"
-          # The same device as the OnionOS package, a different launcher: Allium
-          # reads Apps/, and only a folder ending in .pak is an app to it. The
-          # bundled SDL2 comes from the one tree rather than a second copy that
-          # would drift from it.
-          cp allium/Apps/Retsend.pak/config.json allium/Apps/Retsend.pak/launch.sh "$app/"
-          # Carried, not installed: copied into Roms/PORTS it puts the app in the
-          # Games tab, handing over to this one install.
-          cp -r allium/Apps/Retsend.pak/ports "$app/"
+          # Allium only takes a folder ending in .pak as an app.
+          cp packaging/miyoo/allium/Apps/Retsend.pak/config.json packaging/miyoo/allium/Apps/Retsend.pak/launch.sh "$app/"
+          # Optional: copied into Roms/PORTS, it lists the app in the Games tab.
+          cp -r packaging/miyoo/allium/Apps/Retsend.pak/ports "$app/"
           chmod 755 "$app/ports/Retsend.port/launch.sh"
-          cp allium/README.md "$app/"
-          # Allium draws app icons on its own dark list, so it gets the plated
-          # icon rather than the transparent glyph OnionOS themes want.
+          cp packaging/miyoo/allium/README.md "$app/"
+          # Allium's list wants the plated icon, not OnionOS's transparent glyph.
           cp resources/icon.png "$app/"
-          cp -r onionos/App/Retsend/lib "$app/"
+          cp -r packaging/miyoo/shared/lib "$app/"
           install -m 755 bin/retsend "$app/retsend"
           chmod 755 "$app/launch.sh"
           ls -laR "$pkg"
@@ -400,13 +384,11 @@ jobs:
           app=$pkg/Retsend
           rm -rf "$pkg"
           mkdir -p "$app"
-          # Archive Manager unpacks a .muxapp into MUOS/application/, so the
-          # folder at the archive root is the installed app.
-          cp muos/mux_launch.sh "$app/"
-          cp muos/README.md "$app/"
-          # The glyph the app list falls back to, named after the ICON header.
-          # 24x24, the size themes cut theirs to: muOS draws it at native size.
-          cp -r muos/glyph "$app/"
+          # Archive Manager unpacks the root folder into MUOS/application/.
+          cp packaging/muos/mux_launch.sh "$app/"
+          cp packaging/muos/README.md "$app/"
+          # Named after the ICON header; 24x24, as muOS draws it unscaled.
+          cp -r packaging/muos/glyph "$app/"
           install -m 755 bin/retsend "$app/retsend"
           chmod 755 "$app/mux_launch.sh"
           ls -laR "$pkg"

@@ -9,7 +9,7 @@
     "attr": {
         "title": "retsend",
         "porter": [
-            "Troidem"
+            "mxmgorin"
         ],
         "desc": "Send and receive files between this device and your phone or PC over wifi, using the LocalSend protocol — no cable, no SSH. Works with the official LocalSend apps. Gamepad-first UI: a radar of nearby devices, transfer dialogs, and an on-screen keyboard.",
         "desc_md": null,
