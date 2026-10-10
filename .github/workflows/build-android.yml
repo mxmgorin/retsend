@@ -14,12 +14,23 @@ permissions:
 env:
   NDK_VERSION: "27.2.12479018" # r27c
   ANDROID_API: "24"
-  ABI: "arm64-v8a"
-  RUST_TARGET: "aarch64-linux-android"
 
 jobs:
   build-android:
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - abi: arm64-v8a
+            rust_target: aarch64-linux-android
+            name: arm64
+          - abi: armeabi-v7a
+            rust_target: armv7-linux-androideabi
+            name: armv7
+    env:
+      ABI: ${{ matrix.abi }}
+      RUST_TARGET: ${{ matrix.rust_target }}
+      APK: retsend-android-${{ matrix.name }}.apk
     steps:
       - uses: actions/checkout@v4
 
@@ -41,7 +52,6 @@ jobs:
       - name: Rust toolchain
         run: |
           set -eux
-          # rust-toolchain.toml pins the channel; rustup honors it.
           rustup show
           rustup target add "${RUST_TARGET}"
 
@@ -53,18 +63,16 @@ jobs:
         run: cargo fetch
 
       - name: Sync SDL glue + build libSDL2.so
-        run: bash android/scripts/sync-sdl.sh
+        run: bash android/scripts/sync-sdl.sh "${ABI}"
 
       - name: Build Rust cdylib
         env:
-          # CI performance build, kept out of Cargo.toml so local release builds
-          # stay fast to compile.
+          # Kept out of Cargo.toml so local release builds stay fast.
           CARGO_PROFILE_RELEASE_LTO: "fat"
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
         run: |
           set -eux
-          # NDK r23+ dropped libgcc but rustc still emits -lgcc; stub it to
-          # libunwind. The -L paths are in .cargo/config.toml.
+          # NDK r23+ has no libgcc, which rustc still links; see .cargo/config.toml.
           mkdir -p target/ndk-libgcc-stub
           echo "INPUT(-lunwind)" > target/ndk-libgcc-stub/libgcc.a
           cargo ndk -t "${ABI}" -P "${ANDROID_API}" \
@@ -98,28 +106,28 @@ jobs:
         run: |
           set -eux
           cd android
-          ./gradlew --no-daemon assembleRelease
+          ./gradlew --no-daemon -Pabi="${ABI}" assembleRelease
           ls -la app/build/outputs/apk/release/
 
       - name: Stage the APK
         run: |
           set -eux
-          cp android/app/build/outputs/apk/release/app-release.apk retsend-android-arm64.apk
+          cp android/app/build/outputs/apk/release/app-release.apk "${APK}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: retsend-android-arm64
-          path: retsend-android-arm64.apk
+          name: retsend-android-${{ matrix.name }}
+          path: ${{ env.APK }}
 
-      - name: Upload to GitHub Release
+      - name: Checksum
         if: github.event_name == 'release'
-        run: sha256sum retsend-android-arm64.apk > retsend-android-arm64.apk.sha256
+        run: sha256sum "${APK}" > "${APK}.sha256"
 
       - name: Attach APK to release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            retsend-android-arm64.apk
-            retsend-android-arm64.apk.sha256
+            ${{ env.APK }}
+            ${{ env.APK }}.sha256

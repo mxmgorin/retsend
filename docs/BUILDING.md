@@ -35,9 +35,10 @@ The packages are assembled in
 With the Android SDK and an NDK:
 
 ```sh
-rustup target add aarch64-linux-android
+rustup target add aarch64-linux-android armv7-linux-androideabi
 cargo install cargo-ndk --locked
-./android/scripts/build.sh release   # android/app/build/outputs/apk/release/app-release.apk
+./android/scripts/build.sh release               # arm64-v8a
+./android/scripts/build.sh release armeabi-v7a   # 32-bit
 ```
 
 See [android/README.md](../android/README.md).

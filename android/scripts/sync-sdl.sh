@@ -4,17 +4,18 @@
 #
 #   1. Java glue   -> app/src/main/java/org/libsdl/app/*.java
 #   2. Gradle wrapper jar + gradlew (so ./gradlew works without a system Gradle)
-#   3. libSDL2.so, built from that same SDL source for arm64-v8a
-#   4. libc++_shared.so, from the NDK sysroot
+#   3. libSDL2.so, built from that same SDL source for each ABI
+#   4. libc++_shared.so, from the NDK sysroot, for each ABI
 #   5. Launcher icons, into the generated res/mipmap-* dirs
 #
-# Run `cargo fetch` first so the sdl2-sys source is present. Requires
-# ANDROID_NDK_HOME (or ANDROID_NDK) and cmake on PATH.
+# ABIs are the arguments, arm64-v8a and armeabi-v7a by default. Run `cargo fetch`
+# first so the sdl2-sys source is present. Requires ANDROID_NDK_HOME (or
+# ANDROID_NDK) and cmake on PATH.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # android/
 repo="$(cd "$here/.." && pwd)"
-abi="arm64-v8a"
+if [ $# -gt 0 ]; then abis=("$@"); else abis=(arm64-v8a armeabi-v7a); fi
 api="24"
 
 ndk="${ANDROID_NDK_HOME:-${ANDROID_NDK:-}}"
@@ -48,23 +49,27 @@ cp "$sdl_proj/gradle/wrapper/gradle-wrapper.jar" "$here/gradle/wrapper/"
 cp "$sdl_proj/gradlew" "$sdl_proj/gradlew.bat" "$here/"
 chmod +x "$here/gradlew"
 
-# 3. libSDL2.so
-jnilibs="$here/app/src/main/jniLibs/$abi"
-mkdir -p "$jnilibs"
-build="$repo/target/sdl-android-$abi"
-"$cmake_bin" -S "$sdl_src" -B "$build" \
-    -DCMAKE_TOOLCHAIN_FILE="$ndk/build/cmake/android.toolchain.cmake" \
-    -DANDROID_ABI="$abi" -DANDROID_PLATFORM="android-$api" \
-    -DSDL_STATIC=OFF -DSDL_SHARED=ON \
-    -DSDL_SENSOR=OFF >/dev/null   # SDL 2.26's Android sensor calls ALooper_pollAll,
-                                  # gone from the NDK 27 headers and unused here.
-"$cmake_bin" --build "$build" --target SDL2 -j"$(nproc 2>/dev/null || echo 4)" >/dev/null
-cp "$build"/libSDL2.so "$jnilibs/"
-
-# 4. libc++_shared.so
+# 3-4. libSDL2.so and libc++_shared.so, per ABI
 host="linux-x86_64"; [ "$(uname)" = "Darwin" ] && host="darwin-x86_64"
-cp "$ndk/toolchains/llvm/prebuilt/$host/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" \
-    "$jnilibs/"
+for abi in "${abis[@]}"; do
+    case "$abi" in
+        arm64-v8a) triple=aarch64-linux-android ;;
+        armeabi-v7a) triple=arm-linux-androideabi ;;
+        *) echo "unsupported ABI: $abi"; exit 1 ;;
+    esac
+    jnilibs="$here/app/src/main/jniLibs/$abi"
+    mkdir -p "$jnilibs"
+    build="$repo/target/sdl-android-$abi"
+    "$cmake_bin" -S "$sdl_src" -B "$build" \
+        -DCMAKE_TOOLCHAIN_FILE="$ndk/build/cmake/android.toolchain.cmake" \
+        -DANDROID_ABI="$abi" -DANDROID_PLATFORM="android-$api" \
+        -DSDL_STATIC=OFF -DSDL_SHARED=ON \
+        -DSDL_SENSOR=OFF >/dev/null   # SDL 2.26's Android sensor calls ALooper_pollAll,
+                                      # gone from the NDK 27 headers and unused here.
+    "$cmake_bin" --build "$build" --target SDL2 -j"$(nproc 2>/dev/null || echo 4)" >/dev/null
+    cp "$build"/libSDL2.so "$jnilibs/"
+    cp "$ndk/toolchains/llvm/prebuilt/$host/sysroot/usr/lib/$triple/libc++_shared.so" "$jnilibs/"
+done
 
 # 5. Icons. res/mipmap-* is generated, so lay down SDL's placeholder for every
 #    density first (keeping @mipmap/ic_launcher resolvable) and overlay ours.

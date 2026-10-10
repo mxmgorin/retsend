@@ -71,7 +71,7 @@ Download the package for your system. All builds are on
 | [spruceOS](https://github.com/spruceUI/spruceOS) | [`retsend-spruceos-aarch64.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-spruceos-aarch64.zip), [`retsend-spruceos-armhf.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-spruceos-armhf.zip) (Miyoo Mini) | root of the SD card, lands in `App/Retsend/` |
 | [NextUI](https://github.com/LoveRetro/NextUI), [NX Redux](https://github.com/mohammadsyuhada/nx-redux) | [`retsend-nextui.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-nextui.zip) | root of the SD card, lands in `Tools/` |
 | PS Vita ([HENkaku](https://henkaku.xyz/)) | [`retsend-vita.vpk`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-vita.vpk) | install with VitaShell |
-| Android | [`retsend-android-arm64.apk`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-android-arm64.apk) | sideload it |
+| Android | [`retsend-android-arm64.apk`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-android-arm64.apk), [`retsend-android-armv7.apk`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-android-armv7.apk) (32-bit) | sideload it |
 | Linux | [`retsend-linux-x86_64.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-linux-x86_64.zip), [`retsend-linux-aarch64.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-linux-aarch64.zip), [`retsend-linux-armhf.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-linux-armhf.zip) | unpack and run |
 
 The app shows up in the Apps (or Applications) menu. How to quit on each system is

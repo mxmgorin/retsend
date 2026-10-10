@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   launcher at a gamedir outside `ports/`.
 - **A NextUI and NX Redux package**, `retsend-nextui.zip`, for the TrimUI Brick
   and Smart Pro (S): a pak under `Tools/`. B on the home screen quits.
+- **A 32-bit Android APK**, `retsend-android-armv7.apk`, for armeabi-v7a phones
+  ([#50](https://github.com/mxmgorin/retsend/issues/50)).
 - **A PS Vita port**, `retsend-vita.vpk`, built by `packaging/vita/build.sh` with VitaSDK
   and cargo-vita. It draws through SDL's GXM renderer at 960x544, keeps its
   config, log and received files under `ux0:/data/mxmgorin/retsend/`, offers the
