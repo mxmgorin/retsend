@@ -314,6 +314,50 @@ jobs:
             retsend-spruceos-aarch64.zip
             retsend-spruceos-aarch64.zip.sha256
 
+  nextui:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: retsend-linux-aarch64
+          path: bin
+
+      - name: Assemble the card layout
+        run: |
+          set -eux
+          pkg=nextui-dist
+          rm -rf "$pkg"
+          mkdir -p "$pkg"
+          # The tg5040 pak holds the app; the tg5050 one hands over to it.
+          cp -r packaging/nextui/Tools "$pkg/"
+          install -m 755 bin/retsend "$pkg/Tools/tg5040/Retsend.pak/retsend"
+          chmod 755 "$pkg"/Tools/*/Retsend.pak/launch.sh
+          ls -laR "$pkg"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: retsend-nextui
+          path: nextui-dist
+
+      - name: Zip for release
+        if: github.event_name == 'release'
+        run: |
+          set -eux
+          (cd nextui-dist && zip -r ../retsend-nextui.zip .)
+          sha256sum retsend-nextui.zip > retsend-nextui.zip.sha256
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            retsend-nextui.zip
+            retsend-nextui.zip.sha256
+
   allium:
     needs: build
     runs-on: ubuntu-22.04

@@ -24,7 +24,7 @@ Cross-builds run in Docker, the way CI does them:
 
 ```sh
 tools/arm/build.sh armhf     # Miyoo Mini
-tools/arm/build.sh aarch64   # PortMaster, muOS, spruceOS aarch64
+tools/arm/build.sh aarch64   # PortMaster, muOS, spruceOS aarch64, NextUI
 ```
 
 The packages are assembled in
