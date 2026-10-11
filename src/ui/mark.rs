@@ -8,7 +8,7 @@ use std::sync::OnceLock;
 /// Hero height (logical px), shared by the Send, Receive and About screens.
 pub const HERO_SIZE: f32 = 96.0;
 
-static MARK_PNG: &[u8] = include_bytes!("../../resources/retsend-mark.png");
+static MARK_PNG: &[u8] = include_bytes!("../../resources/icon/retsend-mark.png");
 
 /// Held for the app's lifetime so egui keeps the texture resident. `None`
 /// after a failed decode, so the hero silently drops out rather than retrying.

@@ -384,7 +384,7 @@ jobs:
           chmod 755 "$app/ports/Retsend.port/launch.sh"
           cp packaging/miyoo/allium/README.md "$app/"
           # Allium's list wants the plated icon, not OnionOS's transparent glyph.
-          cp resources/icon.png "$app/"
+          cp resources/icon/icon.png "$app/"
           cp -r packaging/miyoo/shared/lib "$app/"
           install -m 755 bin/retsend "$app/retsend"
           chmod 755 "$app/launch.sh"

@@ -85,7 +85,7 @@ fn blit_first() -> bool {
 /// Bare-kmsdrm has no window-icon concept, so SDL no-ops there harmlessly.
 fn set_window_icon(window: &mut sdl2::video::Window) {
     use sdl2::pixels::PixelFormatEnum;
-    static ICON_PNG: &[u8] = include_bytes!("../../resources/icon.png");
+    static ICON_PNG: &[u8] = include_bytes!("../../resources/icon/icon.png");
 
     let mut reader = match png::Decoder::new(std::io::Cursor::new(ICON_PNG)).read_info() {
         Ok(r) => r,

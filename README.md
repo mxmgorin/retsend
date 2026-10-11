@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/retsend-banner.png" alt="retsend: a LocalSend client for retro handhelds" width="640">
+  <img src="resources/brand/retsend-banner.png" alt="retsend: a LocalSend client for retro handhelds" width="640">
 </p>
 
 <div align="center">
@@ -23,11 +23,11 @@ retsend is a [LocalSend](https://localsend.org) client for retro handhelds, writ
 
 | Receive | Request | Save | Transfer |
 |:---:|:---:|:---:|:---:|
-| ![Waiting for a sender, showing the device name, address, Wi-Fi network and the folder files land in](resources/retsend_receive.png) | ![An incoming request naming the sender, its files and where they land, counting down to the automatic decline](resources/retsend_request.png) | ![Picking the folder an incoming transfer lands in, the request still counting down](resources/retsend_save.png) | ![A transfer in progress: overall bar with bytes, speed and ETA, and a percentage per file](resources/retsend_transfer.png) |
+| ![Waiting for a sender, showing the device name, address, Wi-Fi network and the folder files land in](resources/screenshots/receive.png) | ![An incoming request naming the sender, its files and where they land, counting down to the automatic decline](resources/screenshots/request.png) | ![Picking the folder an incoming transfer lands in, the request still counting down](resources/screenshots/save.png) | ![A transfer in progress: overall bar with bytes, speed and ETA, and a percentage per file](resources/screenshots/transfer.png) |
 
 | Send | History | Settings | Save routes |
 |:---:|:---:|:---:|:---:|
-| ![Radar of a discovered device with its model and address](resources/retsend_send.png) | ![Sent and received transfers with file counts, sizes, times and the folders they used](resources/retsend_history.png) | ![Settings on the device: name, save folder, quick save, file handling and port](resources/retsend_settings.png) | ![Save routes: received files go to a folder by extension, over the console folders detected on the card](resources/retsend_routes.png) |
+| ![Radar of a discovered device with its model and address](resources/screenshots/send.png) | ![Sent and received transfers with file counts, sizes, times and the folders they used](resources/screenshots/history.png) | ![Settings on the device: name, save folder, quick save, file handling and port](resources/screenshots/settings.png) | ![Save routes: received files go to a folder by extension, over the console folders detected on the card](resources/screenshots/routes.png) |
 
 ## Features
 
