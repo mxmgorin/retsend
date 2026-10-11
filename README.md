@@ -4,6 +4,7 @@
 
 <div align="center">
   <a href="https://github.com/mxmgorin/retsend/releases/latest"><img src="https://img.shields.io/github/v/release/mxmgorin/retsend?style=flat-square&labelColor=16171a&color=3fb8a0&cacheSeconds=180&label=release" alt="Latest release"></a>
+  <a href="https://github.com/mxmgorin/retsend/releases/tag/nightly"><img src="https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fapi.github.com%2Frepos%2Fmxmgorin%2Fretsend%2Freleases%2Ftags%2Fnightly&search=%22published_at%22%3A%22(%5Cd%7B4%7D-%5Cd%7B2%7D-%5Cd%7B2%7D)&replace=%241&label=nightly&style=flat-square&labelColor=16171a&color=3fb8a0&cacheSeconds=3600" alt="Nightly build date"></a>
   <!-- The check workflow, not a platform build: it is the one a push and a pull request run, and it carries the tests and clippy. -->
   <a href="https://github.com/mxmgorin/retsend/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mxmgorin/retsend/ci.yml?branch=main&style=flat-square&labelColor=16171a&color=3fb8a0&cacheSeconds=180&logo=githubactions&logoColor=white&label=ci" alt="CI"></a>
 </div>
@@ -60,7 +61,9 @@ retsend is a [LocalSend](https://localsend.org) client for retro handhelds, writ
 ## Install
 
 Download the package for your system. All builds are on
-[Releases](https://github.com/mxmgorin/retsend/releases).
+[Releases](https://github.com/mxmgorin/retsend/releases). Nightly builds from `main` use
+the same file names under the rolling
+[`nightly`](https://github.com/mxmgorin/retsend/releases/tag/nightly) tag.
 
 | OS | Package | Where it goes |
 | --- | --- | --- |
