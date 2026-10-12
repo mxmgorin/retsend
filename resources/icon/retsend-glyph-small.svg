@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- The glyph at list-icon sizes: the slats and the arrow's thin band do not survive 24px, so the sun is a disc and the arrow an arc as heavy as the others. -->
+  <g fill="none" stroke="#3fb8a0" stroke-width="64" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 437.5 193.5 A 192 192 0 0 1 437.5 318.5"/>
+    <path d="M 400.9 382.0 A 192 192 0 0 1 292.6 444.5"/>
+    <path d="M 219.4 444.5 A 192 192 0 0 1 111.1 382.0"/>
+    <path d="M 66.2 215.7 A 192 192 0 0 1 398.7 127.5"/>
+    <path d="M 389.5 62.2 L 398.7 127.5 L 334.6 111.6"/>
+  </g>
+  <circle cx="256" cy="256" r="104" fill="#3fb8a0"/>
+</svg>

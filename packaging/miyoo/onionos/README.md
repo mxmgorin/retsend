@@ -1,6 +1,6 @@
 # retsend for OnionOS
 
-Send and receive files between a Miyoo Mini Plus or Mini Flip and your phone or PC
+Transfer files between a Miyoo Mini Plus or Mini Flip and your phone or PC
 over Wi-Fi, using [LocalSend](https://localsend.org).
 
 **Miyoo Mini Plus and Mini Flip only**: the original Mini has no Wi-Fi.

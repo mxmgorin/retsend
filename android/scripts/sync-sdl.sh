@@ -79,11 +79,13 @@ for dir in "$sdl_proj"/app/src/main/res/mipmap-*; do
     mkdir -p "$dst"
     cp "$dir"/ic_launcher.png "$dst/" 2>/dev/null || true
 done
+# Every file: the legacy ic_launcher.png, the adaptive foreground and, under
+# mipmap-anydpi-v26, the adaptive icon itself.
 for dir in "$here"/icon/mipmap-*; do
     [ -d "$dir" ] || continue
     dst="$here/app/src/main/res/$(basename "$dir")"
     mkdir -p "$dst"
-    cp "$dir"/ic_launcher.png "$dst/"
+    cp "$dir"/* "$dst/"
 done
 
 echo "synced SDL glue + libs into $here"

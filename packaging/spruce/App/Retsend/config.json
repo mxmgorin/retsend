@@ -2,7 +2,7 @@
   "label": "Retsend",
   "icon": "icon.png",
   "launch": "launch.sh",
-  "description": "Send and receive files over wifi (LocalSend)",
+  "description": "Transfer files over Wi-Fi (LocalSend)",
   "hideInSimpleMode": false,
   "devices": [
     "MIYOO_FLIP",

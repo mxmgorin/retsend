@@ -3,7 +3,7 @@
   <game>
     <path>./Retsend.sh</path>
     <name>retsend</name>
-    <desc>Transfer files between handhelds, phones and PCs over Wi-Fi, using the LocalSend protocol — no cable, no SSH. Works with the official LocalSend apps: a radar of nearby devices, a gamepad file browser, save routes that sort ROMs into console folders, and transfer history.</desc>
+    <desc>Transfer files between handhelds, phones and PCs over Wi-Fi using the LocalSend protocol — no cables or SSH required. Compatible with the official LocalSend apps, retsend features nearby device discovery, a gamepad-friendly file browser, save routes for sorting ROMs into console folders, and transfer history.</desc>
     <genre>other</genre>
     <developer>mxmgorin</developer>
     <publisher>mxmgorin</publisher>

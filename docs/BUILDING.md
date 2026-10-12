@@ -54,3 +54,10 @@ VITASDK=/usr/local/vitasdk packaging/vita/build.sh   # target/armv7-sony-vita-ne
 
 The script patches a copy of ring until a release builds its assembly for the
 Vita; see its header.
+
+## Icons
+
+`tools/icons.sh` renders the launcher icons from the SVG masters in
+`resources/icon/`: the muOS glyph, the spruceOS icon and the Android adaptive
+foreground. Needs `rsvg-convert` and ImageMagick 7. The OnionOS sticker and the
+Vita assets are drawn by hand.

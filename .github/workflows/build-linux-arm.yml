@@ -264,7 +264,7 @@ jobs:
           # The OnionOS layout with spruce's launcher and config.json.
           cp packaging/miyoo/spruceos/App/Retsend/config.json packaging/miyoo/spruceos/App/Retsend/launch.sh "$app/"
           cp packaging/miyoo/spruceos/README.md "$app/"
-          cp packaging/miyoo/shared/icon.png "$app/"
+          cp packaging/spruce/App/Retsend/icon.png "$app/"
           cp -r packaging/miyoo/shared/lib "$app/"
           install -m 755 bin/retsend "$app/retsend"
           chmod 755 "$app/launch.sh"
@@ -311,7 +311,7 @@ jobs:
           mkdir -p "$app/retsend"
           # The PortMaster port as an app, run by spruce's ports launcher.
           cp packaging/spruce/App/Retsend/config.json packaging/spruce/App/Retsend/launch.sh "$app/"
-          cp packaging/miyoo/shared/icon.png "$app/"
+          cp packaging/spruce/App/Retsend/icon.png "$app/"
           cp packaging/portmaster/Retsend.sh "$app/"
           cp packaging/portmaster/port.json packaging/portmaster/gameinfo.xml \
             packaging/portmaster/README.md packaging/portmaster/screenshot.png "$app/retsend/"
@@ -410,8 +410,8 @@ jobs:
           cp -r packaging/miyoo/allium/Apps/Retsend.pak/ports "$app/"
           chmod 755 "$app/ports/Retsend.port/launch.sh"
           cp packaging/miyoo/allium/README.md "$app/"
-          # Allium's list wants the plated icon, not the transparent glyph.
-          cp resources/icon/icon.png "$app/"
+          # Allium's own apps wear Onion's sticker, white rim and shadow.
+          cp packaging/miyoo/onionos/App/Retsend/icon.png "$app/"
           cp -r packaging/miyoo/shared/lib "$app/"
           install -m 755 bin/retsend "$app/retsend"
           chmod 755 "$app/launch.sh"

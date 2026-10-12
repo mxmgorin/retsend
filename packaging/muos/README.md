@@ -1,6 +1,6 @@
 # retsend for muOS
 
-Send and receive files between a muOS handheld and your phone or PC over Wi-Fi,
+Transfer files between a muOS handheld and your phone or PC over Wi-Fi,
 using [LocalSend](https://localsend.org).
 
 The binary and a launcher, no bundled libraries: muOS carries its own SDL2. It

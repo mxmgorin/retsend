@@ -9,74 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **A spruceOS package for its aarch64 handhelds**, `retsend-spruceos-aarch64.zip`,
-  for the Miyoo Flip, the TrimUI Brick and Smart Pro (S), the Anbernic RG-XX series
-  and the rest. It is the PortMaster port wrapped as an app under `App/Retsend/`,
-  handed to spruce's own ports launcher; `RETSEND_GAMEDIR` points the port's
-  launcher at a gamedir outside `ports/`.
-- **A NextUI and NX Redux package**, `retsend-nextui.zip`, for the TrimUI Brick
-  and Smart Pro (S): a pak under `Tools/`. B on the home screen quits.
-- **Nightly builds**: every package, rebuilt from `main` once a day when CI is
-  green, under the rolling [`nightly`](https://github.com/mxmgorin/retsend/releases/tag/nightly) tag.
-- **A 32-bit Android APK**, `retsend-android-armv7.apk`, for armeabi-v7a phones
-  ([#50](https://github.com/mxmgorin/retsend/issues/50)).
-- **A PS Vita port**, `retsend-vita.vpk`, built by `packaging/vita/build.sh` with VitaSDK
-  and cargo-vita. It draws through SDL's GXM renderer at 960x544, keeps its
-  config, log and received files under `ux0:/data/mxmgorin/retsend/`, offers the
-  Vita's storage devices as browser roots, and labels the hints with the pad's
-  own Cross, Circle, Square and Triangle.
-
-- **A "Swap A/B and X/Y" setting** for pads printed the Nintendo way, and for
-  the Vita's Circle-confirms convention: the pairs trade places, and the hints
-  name the buttons as printed. `[input] swap_abxy` in the config.
+- PS Vita port: GXM renderer at 960x544, data in `ux0:/data/mxmgorin/retsend/`, storage devices as browser roots, Cross/Circle/Square/Triangle hints
+- Face-button swap (`[input] swap_abxy`)
+- Device type icons on the radar and the incoming request; an open padlock on plain-HTTP peers
+- Transfer summary: files, bytes, time and average speed; a bar for the moving file
+- The mark's orbit turns while waiting (`[display] idle_animation`)
+- Splash screen; wordmark on the About screen
+- Launcher icons in each firmware's style, rendered by `tools/icons.sh`; Android adaptive icon
+- spruceOS aarch64, NextUI and NX Redux packages; 32-bit Android APK ([#50](https://github.com/mxmgorin/retsend/issues/50))
+- Nightly builds under the rolling [`nightly`](https://github.com/mxmgorin/retsend/releases/tag/nightly) tag
 
 ### Changed
 
-- **The UI wears the icon's palette.** Teal marks what comes in and what is
-  selected, the sun's coral marks what goes out: the Send tab, a device on the
-  radar, a send's progress and its row in History. Icons are painted from
-  primitives in one stroke weight — the tabs, folders, files, checkboxes, stars
-  and outcome marks that used to come from three fonts and ASCII. Footer hints
-  draw the key they name as a key cap. Rows, cards, toasts and the keyboard
-  share one surface palette.
-- **The brand mark is painted, not a texture**, so the landing screens' hero is
-  the icon at any zoom, its orbit turns while the Receive screen waits and
-  while the radar is empty (smoothly on a GPU, a few frames a second under
-  software rendering; off with **Settings → Idle animation** or
-  `[display] idle_animation = false`), and it fades when there is no network.
-- **The landing screens are a name and one line of status.** Receive shows
-  the device's name; the address, the Wi-Fi network and the save folder sit
-  along the bottom as chips with an icon each, a padlock standing for HTTPS.
-  An empty radar says it is looking, with the network and the add-by-IP hint
-  as chips. The mark is a third larger. A splash of the mark and wordmark
-  covers the start-up, and the About screen carries the wordmark.
-- **A finished transfer sums itself up**: a mark, the files that made it, the
-  bytes, the time it took and the average speed. A moving file has a bar of its
-  own; the overall bar is drawn in the direction's color.
-- **Radar rows and the incoming request show the sender's device type** (phone,
-  desktop, web, headless, server), and a plain-HTTP peer wears an open padlock.
-- **The incoming request's countdown turns red for its last ten seconds**, with
-  the seconds beside it, matching the folder picker.
-- **Settings are grouped** under Device, Receiving, Save routes, Network and
-  Display, and toggles are drawn as switches.
-- **Toasts have a kind**: a refusal or a failure is framed in red with a
-  warning mark, news in the accent with an info mark.
-- **The OnionOS icon matches Onion's own**: outlined, on a white rim with a
-  shadow ([#51](https://github.com/mxmgorin/retsend/issues/51)).
-- **The Miyoo Mini spruceOS package is now `retsend-spruceos-armhf.zip`**, beside
-  `retsend-spruceos-aarch64.zip`.
-- **Touch only taps where it lands on the screen.** Fingers on a pad beside it,
-  such as the Vita's rear touchpad, no longer move the pointer.
-- **A network start-up failure names the step that failed**, not just the errno.
+- The UI uses the icon's palette: teal for incoming and the selection, coral for outgoing
+- Icons painted from primitives in one stroke weight; footer hints drawn as key caps
+- Receive and the empty radar show a name, a status line and info chips; larger mark
+- Settings grouped into Device, Receiving, Save routes, Network, Display and Controls, with switches
+- The incoming request's countdown turns red in its last ten seconds
+- Toasts framed by kind: failures in red, news in the accent
+- OnionOS icon in Onion's sticker style ([#51](https://github.com/mxmgorin/retsend/issues/51))
+- Miyoo Mini spruceOS package renamed `retsend-spruceos-armhf.zip`
+- Shorter launcher descriptions
+- Touch acts only where it lands on the screen; the Vita's rear touchpad is ignored
+- A network start-up failure names the step that failed
 
 ### Fixed
 
-- **A mouse wheel or a drag scrolls a list.** Every list asked egui to keep
-  the cursor's row in view on every frame, which snapped the list back to it;
-  now it asks once, on the frame the cursor moves (retsurf's fix).
-
-- **rustls 0.23.45**, past [RUSTSEC-2026-0285](https://rustsec.org/advisories/RUSTSEC-2026-0285):
-  TLS 1.3 handshake messages accepted across encryption levels.
+- Mouse wheel and drag scrolling snapped back to the selected row
+- rustls 0.23.45, past [RUSTSEC-2026-0285](https://rustsec.org/advisories/RUSTSEC-2026-0285)
 
 ## [0.9.0] - 2026-09-03
 

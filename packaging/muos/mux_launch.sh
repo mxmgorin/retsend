@@ -1,5 +1,5 @@
 #!/bin/sh
-# HELP: Send and receive files over wifi with LocalSend - no cable, no SSH
+# HELP: Transfer files over Wi-Fi with LocalSend - no cable, no SSH
 # ICON: retsend
 # GRID: Retsend
 

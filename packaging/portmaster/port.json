@@ -11,8 +11,8 @@
         "porter": [
             "mxmgorin"
         ],
-        "desc": "Transfer files between handhelds, phones and PCs over Wi-Fi, using the LocalSend (https://localsend.org) protocol — no cable, no SSH. Works with the official LocalSend apps: a radar of nearby devices, a gamepad file browser, save routes that sort ROMs into console folders, and transfer history.",
-        "desc_md": "Transfer files between handhelds, phones and PCs over Wi-Fi, using the [LocalSend](https://localsend.org) protocol — no cable, no SSH. Works with the official LocalSend apps: a radar of nearby devices, a gamepad file browser, save routes that sort ROMs into console folders, and transfer history.",
+        "desc": "Transfer files between handhelds, phones and PCs over Wi-Fi using the LocalSend (https://localsend.org) protocol — no cables or SSH required. Compatible with the official LocalSend apps, retsend features nearby device discovery, a gamepad-friendly file browser, save routes for sorting ROMs into console folders, and transfer history.",
+        "desc_md": "Transfer files between handhelds, phones and PCs over Wi-Fi using the [LocalSend](https://localsend.org) protocol — no cables or SSH required. Compatible with the official LocalSend apps, retsend features nearby device discovery, a gamepad-friendly file browser, save routes for sorting ROMs into console folders, and transfer history.",
         "inst": "Ready to run. Install LocalSend (localsend.org) on your phone or PC, connect both devices to the same Wi-Fi, and they will find each other.",
         "inst_md": "Ready to run. Install [LocalSend](https://localsend.org) on your phone or PC, connect both devices to the same Wi-Fi, and they will find each other.",
         "genres": [
