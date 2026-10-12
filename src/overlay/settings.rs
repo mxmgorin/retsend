@@ -13,6 +13,7 @@ pub enum SettingsRow {
     Routes,
     Port,
     Scale,
+    IdleAnimation,
     About,
 }
 
@@ -26,7 +27,7 @@ impl SettingsRow {
 /// Top-to-bottom order on screen; `crate::ui::settings` labels them in the same
 /// order, one cursor indexes both. Port and the scale are late — both are set
 /// once, if ever.
-const ROWS: [SettingsRow; 10] = [
+const ROWS: [SettingsRow; 11] = [
     SettingsRow::Alias,
     SettingsRow::SaveDir,
     SettingsRow::QuickSave,
@@ -36,6 +37,7 @@ const ROWS: [SettingsRow; 10] = [
     SettingsRow::Routes,
     SettingsRow::Port,
     SettingsRow::Scale,
+    SettingsRow::IdleAnimation,
     SettingsRow::About,
 ];
 

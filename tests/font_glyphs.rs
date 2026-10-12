@@ -1,23 +1,17 @@
 //! Guard against tofu: every non-ASCII glyph the UI paints must resolve in the
 //! exact font stack `ui::theme::apply` builds. egui's bundled emoji fonts cover
 //! far fewer codepoints than their cmaps suggest (✓ ✗ ✔ ✖ 🕘 all render as
-//! empty boxes), so glyph choices are verified here rather than by eye.
+//! empty boxes), so glyph choices are verified here rather than by eye. The
+//! icons and key caps are painted from primitives (`ui::icons`, `ui::home`)
+//! and need no glyph.
 
 use egui_sdl2::egui;
 use egui_sdl2::egui::epaint::text::{FontDefinitions, Fonts, TextOptions};
 
 /// Every glyph the UI relies on, with where it's used (for failure messages).
 const USED: &[(char, &str)] = &[
-    ('√', "history/transfer: completed"),
-    ('×', "history/transfer: failed/cancelled"),
-    ('↑', "tab: Send"),
-    ('↓', "tab: Receive"),
-    ('↺', "tab: History"),
-    ('⚙', "tab: Settings"),
-    ('←', "footer: tab hint"),
-    ('→', "footer: tab hint · prompt: save path"),
+    ('→', "receive / prompt: save path"),
     ('▏', "osk: text cursor"),
-    ('°', "wordmark"),
     ('·', "detail separators"),
     ('—', "misc dashes"),
     ('…', "truncation / waiting"),

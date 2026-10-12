@@ -64,7 +64,8 @@ struct SendTarget {
 
 impl App {
     pub fn new(sdl: &sdl2::Sdl, config: AppConfig) -> Result<Self, String> {
-        let ui = AppUi::new(sdl, &config.display)?;
+        let mut ui = AppUi::new(sdl, &config.display)?;
+        ui.splash();
         let event_handler = AppEventHandler::new(sdl, config.input.clone())?;
 
         // Net threads wake the blocked event loop through SDL user events;
@@ -119,9 +120,8 @@ impl App {
             for command in commands.drain(..) {
                 self.execute_command(command);
             }
-            // Adopt/release the active inbound session and surface its
-            // transitions (quick-save finished, request expired) as toasts;
-            // log a finished transfer to the history.
+            // Adopt or release the active inbound session; its transitions
+            // become toasts, a finished transfer a history entry.
             let active = self.net.shared.active.lock().unwrap().clone();
             let outcome = self.ui.transfer.sync(active);
             for toast in outcome.toasts {
@@ -148,10 +148,9 @@ impl App {
         self.net.stop();
     }
 
-    /// Input precedence: the incoming modal outranks everything, then the
-    /// full-screen overlays, then the tabs. The exception is the folder
-    /// browser opened *from* that modal to pick where the files land — the
-    /// request stays parked, but the browser owns the buttons.
+    /// Input precedence: the incoming modal, then the full-screen overlays,
+    /// then the tabs. The folder browser opened from the modal outranks it:
+    /// the request stays parked while the browser owns the buttons.
     fn focus(&self) -> Focus {
         if self.ui.osk.active {
             Focus::Osk
@@ -230,9 +229,8 @@ impl App {
             (Focus::Prompt, AppCommand::Confirm) => {
                 if let Some(pending) = self.net.shared.pending.lock().unwrap().take() {
                     pending.accept(std::path::PathBuf::from(&self.config.transfer.save_dir));
-                    // The transfer screen takes over (it outranks the tabs); an
-                    // in-progress pick, route edit, or About view is abandoned
-                    // (rare: someone sent to us mid-browse).
+                    // The transfer screen outranks the tabs; a pick, route edit or
+                    // About view in progress is abandoned.
                     self.ui.browser.close();
                     self.ui.routes.close();
                     self.ui.about.close();
@@ -243,12 +241,11 @@ impl App {
                 if let Some(pending) = self.net.shared.pending.lock().unwrap().take() {
                     let sender = pending.sender.alias.clone();
                     pending.decline();
-                    self.ui.toasts.push(format!("Declined {sender}"));
+                    self.ui.toasts.warn(format!("Declined {sender}"));
                 }
             }
-            // X: choose the folder for this transfer instead of taking the
-            // configured one. The request stays parked (and counting down)
-            // while the browser is up.
+            // X picks this transfer's folder; the request stays parked and
+            // counting down while the browser is up.
             (Focus::Prompt, AppCommand::Alt) => self.browse_for_incoming_dir(),
             (Focus::Prompt, _) => {}
 
@@ -277,7 +274,7 @@ impl App {
             (Focus::Browser, AppCommand::PageDown) => self.ui.browser.move_cursor(PAGE_JUMP),
             (Focus::Browser, AppCommand::Confirm) => {
                 if let Err(message) = self.ui.browser.activate() {
-                    self.ui.toasts.push(message);
+                    self.ui.toasts.warn(message);
                 }
             }
             (Focus::Browser, AppCommand::Back) => {
@@ -401,10 +398,9 @@ impl App {
         }
     }
 
-    /// Nav on a tab: left/right step between tabs the same way L1/R1 do, and
-    /// up/down move the active tab's cursor (Receive has nothing to move).
-    /// The exception is a settings row carrying a value — there left/right walk
-    /// the value, and L1/R1 remain the way off the tab.
+    /// Nav on a tab: left/right step tabs like L1/R1, up/down move the tab's
+    /// cursor. On a settings row carrying a value, left/right walk the value
+    /// and L1/R1 remain the way off the tab.
     fn tab_nav(&mut self, dir: Direction) {
         match dir {
             Direction::Left | Direction::Right if self.on_stepper_row() => {
@@ -463,7 +459,7 @@ impl App {
             return;
         };
         if !entry.resendable() {
-            self.ui.toasts.push("Only a send can be repeated");
+            self.ui.toasts.warn("Only a send can be repeated");
             return;
         }
         let Some(base) = self.resend_base(&entry) else {
@@ -474,7 +470,7 @@ impl App {
         };
         let (sources, gone) = existing_sources(&entry.files);
         if sources.is_empty() {
-            self.ui.toasts.push("Those files are gone");
+            self.ui.toasts.warn("Those files are gone");
             return;
         }
         if gone > 0 {
@@ -533,6 +529,9 @@ impl App {
             SettingsRow::Overwrite => self.toggle_overwrite(),
             SettingsRow::KeepFolders => self.toggle_keep_folders(),
             SettingsRow::AutoRoutes => self.toggle_auto_routes(),
+            SettingsRow::IdleAnimation => {
+                self.config.display.idle_animation = !self.config.display.idle_animation;
+            }
             SettingsRow::Routes => {
                 let auto = self.detected_auto_routes();
                 self.ui.routes.open(auto);
@@ -723,7 +722,7 @@ impl App {
                     .toasts
                     .push(format!("Now on port {}", self.net.http_port()));
             }
-            Err(e) => self.ui.toasts.push(format!("Network restart failed: {e}")),
+            Err(e) => self.ui.toasts.warn(format!("Network restart failed: {e}")),
         }
     }
 
@@ -731,7 +730,7 @@ impl App {
         match event {
             OskEvent::Committed(OskTarget::Alias, value) => {
                 if value.is_empty() {
-                    self.ui.toasts.push("Alias can't be empty");
+                    self.ui.toasts.warn("Alias can't be empty");
                     return;
                 }
                 self.config.device.alias = value.clone();
@@ -742,7 +741,7 @@ impl App {
             OskEvent::Committed(OskTarget::RouteExt, value) => {
                 let ext = normalize_ext(&value);
                 if ext.is_empty() {
-                    self.ui.toasts.push("Extension can't be empty");
+                    self.ui.toasts.warn("Extension can't be empty");
                     return;
                 }
                 // Capture the extension; the folder is picked next.
@@ -766,7 +765,7 @@ impl App {
                             self.ui.settings.port_dirty = true;
                         }
                     }
-                    _ => self.ui.toasts.push(format!(
+                    _ => self.ui.toasts.warn(format!(
                         "Port must be a number from {MIN_PORT} to {}",
                         u16::MAX
                     )),
@@ -780,7 +779,7 @@ impl App {
                         self.ui.toasts.push(format!("Looking for {addr}…"));
                         crate::net::manual::spawn_probe(self.net.shared.clone(), addr);
                     }
-                    Err(message) => self.ui.toasts.push(message),
+                    Err(message) => self.ui.toasts.warn(message),
                 }
             }
             OskEvent::Cancelled => {}
@@ -820,7 +819,7 @@ impl App {
         self.ui.browser.close();
         let Some(pending) = self.net.shared.pending.lock().unwrap().take() else {
             // The 60 s deadline passed while the folder was being picked.
-            self.ui.toasts.push("Request expired");
+            self.ui.toasts.warn("Request expired");
             return;
         };
         pending.accept_into(dir.clone());
@@ -848,7 +847,7 @@ impl App {
     /// A on a radar row: remember the target and open the file browser.
     fn open_browser_for(&mut self, index: usize) {
         if self.outbound.as_ref().is_some_and(|o| !o.is_finished()) {
-            self.ui.toasts.push("A send is already running");
+            self.ui.toasts.warn("A send is already running");
             return;
         }
         let peers = self.net.shared.peers.snapshot();
@@ -870,7 +869,7 @@ impl App {
     fn send_selection(&mut self) {
         let (count, _) = self.ui.browser.selection_totals();
         if count == 0 {
-            self.ui.toasts.push("Nothing selected — A marks files");
+            self.ui.toasts.warn("Nothing selected — A marks files");
             return;
         }
         let Some(target) = self.send_target.take() else {
@@ -887,7 +886,7 @@ impl App {
     /// the browser's Start and the History tab's resend.
     fn start_send(&mut self, alias: String, base: String, files: Vec<PathBuf>) {
         if self.outbound.as_ref().is_some_and(|o| !o.is_finished()) {
-            self.ui.toasts.push("A send is already running");
+            self.ui.toasts.warn("A send is already running");
             return;
         }
         let me = self.net.shared.me.lock().unwrap().clone();
@@ -900,7 +899,7 @@ impl App {
                 self.outbound = Some(session.clone());
                 self.ui.transfer.view_outbound(session);
             }
-            Err(e) => self.ui.toasts.push(format!("Can't send: {e}")),
+            Err(e) => self.ui.toasts.warn(format!("Can't send: {e}")),
         }
     }
 

@@ -1,21 +1,24 @@
-//! The About screen: the brand mark hero over a small block of build metadata
-//! (version, build date, commit), the project URL and author. Read-only — B
-//! backs out to Settings. All values are compile-time constants (`CARGO_PKG_*`
-//! plus the `RETSEND_*` vars stamped by `build.rs`), so nothing is threaded in.
+//! The About screen: the brand mark and wordmark over a small block of build
+//! metadata (version, build date, commit), the project URL and author.
+//! Read-only — B backs out to Settings. All values are compile-time constants
+//! (`CARGO_PKG_*` plus the `RETSEND_*` vars stamped by `build.rs`), so nothing
+//! is threaded in.
 
 use super::{mark, theme};
 use crate::app::AppCommand;
 use egui_sdl2::egui;
 
+/// The wordmark's type size under the hero.
+const WORDMARK_SIZE: f32 = 30.0;
+
 pub fn render(root: &mut egui::Ui, taps: &mut Vec<AppCommand>) {
-    // Otherwise-decorative header so About carries the shared top panel like
-    // every other base screen; see [`super::TOP_PANEL_ID`] for why every screen
-    // must draw one top and one bottom panel under the same ids.
+    // A decorative header: every base screen draws one top and one bottom
+    // panel under the shared ids, see [`super::TOP_PANEL_ID`].
     egui::Panel::top(super::TOP_PANEL_ID).show(root, |ui| {
         ui.add_space(6.0);
         ui.label(
             egui::RichText::new("About")
-                .size(theme::ROW_FONT + 2.0)
+                .size(theme::TITLE_FONT)
                 .strong(),
         );
         ui.add_space(6.0);
@@ -28,13 +31,16 @@ pub fn render(root: &mut egui::Ui, taps: &mut Vec<AppCommand>) {
     });
 
     egui::CentralPanel::default().show(root, |ui| {
-        const HERO_H: f32 = 256.0; // mark + gaps + info block, roughly
+        const HERO_H: f32 = mark::HERO_SIZE + 194.0; // mark + wordmark + gaps + info block, roughly
         let top = ((ui.available_height() - HERO_H) / 2.0).max(8.0);
         ui.vertical_centered(|ui| {
             ui.add_space(top);
             let (_, rect) = ui.allocate_space(mark::measure(mark::HERO_SIZE));
-            mark::paint(ui, rect.center(), mark::HERO_SIZE, 1.0);
-            ui.add_space(6.0);
+            mark::paint(ui.painter(), rect.center(), mark::HERO_SIZE, 0.0, 0.0);
+            ui.add_space(8.0);
+            let wordmark = mark::wordmark(ui, WORDMARK_SIZE);
+            let (_, rect) = ui.allocate_space(wordmark.size());
+            ui.painter().galley(rect.min, wordmark, theme::INK);
             ui.label(
                 egui::RichText::new(env!("CARGO_PKG_DESCRIPTION"))
                     .size(theme::DETAIL_FONT)

@@ -55,6 +55,10 @@ pub struct TransferView {
     opened_at: Option<Instant>,
     toasted: bool,
     samples: VecDeque<(Instant, u64)>,
+    /// When the viewed session moved its first byte, and when it finished:
+    /// the summary's duration. Waiting for the peer to accept is not counted.
+    started: Option<Instant>,
+    finished_at: Option<Instant>,
 }
 
 impl TransferView {
@@ -66,6 +70,8 @@ impl TransferView {
             opened_at: None,
             toasted: false,
             samples: VecDeque::new(),
+            started: None,
+            finished_at: None,
         }
     }
 
@@ -82,6 +88,8 @@ impl TransferView {
         self.viewed = Some(Viewed::Out(session));
         self.toasted = false;
         self.samples.clear();
+        self.started = None;
+        self.finished_at = None;
         self.open();
     }
 
@@ -103,15 +111,16 @@ impl TransferView {
         let mut toasts = Vec::new();
         let mut recorded = None;
 
-        // Adopt a new inbound session — unless an unfinished send owns the
-        // screen (can't happen in practice: incoming prepares answer 409
-        // while outbound_active is up).
+        // Adopt a new inbound session unless an unfinished send owns the
+        // screen; incoming prepares answer 409 while outbound_active is up.
         if let Some(active) = active_in {
             let viewing_live_send =
                 matches!(&self.viewed, Some(v @ Viewed::Out(_)) if !v.is_finished());
             let same =
                 matches!(&self.viewed, Some(Viewed::In(s)) if s.session_id == active.session_id);
             if !same && !viewing_live_send {
+                self.started = None;
+                self.finished_at = None;
                 self.viewed = Some(Viewed::In(active));
                 self.toasted = false;
                 self.samples.clear();
@@ -120,7 +129,11 @@ impl TransferView {
 
         if let Some(viewed) = &self.viewed {
             let now = Instant::now();
-            self.samples.push_back((now, viewed.moved_bytes()));
+            let moved = viewed.moved_bytes();
+            if self.started.is_none() && moved > 0 {
+                self.started = Some(now);
+            }
+            self.samples.push_back((now, moved));
             while self
                 .samples
                 .front()
@@ -131,6 +144,7 @@ impl TransferView {
 
             if viewed.is_finished() && !self.toasted {
                 self.toasted = true;
+                self.finished_at = Some(now);
                 // Log it once, at the finish edge (covers foreground and
                 // background quick-save, both directions).
                 recorded = Some(match viewed {
@@ -154,6 +168,17 @@ impl TransferView {
         }
 
         SyncOutcome { toasts, recorded }
+    }
+
+    /// How long the viewed session has moved bytes, frozen once it finished;
+    /// zero until the first byte.
+    pub fn elapsed(&self) -> Duration {
+        let Some(started) = self.started else {
+            return Duration::ZERO;
+        };
+        self.finished_at
+            .unwrap_or_else(Instant::now)
+            .saturating_duration_since(started)
     }
 
     /// Bytes per second over the trailing window; `None` until measurable.

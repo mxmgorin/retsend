@@ -5,8 +5,20 @@ use std::time::{Duration, Instant};
 
 const TOAST_TTL: Duration = Duration::from_secs(3);
 
+/// How a toast is framed: a refusal or a failure cannot look like news.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ToastKind {
+    Info,
+    Warn,
+}
+
+pub struct Toast {
+    pub text: String,
+    pub kind: ToastKind,
+}
+
 pub struct Toasts {
-    items: Vec<(String, Instant)>,
+    items: Vec<(Toast, Instant)>,
 }
 
 impl Toasts {
@@ -15,13 +27,26 @@ impl Toasts {
     }
 
     pub fn push(&mut self, text: impl Into<String>) {
-        self.items.push((text.into(), Instant::now()));
+        self.push_kind(text, ToastKind::Info);
     }
 
-    /// Live toast texts, oldest first. Prunes expired ones.
-    pub fn live(&mut self) -> impl Iterator<Item = &str> {
+    /// Something refused or failed.
+    pub fn warn(&mut self, text: impl Into<String>) {
+        self.push_kind(text, ToastKind::Warn);
+    }
+
+    fn push_kind(&mut self, text: impl Into<String>, kind: ToastKind) {
+        let toast = Toast {
+            text: text.into(),
+            kind,
+        };
+        self.items.push((toast, Instant::now()));
+    }
+
+    /// Live toasts, oldest first. Prunes expired ones.
+    pub fn live(&mut self) -> impl Iterator<Item = &Toast> {
         self.items.retain(|(_, at)| at.elapsed() < TOAST_TTL);
-        self.items.iter().map(|(text, _)| text.as_str())
+        self.items.iter().map(|(toast, _)| toast)
     }
 
     /// When the next toast expires — the frame loop folds this into its idle

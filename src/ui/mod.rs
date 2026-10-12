@@ -3,8 +3,10 @@
 
 mod about;
 mod browser;
+mod chips;
 mod history;
 mod home;
+mod icons;
 mod mark;
 mod osk;
 mod prompt;
@@ -19,6 +21,7 @@ use crate::app::AppCommand;
 use crate::config::AppConfig;
 use crate::net::server::DECISION_TIMEOUT;
 use crate::net::NetService;
+use crate::overlay::toast::ToastKind;
 use crate::overlay::{
     about::AboutView,
     browser::FileBrowser,
@@ -49,6 +52,12 @@ const PROMPT_REFRESH: Duration = Duration::from_millis(100);
 /// out to `iw`, so not per frame.
 const NET_STATUS_TTL: Duration = Duration::from_secs(2);
 
+/// The splash: the mark's share of the screen height, the wordmark's share of
+/// the mark, and the gap between them.
+const SPLASH_MARK_SHARE: f32 = 0.3;
+const SPLASH_WORDMARK_SHARE: f32 = 0.3;
+const SPLASH_GAP: f32 = 10.0;
+
 /// The panel every screen is laid out for; the zoom fits it to the real one.
 const BASE_SIZE: egui::Vec2 = egui::vec2(640.0, 480.0);
 /// Bounds on the zoom actually installed, whatever the fit and the setting
@@ -63,11 +72,8 @@ const MAX_PANEL: f32 = 8192.0;
 const WHOLE_ZOOM_REACH: f32 = 0.25;
 
 /// Shared ids for the one top and one bottom panel every base screen draws.
-/// egui paints a red seam at a panel edge whenever a panel id changes between
-/// frames (its changed-id-between-passes check — see the tab-bar painter note
-/// in `tabs.rs`). Reusing a single id per slot keeps the panel sequence
-/// identical across screen switches, so opening a takeover (Browser / Routes /
-/// About / Transfer) from a tab never reshuffles the ids and never flashes.
+/// egui paints a red seam wherever a panel id changes between frames; one id
+/// per slot keeps the sequence identical across screen switches.
 pub(crate) const TOP_PANEL_ID: &str = "screen_top";
 pub(crate) const BOTTOM_PANEL_ID: &str = "screen_bottom";
 
@@ -143,6 +149,8 @@ pub struct AppUi {
     forced_scale: Option<f32>,
     /// The zoom in force, so a frame that wants the same one installs nothing.
     scale: f32,
+    /// A GL renderer came up: frames are cheap enough for a smooth animation.
+    gpu: bool,
 }
 
 impl AppUi {
@@ -156,7 +164,12 @@ impl AppUi {
             log::info!("applying RETSEND_SCALE {scale}");
             egui.ctx().set_zoom_factor(scale);
         }
+        let gpu = matches!(
+            egui.renderer(),
+            egui_sdl2::Renderer::Gles3 | egui_sdl2::Renderer::Gl32
+        );
         Ok(Self {
+            gpu,
             egui,
             repaint_delay: None,
             tabs: Tabs::new(),
@@ -178,6 +191,37 @@ impl AppUi {
         })
     }
 
+    /// One frame of the mark and wordmark, shown while the network comes up:
+    /// certificates and sockets take a moment the screen should not spend black.
+    pub fn splash(&mut self) {
+        self.egui.run(|ctx| {
+            let screen = ctx.content_rect();
+            let ui = egui::Ui::new(
+                ctx.clone(),
+                egui::Id::new("splash"),
+                egui::UiBuilder::new().max_rect(screen),
+            );
+            ui.painter().rect_filled(screen, 0.0, theme::BG);
+            let mark_size = SPLASH_MARK_SHARE * screen.height();
+            let wordmark = mark::wordmark(&ui, mark_size * SPLASH_WORDMARK_SHARE);
+            let total_h = mark_size + SPLASH_GAP + wordmark.size().y;
+            let top = screen.center().y - total_h / 2.0;
+            mark::paint(
+                ui.painter(),
+                egui::pos2(screen.center().x, top + mark_size / 2.0),
+                mark_size,
+                0.0,
+                0.0,
+            );
+            let pos = egui::pos2(
+                screen.center().x - wordmark.size().x / 2.0,
+                top + mark_size + SPLASH_GAP,
+            );
+            ui.painter().galley(pos, wordmark, theme::INK);
+        });
+        self.egui.paint(theme::BACKGROUND);
+    }
+
     /// Feed an SDL event to egui (resize/DPI bookkeeping, pointer hover).
     pub fn handle_event(&mut self, event: &sdl2::event::Event) {
         let _ = self.egui.on_event(event);
@@ -193,11 +237,9 @@ impl AppUi {
         std::mem::take(&mut self.taps)
     }
 
-    /// Scale the whole UI to the panel it is on, then by what the settings ask
-    /// for. Every size in the renderers is in points against a 640×480 design,
-    /// so one zoom factor carries the lot — fonts, rows, gaps and all — rather
-    /// than each screen carrying its own notion of a small display. Re-read
-    /// every frame, since a desktop window resizes.
+    /// Scale the UI to the panel it is on, then by the setting. Every size is
+    /// in points against a 640×480 design, so one zoom factor carries the lot.
+    /// Re-read every frame, since a desktop window resizes.
     fn sync_scale(&mut self, wanted_by_user: f32) {
         let ctx = self.egui.ctx();
         let native = panel_points(ctx.content_rect().size(), ctx.zoom_factor());
@@ -220,26 +262,27 @@ impl AppUi {
         self.sync_scale(config.display.scale);
         let screen = self.screen_data(net, config, history);
         let prompt_data = prompt_data(net);
-        // The destination picker stands in for the modal while it is up: the
-        // request keeps counting down, so the browser shows what is left of
-        // the deadline and the modal itself stays hidden behind it.
+        // The destination picker stands in for the modal while it is up, so it
+        // shows what is left of the deadline and the modal stays hidden.
         let picking_incoming = self.browser.open
             && self.browser.dir_purpose == crate::overlay::browser::DirPurpose::Incoming;
-        let deadline_secs = prompt_data.as_ref().filter(|_| picking_incoming).map(|p| {
-            (p.remaining * DECISION_TIMEOUT.as_secs_f32())
-                .max(0.0)
-                .ceil() as u32
-        });
+        let deadline_secs = prompt_data
+            .as_ref()
+            .filter(|_| picking_incoming)
+            .map(prompt::PromptData::seconds_left);
         let active_tab = self.tabs.active();
         let settings_state = &self.settings;
-        let toasts: Vec<String> = self.toasts.live().map(str::to_string).collect();
+        let toasts: Vec<(String, ToastKind)> = self
+            .toasts
+            .live()
+            .map(|t| (t.text.clone(), t.kind))
+            .collect();
         let actual_port = net.http_port();
 
         // Local, not `self.taps`: the closure already borrows the state it draws.
         let mut taps: Vec<AppCommand> = Vec::new();
         self.egui.run(|ctx| {
-            // egui 0.34 panels are shown inside an explicit root Ui spanning
-            // the window (retsurf's pattern; top-level `show` is deprecated).
+            // Panels go in an explicit root Ui: top-level `show` is deprecated.
             let mut root = egui::Ui::new(
                 ctx.clone(),
                 egui::Id::new("root_ui"),
@@ -283,9 +326,8 @@ impl AppUi {
             render_toasts(ctx, &toasts);
         });
 
-        // Fold the frame-timing sources into one idle bound: egui's own
-        // request (animations/sizing passes), toast expiry, radar staleness,
-        // and the modal's countdown animation.
+        // One idle bound from every frame-timing source: egui's own request,
+        // toast expiry, radar staleness, the modal's countdown.
         let mut delay = self.egui.repaint_delay().min(IDLE_REFRESH);
         if let Some(t) = self.toasts.next_expiry() {
             delay = delay.min(t);
@@ -302,9 +344,8 @@ impl AppUi {
     }
 
     /// Snapshot what the rendered screen needs, and only that. Precedence
-    /// mirrors Focus: browser, routes editor, About, the transfer takeover,
-    /// then the active tab. Skipping covered screens also keeps the Receive
-    /// tab's network probe (shells out to `iw`) off every other screen.
+    /// mirrors Focus: browser, routes, About, transfer, then the active tab.
+    /// Covered screens cost nothing, the network probe included.
     fn screen_data(&mut self, net: &NetService, config: &AppConfig, history: &History) -> Screen {
         if self.browser.open {
             return Screen::Browser;
@@ -334,12 +375,21 @@ impl AppUi {
             Tab::Send => {
                 let peers = net.shared.peers.snapshot();
                 self.peer_count = peers.len();
+                // The network probe is only worth running while the radar is
+                // empty: a found device says which network this is.
+                let ssid = peers
+                    .is_empty()
+                    .then(|| self.net_status.get().ssid.clone())
+                    .flatten();
                 Screen::Send(home::HomeData {
                     cursor: self.home.cursor(peers.len()),
+                    ssid,
+                    spin_frame: mark::spin_frame(config.display.idle_animation, self.gpu),
                     peers: peers
                         .iter()
                         .map(|p| home::PeerRow {
                             alias: p.info.alias.clone(),
+                            icon: icons::device_icon(p.info.device_type.as_deref()),
                             detail: format!(
                                 "{} · {}",
                                 p.info.device_model.as_deref().unwrap_or("unknown"),
@@ -365,6 +415,7 @@ impl AppUi {
                     ssid: status.ssid.clone(),
                     save_dir: config.transfer.save_dir.clone(),
                     quick_save: config.transfer.auto_accept,
+                    spin_frame: mark::spin_frame(config.display.idle_animation, self.gpu),
                 })
             }
             Tab::History => {
@@ -392,6 +443,7 @@ impl AppUi {
             return None;
         }
         let viewed = self.transfer.viewed.as_ref()?;
+        let outgoing = matches!(viewed, Viewed::Out(_));
         let (title, rows, transferred, total) = match viewed {
             Viewed::In(session) => (
                 if session.is_finished() {
@@ -437,10 +489,12 @@ impl AppUi {
         };
         Some(transfer::TransferData {
             title,
+            outgoing,
             finished: viewed.is_finished(),
             transferred,
             total,
             speed_bps: self.transfer.speed_bps(),
+            elapsed: self.transfer.elapsed(),
             rows,
             confirm_cancel: self.transfer.confirm_cancel,
         })
@@ -463,10 +517,11 @@ fn file_row(name: String, size: u64, state: &FileState, moved: u64) -> transfer:
     transfer::FileRow {
         name: truncate_middle(&name, ROW_NAME_CHARS),
         size,
-        glyph: match state {
-            FileState::Done => "√",
-            FileState::Failed(_) => "×",
-            FileState::Pending | FileState::Receiving => "",
+        state: match state {
+            FileState::Done => transfer::RowState::Done,
+            FileState::Failed(_) => transfer::RowState::Failed,
+            FileState::Pending if moved == 0 => transfer::RowState::Pending,
+            FileState::Pending | FileState::Receiving => transfer::RowState::Moving,
         },
         frac: if size > 0 {
             (moved as f32 / size as f32).clamp(0.0, 1.0)
@@ -501,6 +556,7 @@ fn prompt_data(net: &NetService) -> Option<prompt::PromptData> {
     let elapsed = p.received_at.elapsed().as_secs_f32();
     Some(prompt::PromptData {
         sender: p.sender.alias.clone(),
+        icon: icons::device_icon(p.sender.device_type.as_deref()),
         // The name as it will land, not as the sender wrote it: a raw one
         // carries whatever length and newlines the sender chose.
         files: p
@@ -556,6 +612,23 @@ fn wanted_scale(native: egui::Vec2, forced: Option<f32>, user: f32) -> f32 {
     ((wanted / SCALE_STEP).round() * SCALE_STEP).clamp(*SCALE_RANGE.start(), *SCALE_RANGE.end())
 }
 
+/// Bring the cursor's row into view on the frame the cursor lands on it:
+/// egui re-applies a scroll request every frame it is asked, pinning the
+/// list. `key` names the row and its listing, so a new listing scrolls too.
+pub(crate) fn scroll_to_cursor(
+    ui: &egui::Ui,
+    key: impl std::hash::Hash + std::fmt::Debug,
+    rect: egui::Rect,
+) {
+    let slot = egui::Id::new("scrolled_cursor");
+    let row = egui::Id::new(key);
+    if ui.ctx().data(|d| d.get_temp::<egui::Id>(slot)) == Some(row) {
+        return;
+    }
+    ui.ctx().data_mut(|d| d.insert_temp(slot, row));
+    ui.scroll_to_rect(rect, None);
+}
+
 /// Unix seconds now — for the history's relative-time labels.
 fn unix_now() -> u64 {
     std::time::SystemTime::now()
@@ -599,7 +672,7 @@ pub(crate) fn truncate_middle(s: &str, max_chars: usize) -> String {
     format!("{head_str}…{tail_str}")
 }
 
-fn render_toasts(ctx: &egui::Context, toasts: &[String]) {
+fn render_toasts(ctx: &egui::Context, toasts: &[(String, ToastKind)]) {
     if toasts.is_empty() {
         return;
     }
@@ -607,14 +680,29 @@ fn render_toasts(ctx: &egui::Context, toasts: &[String]) {
         .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -40.0))
         .interactable(false)
         .show(ctx, |ui| {
-            for text in toasts {
-                egui::Frame::new()
-                    .fill(theme::PANEL_FILL)
-                    .stroke(egui::Stroke::new(1.0, theme::ACCENT))
+            for (text, kind) in toasts {
+                let (icon, color) = match kind {
+                    ToastKind::Info => (icons::Icon::Info, theme::ACCENT),
+                    ToastKind::Warn => (icons::Icon::Warning, theme::DANGER),
+                };
+                theme::card_frame(color)
                     .corner_radius(6.0)
                     .inner_margin(egui::Margin::symmetric(12, 6))
                     .show(ui, |ui| {
-                        ui.label(egui::RichText::new(text).size(theme::DETAIL_FONT));
+                        ui.horizontal(|ui| {
+                            let (rect, _) = ui.allocate_exact_size(
+                                egui::Vec2::splat(theme::ICON_SIZE),
+                                egui::Sense::hover(),
+                            );
+                            icons::paint(
+                                ui.painter(),
+                                icon,
+                                rect.center(),
+                                theme::ICON_SIZE,
+                                color,
+                            );
+                            ui.label(egui::RichText::new(text).size(theme::DETAIL_FONT));
+                        });
                     });
             }
         });
@@ -713,9 +801,8 @@ mod tests {
 
     #[test]
     fn a_scale_settles_rather_than_swapping_between_two_steps_every_frame() {
-        // The measurement is taken through the zoom set last frame, so a scale
-        // landing exactly half a step from the grid could round either way
-        // depending on the zoom it was measured through — and then change it.
+        // Measured through last frame's zoom, a scale exactly half a step from
+        // the grid could round either way and then change the zoom.
         for panel in [HANDHELD, UPRIGHT, FLIP, DESKTOP] {
             for user in user_scales() {
                 let mut zoom = 1.0;

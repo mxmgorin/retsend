@@ -1,13 +1,17 @@
-//! The Receive tab: the branded landing screen. The brand mark hero,
-//! who we are on the network (IP + Wi-Fi), where files land, and a
-//! "ready / no network" status.
+//! The Receive tab: the branded landing screen. The brand mark hero, its
+//! orbit turning while the device waits, the device's name and a one-line
+//! status under it, and the facts a sender might need (address, Wi-Fi, where
+//! files land) as chips along the bottom, out of the way.
 //! Incoming requests still arrive as the Prompt modal on top of this.
 
+use super::chips::{self, Chip, Rows};
+use super::icons::Icon;
 use super::{mark, theme};
 use crate::app::AppCommand;
 use egui_sdl2::egui;
+use std::time::Duration;
 
-/// Everything the Receive renderer needs, snapshotted by `AppUi::update`.
+/// Everything the Receive renderer needs, snapshotted before the frame.
 pub struct ReceiveData {
     pub alias: String,
     /// Announced scheme, uppercased ("HTTPS"/"HTTP").
@@ -20,9 +24,17 @@ pub struct ReceiveData {
     pub ssid: Option<String>,
     /// Where accepted files land, before any save route redirects them.
     pub save_dir: String,
-    /// Quick-save (auto-accept) is on — shown as a badge under the status.
+    /// Quick-save (auto-accept) is on — shown as a chip of its own.
     pub quick_save: bool,
+    /// The orbit turns while waiting, a frame every this long; `None` holds
+    /// it still. See [`mark::spin_frame`].
+    pub spin_frame: Option<Duration>,
 }
+
+/// How far an offline mark is pulled toward the plate.
+const OFFLINE_DIM: f32 = 0.6;
+/// Room a path gets on a chip.
+const CHIP_PATH_CHARS: usize = 36;
 
 pub fn render(root: &mut egui::Ui, data: &ReceiveData, taps: &mut Vec<AppCommand>) {
     egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
@@ -40,73 +52,72 @@ pub fn render(root: &mut egui::Ui, data: &ReceiveData, taps: &mut Vec<AppCommand
     });
 
     egui::CentralPanel::default().show(root, |ui| {
-        const HERO_H: f32 = 250.0; // mark + gaps + status block, roughly
-        let top = ((ui.available_height() - HERO_H) / 2.0).max(8.0);
-        ui.vertical_centered(|ui| {
-            ui.add_space(top);
-            let (_, rect) = ui.allocate_space(mark::measure(mark::HERO_SIZE));
-            mark::paint(ui, rect.center(), mark::HERO_SIZE, 1.0);
-            ui.add_space(24.0);
-
-            let dim = |ui: &mut egui::Ui, text: String| {
-                ui.label(
-                    egui::RichText::new(text)
-                        .size(theme::DETAIL_FONT)
-                        .color(theme::DIM),
-                );
-            };
-
-            match &data.ip {
-                Some(ip) => {
-                    ui.label(
-                        egui::RichText::new(format!("Ready to receive as {}", data.alias))
-                            .size(theme::ROW_FONT)
-                            .strong(),
-                    );
-                    ui.add_space(4.0);
-                    dim(ui, format!("{} · {}:{}", data.scheme, ip, data.port));
-                    if let Some(ssid) = &data.ssid {
-                        dim(ui, format!("Wi-Fi · {ssid}"));
-                    }
-                    ui.add_space(8.0);
-                    dim(
-                        ui,
-                        format!(
-                            "→ {}",
-                            super::truncate_middle(&data.save_dir, super::PATH_CHARS)
-                        ),
-                    );
-                    ui.add_space(12.0);
-                    dim(ui, "Waiting for a sender…".to_string());
-                    if data.quick_save {
-                        ui.add_space(4.0);
-                        ui.label(
-                            egui::RichText::new("Quick save on — incoming files auto-accepted")
-                                .size(theme::DETAIL_FONT)
-                                .color(theme::ACCENT),
-                        );
-                    }
-                }
-                None => {
-                    ui.label(
-                        egui::RichText::new("No network connection")
-                            .size(theme::ROW_FONT)
-                            .strong()
-                            .color(theme::DANGER),
-                    );
-                    ui.add_space(4.0);
-                    match &data.ssid {
-                        // Associated but no address yet — a DHCP/link hiccup.
-                        Some(ssid) => dim(ui, format!("Wi-Fi · {ssid} · waiting for an address")),
-                        None => dim(ui, "Not connected to Wi-Fi".to_string()),
-                    }
-                    ui.add_space(12.0);
-                    dim(
-                        ui,
-                        format!("Connect to a network so senders can reach {}", data.alias),
-                    );
-                }
-            }
-        });
+        let online = data.ip.is_some();
+        let chips = chips(data);
+        let rows = Rows::pack(ui, &chips, ui.available_width());
+        // Still when offline: nothing is being waited for.
+        let spin = mark::turning(ui, data.spin_frame.filter(|_| online));
+        let (name, name_color, status) = if online {
+            (
+                data.alias.as_str(),
+                theme::INK,
+                "Waiting for a sender…".to_string(),
+            )
+        } else {
+            (
+                "No network",
+                theme::DANGER,
+                format!("Connect to Wi-Fi so senders can reach {}", data.alias),
+            )
+        };
+        let dim = if online { 0.0 } else { OFFLINE_DIM };
+        chips::hero(ui, rows.height(), spin, dim, name, name_color, &status);
+        rows.paint(ui);
     });
+}
+
+/// The facts worth a chip, in reading order.
+fn chips(data: &ReceiveData) -> Vec<Chip> {
+    let mut chips = Vec::new();
+    match (&data.ip, &data.ssid) {
+        (Some(ip), ssid) => {
+            let secure = data.scheme.eq_ignore_ascii_case("https");
+            chips.push(Chip {
+                icon: if secure { Icon::Lock } else { Icon::LockOpen },
+                text: format!("{ip}:{}", data.port),
+                color: if secure { theme::DIM } else { theme::DANGER },
+            });
+            if let Some(ssid) = ssid {
+                chips.push(Chip {
+                    icon: Icon::Wifi,
+                    text: ssid.clone(),
+                    color: theme::DIM,
+                });
+            }
+            chips.push(Chip {
+                icon: Icon::Folder,
+                text: super::truncate_middle(&data.save_dir, CHIP_PATH_CHARS),
+                color: theme::DIM,
+            });
+            if data.quick_save {
+                chips.push(Chip {
+                    icon: Icon::Check,
+                    text: "Quick save".to_string(),
+                    color: theme::ACCENT,
+                });
+            }
+        }
+        // Associated but no address yet — a DHCP/link hiccup.
+        (None, Some(ssid)) => chips.push(Chip {
+            icon: Icon::Wifi,
+            text: format!("{ssid} · waiting for an address"),
+            color: theme::DANGER,
+        }),
+        (None, None) => chips.push(Chip {
+            icon: Icon::Wifi,
+            text: "Not connected".to_string(),
+            color: theme::DANGER,
+        }),
+    }
+    chips
 }

@@ -22,6 +22,9 @@ pub struct DisplayConfig {
     /// Over the scale the panel's own size asks for, so one setting means the
     /// same thing on every device.
     pub scale: f32,
+    /// The landing screens' orbit turns while waiting; off spares a software
+    /// rasterizer the frames.
+    pub idle_animation: bool,
 }
 
 impl Default for DisplayConfig {
@@ -31,6 +34,7 @@ impl Default for DisplayConfig {
             height: 480,
             use_gles: true,
             scale: 1.0,
+            idle_animation: true,
         }
     }
 }

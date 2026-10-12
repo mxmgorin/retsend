@@ -3,6 +3,7 @@
 //! add row starts the add flow (type an extension, then pick a folder); A on a
 //! route removes it; B goes back.
 
+use super::icons::{self, Icon};
 use super::theme;
 use crate::app::AppCommand;
 use crate::overlay::routes::{RouteCursor, RoutesView};
@@ -18,12 +19,15 @@ pub struct RoutesData {
     pub auto_on: bool,
 }
 
+/// Gutter the folder mark takes before the extension.
+const ICON_GUTTER: f32 = 26.0;
+
 pub fn render(root: &mut egui::Ui, data: &RoutesData, taps: &mut Vec<AppCommand>) {
     egui::Panel::top(super::TOP_PANEL_ID).show(root, |ui| {
         ui.add_space(6.0);
         ui.label(
             egui::RichText::new("Save routes")
-                .size(theme::ROW_FONT + 2.0)
+                .size(theme::TITLE_FONT)
                 .strong(),
         );
         ui.label(
@@ -45,45 +49,43 @@ pub fn render(root: &mut egui::Ui, data: &RoutesData, taps: &mut Vec<AppCommand>
     });
 
     egui::CentralPanel::default().show(root, |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            let routes = data.rows.len();
-            let mut tapped = |resp: &egui::Response, cursor: RouteCursor| {
-                if resp.clicked() {
-                    taps.push(AppCommand::PickRow(RoutesView::flat_index(cursor, routes)));
-                    taps.push(AppCommand::Confirm);
-                }
-            };
-            for (i, (ext, folder)) in data.rows.iter().enumerate() {
-                let selected = data.cursor == RouteCursor::Route(i);
-                let resp = route_row(ui, ext, folder, selected, false);
-                if selected {
-                    resp.scroll_to_me(None);
-                }
-                tapped(&resp, RouteCursor::Route(i));
-            }
-            let on_add = data.cursor == RouteCursor::Add;
-            let resp = add_row(ui, on_add);
-            if on_add {
-                resp.scroll_to_me(None);
-            }
-            tapped(&resp, RouteCursor::Add);
-            if data.auto_on {
-                ui.add_space(10.0);
-                ui.label(
-                    egui::RichText::new(auto_header(data.auto_rows.len()))
-                        .size(theme::DETAIL_FONT)
-                        .color(theme::DIM),
-                );
-                for (i, (ext, folder)) in data.auto_rows.iter().enumerate() {
-                    let selected = data.cursor == RouteCursor::Auto(i);
-                    let resp = route_row(ui, ext, folder, selected, true);
-                    if selected {
-                        resp.scroll_to_me(None);
+        egui::ScrollArea::vertical()
+            .id_salt("routes")
+            .show(ui, |ui| {
+                let routes = data.rows.len();
+                let mut tapped = |resp: &egui::Response, cursor: RouteCursor| {
+                    if resp.clicked() {
+                        taps.push(AppCommand::PickRow(RoutesView::flat_index(cursor, routes)));
+                        taps.push(AppCommand::Confirm);
                     }
-                    tapped(&resp, RouteCursor::Auto(i));
+                };
+                for (i, (ext, folder)) in data.rows.iter().enumerate() {
+                    let selected = data.cursor == RouteCursor::Route(i);
+                    let resp = route_row(ui, ext, folder, selected, false);
+                    if selected {
+                        super::scroll_to_cursor(ui, ("route", i), resp.rect);
+                    }
+                    tapped(&resp, RouteCursor::Route(i));
                 }
-            }
-        });
+                let on_add = data.cursor == RouteCursor::Add;
+                let resp = add_row(ui, on_add);
+                if on_add {
+                    super::scroll_to_cursor(ui, "route_add", resp.rect);
+                }
+                tapped(&resp, RouteCursor::Add);
+                if data.auto_on {
+                    ui.add_space(10.0);
+                    super::settings::section_header(ui, &auto_header(data.auto_rows.len()));
+                    for (i, (ext, folder)) in data.auto_rows.iter().enumerate() {
+                        let selected = data.cursor == RouteCursor::Auto(i);
+                        let resp = route_row(ui, ext, folder, selected, true);
+                        if selected {
+                            super::scroll_to_cursor(ui, ("auto_route", i), resp.rect);
+                        }
+                        tapped(&resp, RouteCursor::Auto(i));
+                    }
+                }
+            });
     });
 }
 
@@ -110,24 +112,26 @@ fn route_row(
         egui::Sense::click(),
     );
     if selected {
-        highlight(ui, rect);
+        theme::highlight(ui.painter(), rect, theme::ACCENT);
     }
-    let ext_color = if dim {
-        theme::DIM
-    } else {
-        ui.visuals().text_color()
-    };
+    let ext_color = if dim { theme::DIM } else { theme::INK };
     let painter = ui.painter();
-    let padding = 10.0;
+    icons::paint(
+        painter,
+        Icon::Folder,
+        rect.left_center() + egui::vec2(theme::ROW_PAD + theme::ICON_SIZE / 2.0, 0.0),
+        theme::ICON_SIZE,
+        if dim { theme::DIM } else { theme::ACCENT },
+    );
     painter.text(
-        rect.left_center() + egui::vec2(padding, 0.0),
+        rect.left_center() + egui::vec2(theme::ROW_PAD + ICON_GUTTER, 0.0),
         egui::Align2::LEFT_CENTER,
         format!(".{ext}"),
         egui::FontId::proportional(theme::ROW_FONT),
         ext_color,
     );
     painter.text(
-        rect.right_center() - egui::vec2(padding, 0.0),
+        rect.right_center() - egui::vec2(theme::ROW_PAD, 0.0),
         egui::Align2::RIGHT_CENTER,
         folder,
         egui::FontId::proportional(theme::DETAIL_FONT),
@@ -142,12 +146,19 @@ fn add_row(ui: &mut egui::Ui, selected: bool) -> egui::Response {
         egui::Sense::click(),
     );
     if selected {
-        highlight(ui, rect);
+        theme::highlight(ui.painter(), rect, theme::ACCENT);
     }
+    icons::paint(
+        ui.painter(),
+        Icon::Plus,
+        rect.left_center() + egui::vec2(theme::ROW_PAD + theme::ICON_SIZE / 2.0, 0.0),
+        theme::ICON_SIZE,
+        theme::ACCENT,
+    );
     ui.painter().text(
-        rect.left_center() + egui::vec2(10.0, 0.0),
+        rect.left_center() + egui::vec2(theme::ROW_PAD + ICON_GUTTER, 0.0),
         egui::Align2::LEFT_CENTER,
-        "+ Add route",
+        "Add route",
         egui::FontId::proportional(theme::ROW_FONT),
         theme::ACCENT,
     );
@@ -161,16 +172,6 @@ fn auto_header(rows: usize) -> String {
         0 => "Auto save routes — no console folders in the save folder".to_string(),
         n => format!("Auto save routes ({n})"),
     }
-}
-
-fn highlight(ui: &egui::Ui, rect: egui::Rect) {
-    ui.painter().rect(
-        rect,
-        6.0,
-        theme::ACCENT.linear_multiply(0.30),
-        egui::Stroke::new(1.0, theme::ACCENT),
-        egui::StrokeKind::Inside,
-    );
 }
 
 #[cfg(test)]

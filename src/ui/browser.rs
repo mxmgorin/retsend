@@ -1,6 +1,9 @@
 //! File browser renderer: breadcrumb header, dirs-first listing with
-//! selection checkboxes, and a footer with the running selection total.
+//! checkboxes and folder/file marks, and a footer with the running selection
+//! total. Colored by what the pick is for: coral when choosing files to send,
+//! teal when choosing where received files land.
 
+use super::icons::{self, Icon};
 use super::{theme, truncate_middle};
 use crate::app::AppCommand;
 use crate::overlay::browser::{BrowserMode, DirPurpose, FileBrowser};
@@ -10,14 +13,16 @@ use egui_sdl2::egui;
 /// more files per screen.
 const ENTRY_HEIGHT: f32 = 30.0;
 
-/// Below this many seconds left, the incoming request's countdown turns red.
-const URGENT_SECS: u32 = 10;
-
 /// The pinned band: an accent wash faint enough to stay under the cursor's own
-/// 0.30 fill, the rule closing it, and the padding it grows by past its rows.
+/// fill, the rule closing it, and the padding it grows by past its rows.
 const BAND_TINT: f32 = 0.10;
 const RULE_TINT: f32 = 0.55;
 const BAND_INSET: f32 = 2.0;
+
+/// Width of a mark column (checkbox, folder/file icon) in a row.
+const MARK_COL: f32 = 22.0;
+/// Side of a row's icons.
+const MARK_SIZE: f32 = theme::ICON_SIZE;
 
 /// `deadline_secs` is set only while the browser is picking a destination for
 /// a parked incoming request: the modal (and its countdown bar) is hidden
@@ -31,6 +36,8 @@ pub fn render(
 ) {
     let picking_dir = browser.mode == BrowserMode::PickDir;
     let for_incoming = picking_dir && browser.dir_purpose == DirPurpose::Incoming;
+    // Files picked here leave the device; a folder picked here takes files in.
+    let flow = theme::flow_color(!picking_dir);
     egui::Panel::top(super::TOP_PANEL_ID).show(root, |ui| {
         ui.add_space(6.0);
         ui.horizontal(|ui| {
@@ -42,15 +49,10 @@ pub fn render(
             ui.label(egui::RichText::new(title).size(theme::ROW_FONT).strong());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if let Some(secs) = deadline_secs {
-                    let color = if secs <= URGENT_SECS {
-                        theme::DANGER
-                    } else {
-                        theme::ACCENT
-                    };
                     ui.label(
                         egui::RichText::new(format!("{secs}s"))
                             .size(theme::DETAIL_FONT)
-                            .color(color),
+                            .color(super::prompt::countdown_color(secs)),
                     );
                 }
                 ui.label(
@@ -71,7 +73,7 @@ pub fn render(
                 ui.label(
                     egui::RichText::new(format!("{count} selected · {}", super::fmt_bytes(bytes)))
                         .size(theme::DETAIL_FONT)
-                        .color(theme::ACCENT),
+                        .color(flow),
                 );
                 ui.label(egui::RichText::new("·").color(theme::DIM));
             }
@@ -126,117 +128,124 @@ pub fn render(
         let spacing = ui.spacing().item_spacing.y;
         let step = ENTRY_HEIGHT + spacing;
         let total = browser.entries.len();
-        egui::ScrollArea::vertical().show_viewport(ui, |ui, viewport| {
-            ui.set_height(step * total as f32 - spacing);
-            ui.set_width(ui.available_width());
-            let origin = ui.min_rect().left_top();
-            let width = ui.available_width();
-            let row_rect = |i: usize| {
-                egui::Rect::from_min_size(
-                    origin + egui::vec2(0.0, i as f32 * step),
-                    egui::vec2(width, ENTRY_HEIGHT),
-                )
-            };
-            // Keeps the cursor visible even when it jumped past the slice.
-            if browser.cursor < total {
-                ui.scroll_to_rect(row_rect(browser.cursor), None);
-            }
-            // Pins lead the listing but belong to other folders: a band behind
-            // them and a rule under the last one keep them from reading as rows
-            // of the folder being looked at.
-            let pins = browser.pinned_rows();
-            if pins > 0 {
-                let band = row_rect(0).union(row_rect(pins - 1));
-                ui.painter().rect_filled(
-                    band.expand2(egui::vec2(0.0, BAND_INSET)),
-                    4.0,
-                    theme::ACCENT.linear_multiply(BAND_TINT),
-                );
-                if pins < total {
-                    ui.painter().hline(
-                        band.x_range(),
-                        band.max.y + spacing * 0.5,
-                        egui::Stroke::new(1.0, theme::DIM.linear_multiply(RULE_TINT)),
+        egui::ScrollArea::vertical()
+            .id_salt("browser")
+            .show_viewport(ui, |ui, viewport| {
+                ui.set_height(step * total as f32 - spacing);
+                ui.set_width(ui.available_width());
+                let origin = ui.min_rect().left_top();
+                let width = ui.available_width();
+                let row_rect = |i: usize| {
+                    egui::Rect::from_min_size(
+                        origin + egui::vec2(0.0, i as f32 * step),
+                        egui::vec2(width, ENTRY_HEIGHT),
+                    )
+                };
+                // Keeps the cursor visible even when it jumped past the slice.
+                // Keyed by folder too: a new listing starts at row 0 as well.
+                if browser.cursor < total {
+                    super::scroll_to_cursor(
+                        ui,
+                        ("browser", &browser.cwd, browser.cursor),
+                        row_rect(browser.cursor),
                     );
                 }
-            }
-            let first = (viewport.min.y / step).max(0.0) as usize;
-            let last = ((viewport.max.y / step).ceil() as usize + 1).min(total);
-            // Hit-tested, not sensed: virtualized rows are painted from rects,
-            // not allocated.
-            let tap = super::home::tap_pos(ui);
-            for i in first..last {
-                let entry = &browser.entries[i];
-                let rect = row_rect(i);
-                if tap.is_some_and(|pos| rect.contains(pos)) {
-                    taps.push(AppCommand::PickRow(i));
-                    taps.push(AppCommand::Confirm);
-                }
-                if browser.cursor == i {
-                    ui.painter().rect(
-                        rect,
+                // Pins belong to other folders: a band and a closing rule keep them
+                // from reading as rows of the folder being looked at.
+                let pins = browser.pinned_rows();
+                if pins > 0 {
+                    let band = row_rect(0).union(row_rect(pins - 1));
+                    ui.painter().rect_filled(
+                        band.expand2(egui::vec2(0.0, BAND_INSET)),
                         4.0,
-                        theme::ACCENT.linear_multiply(0.30),
-                        egui::Stroke::new(1.0, theme::ACCENT),
-                        egui::StrokeKind::Inside,
+                        flow.linear_multiply(BAND_TINT),
                     );
+                    if pins < total {
+                        ui.painter().hline(
+                            band.x_range(),
+                            band.max.y + spacing * 0.5,
+                            egui::Stroke::new(1.0, theme::DIM.linear_multiply(RULE_TINT)),
+                        );
+                    }
                 }
-                let painter = ui.painter();
-                let padding = 10.0;
+                let first = (viewport.min.y / step).max(0.0) as usize;
+                let last = ((viewport.max.y / step).ceil() as usize + 1).min(total);
+                // Hit-tested, not sensed: virtualized rows are painted from rects,
+                // not allocated.
+                let tap = super::home::tap_pos(ui);
+                for i in first..last {
+                    let entry = &browser.entries[i];
+                    let rect = row_rect(i);
+                    if tap.is_some_and(|pos| rect.contains(pos)) {
+                        taps.push(AppCommand::PickRow(i));
+                        taps.push(AppCommand::Confirm);
+                    }
+                    if browser.cursor == i {
+                        theme::highlight(ui.painter(), rect, flow);
+                    }
+                    let painter = ui.painter();
 
-                // A star for pinned rows, a slash for directories, a checkbox
-                // for whatever is picked — and both for a pinned file, whose
-                // selection state still has to be readable. No checkboxes when
-                // only a directory is being picked.
-                let picked = browser.selected.get(&entry.path);
-                // Checked, but dimmed: a picked folder put it there.
-                let covered = picked.is_none() && browser.covered_by(&entry.path).is_some();
-                let checked = picked.is_some() || covered;
-                let (marker, marker_color) = match (entry.pinned, entry.is_dir) {
-                    (true, _) if checked => ("★[x]", theme::ACCENT),
-                    (true, true) => ("  ★", theme::ACCENT),
-                    (true, false) => ("★[ ]", theme::ACCENT),
-                    (false, true) if checked => ("[x]/", theme::ACCENT),
-                    (false, true) => ("   /", theme::DIM),
-                    (false, false) if picking_dir => ("", theme::DIM),
-                    (false, false) if checked => ("[x]", theme::ACCENT),
-                    (false, false) => ("[ ]", theme::DIM),
-                };
-                let marker_color = if covered { theme::DIM } else { marker_color };
-                painter.text(
-                    rect.left_center() + egui::vec2(padding, 0.0),
-                    egui::Align2::LEFT_CENTER,
-                    marker,
-                    egui::FontId::monospace(theme::DETAIL_FONT),
-                    marker_color,
-                );
-                painter.text(
-                    rect.left_center() + egui::vec2(padding + 36.0, 0.0),
-                    egui::Align2::LEFT_CENTER,
-                    &entry.name,
-                    egui::FontId::proportional(theme::ROW_FONT),
-                    ui.visuals().text_color(),
-                );
-                // Pinned rows show where they lead: two cards can carry folders
-                // with the same name. A picked folder shows what it weighs —
-                // nothing else on the row can say it.
-                let trailing = if entry.pinned {
-                    truncate_middle(&entry.path.display().to_string(), 40)
-                } else if entry.is_dir {
-                    picked.map_or_else(String::new, |p| super::fmt_bytes(p.bytes))
-                } else {
-                    super::fmt_bytes(entry.size)
-                };
-                if !trailing.is_empty() {
-                    painter.text(
-                        rect.right_center() - egui::vec2(padding, 0.0),
-                        egui::Align2::RIGHT_CENTER,
-                        trailing,
-                        egui::FontId::proportional(theme::DETAIL_FONT),
-                        theme::DIM,
+                    // A checkbox for whatever can be picked (none when only a directory
+                    // is), then a star, folder or file mark.
+                    let picked = browser.selected.get(&entry.path);
+                    // Checked, but dimmed: a picked folder put it there.
+                    let covered = picked.is_none() && browser.covered_by(&entry.path).is_some();
+                    let checked = picked.is_some() || covered;
+                    let mut x = rect.left() + theme::ROW_PAD + MARK_SIZE / 2.0;
+                    if !picking_dir {
+                        let (icon, color) = match (checked, covered) {
+                            (true, true) => (Icon::CheckboxOn, theme::DIM),
+                            (true, false) => (Icon::CheckboxOn, flow),
+                            (false, _) => (Icon::CheckboxOff, theme::DIM),
+                        };
+                        icons::paint(
+                            painter,
+                            icon,
+                            egui::pos2(x, rect.center().y),
+                            MARK_SIZE,
+                            color,
+                        );
+                        x += MARK_COL;
+                    }
+                    let (icon, color) = match (entry.pinned, entry.is_dir) {
+                        (true, _) => (Icon::Star, flow),
+                        (false, true) => (Icon::Folder, theme::DIM),
+                        (false, false) => (Icon::File, theme::DIM),
+                    };
+                    icons::paint(
+                        painter,
+                        icon,
+                        egui::pos2(x, rect.center().y),
+                        MARK_SIZE,
+                        color,
                     );
+                    x += MARK_COL;
+                    painter.text(
+                        egui::pos2(x - MARK_SIZE / 2.0, rect.center().y),
+                        egui::Align2::LEFT_CENTER,
+                        &entry.name,
+                        egui::FontId::proportional(theme::ROW_FONT),
+                        theme::INK,
+                    );
+                    // A pinned row shows where it leads, two cards can carry a folder of
+                    // one name; a picked folder shows what it weighs.
+                    let trailing = if entry.pinned {
+                        truncate_middle(&entry.path.display().to_string(), 40)
+                    } else if entry.is_dir {
+                        picked.map_or_else(String::new, |p| super::fmt_bytes(p.bytes))
+                    } else {
+                        super::fmt_bytes(entry.size)
+                    };
+                    if !trailing.is_empty() {
+                        painter.text(
+                            rect.right_center() - egui::vec2(theme::ROW_PAD, 0.0),
+                            egui::Align2::RIGHT_CENTER,
+                            trailing,
+                            egui::FontId::proportional(theme::DETAIL_FONT),
+                            theme::DIM,
+                        );
+                    }
                 }
-            }
-        });
+            });
     });
 }
