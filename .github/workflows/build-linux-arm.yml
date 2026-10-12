@@ -26,6 +26,7 @@ env:
   ZIG_VERSION: "0.15.2"
   ZIGBUILD_VERSION: "0.23.0"
   SDL_VERSION: "2.26.5+dfsg-1"
+  CARGO_NET_RETRY: "10"
 
 jobs:
   build:
@@ -51,10 +52,18 @@ jobs:
           rustup target add ${{ matrix.target }}
           rustc --version
 
+      # Dependencies built once and reused; saved from main only, so a pull
+      # request restores it without spending the quota on its own copy.
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
       # Keyed by the versions above: a download only happens when one changes.
       - name: Cache zig, cargo-zigbuild and SDL2
         id: tools
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             /opt/zig-x86_64-linux-${{ env.ZIG_VERSION }}

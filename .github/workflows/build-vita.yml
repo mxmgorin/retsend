@@ -24,6 +24,10 @@ env:
   # regression can't break the build.
   VITA_TOOLCHAIN: "nightly-2026-05-31"
   CARGO_VITA_VERSION: "0.2.2"
+  CARGO_NET_RETRY: "10"
+  # vdpm at a known commit: its bootstrap names the seed release it fetches,
+  # and the SDK cache below is keyed by it.
+  VDPM_REF: "c9ba33bd428ba88052f79d78592f4b318a7a322b"
 
 jobs:
   build:
@@ -31,22 +35,63 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: VitaSDK and its SDL2
-        run: |
-          set -eux
-          # The bootstrap creates the directory itself and refuses an existing one.
-          export VITASDK="$HOME/vitasdk"
-          echo "VITASDK=$VITASDK" >> "$GITHUB_ENV"
-          git clone --depth 1 https://github.com/vitasdk/vdpm /tmp/vdpm
-          /tmp/vdpm/bootstrap-vitasdk.sh --install-dir "$VITASDK"
-          yes | "$VITASDK/bin/vdpm" install sdl2
-          echo "$VITASDK/bin" >> "$GITHUB_PATH"
+      - name: Cache VitaSDK
+        id: vitasdk
+        uses: actions/cache@v6
+        with:
+          path: ~/vitasdk
+          key: vitasdk-${{ env.VDPM_REF }}-sdl2
 
-      - name: Rust toolchain and cargo-vita
+      - name: VitaSDK and its SDL2
+        if: steps.vitasdk.outputs.cache-hit != 'true'
         run: |
           set -eux
-          rustup toolchain install "$VITA_TOOLCHAIN" --profile minimal --component rust-src
-          cargo install cargo-vita --version "$CARGO_VITA_VERSION" --locked
+          git init -q /tmp/vdpm
+          git -C /tmp/vdpm fetch -q --depth 1 https://github.com/vitasdk/vdpm "$VDPM_REF"
+          git -C /tmp/vdpm checkout -q FETCH_HEAD
+          # The bootstrap fetches the seed's checksum once and reports any
+          # failure as "no seed published"; fetched here with retries instead.
+          release=$(sed -n 's/^SEED_RELEASE=//p' /tmp/vdpm/bootstrap-vitasdk.sh)
+          version=$(sed -n 's/^SEED_VERSION=//p' /tmp/vdpm/bootstrap-vitasdk.sh)
+          seed="vdpm-$version-x86_64-linux-gnu.tar.bz2"
+          fetch() { curl --retry 10 --retry-delay 5 --retry-all-errors -fsSL -o "$2" "$1"; }
+          base="https://github.com/vitasdk/vdpm/releases/download/$release"
+          fetch "$base/$seed" "/tmp/$seed"
+          fetch "$base/$seed.sha256" "/tmp/$seed.sha256"
+          export VITASDK_SEED_ARCHIVE="/tmp/$seed"
+          export VITASDK_SEED_SHA256=$(awk '{print $1}' "/tmp/$seed.sha256")
+          # The bootstrap pulls the toolchain packages and refuses an existing
+          # directory, so a retry starts clean.
+          for attempt in 1 2 3; do
+            rm -rf "$HOME/vitasdk"
+            /tmp/vdpm/bootstrap-vitasdk.sh --install-dir "$HOME/vitasdk" && break
+            [ "$attempt" -lt 3 ] && sleep 30 || exit 1
+          done
+          for attempt in 1 2 3; do
+            yes | "$HOME/vitasdk/bin/vdpm" install sdl2 && break
+            [ "$attempt" -lt 3 ] && sleep 30 || exit 1
+          done
+
+      - name: VitaSDK on PATH
+        run: |
+          echo "VITASDK=$HOME/vitasdk" >> "$GITHUB_ENV"
+          echo "$HOME/vitasdk/bin" >> "$GITHUB_PATH"
+
+      - name: Rust toolchain
+        run: rustup toolchain install "$VITA_TOOLCHAIN" --profile minimal --component rust-src
+
+      # Dependencies built once and reused; saved from main only, so a pull
+      # request restores it without spending the quota on its own copy.
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ env.VITA_TOOLCHAIN }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # After the cache: its ~/.cargo/bin holds cargo-vita, and an install of the
+      # same version is then a no-op.
+      - name: cargo-vita
+        run: cargo install cargo-vita --version "$CARGO_VITA_VERSION" --locked
 
       - name: Build
         env:

@@ -22,6 +22,7 @@ permissions:
 env:
   NDK_VERSION: "27.2.12479018" # r27c
   ANDROID_API: "24"
+  CARGO_NET_RETRY: "10"
 
 jobs:
   build-android:
@@ -54,7 +55,11 @@ jobs:
       - name: Install NDK + platform + build-tools
         run: |
           set -eux
-          sdkmanager --install "ndk;${NDK_VERSION}" "platforms;android-34" "build-tools;34.0.0"
+          # Google's servers, with no retry of their own.
+          for attempt in 1 2 3; do
+            sdkmanager --install "ndk;${NDK_VERSION}" "platforms;android-34" "build-tools;34.0.0" && break
+            [ "$attempt" -lt 3 ] && sleep 20 || exit 1
+          done
           echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
       - name: Rust toolchain
@@ -62,6 +67,14 @@ jobs:
           set -eux
           rustup show
           rustup target add "${RUST_TARGET}"
+
+      # Dependencies built once and reused; saved from main only, so a pull
+      # request restores it without spending the quota on its own copy.
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.abi }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked

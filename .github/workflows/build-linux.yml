@@ -19,6 +19,9 @@ concurrency:
 permissions:
   contents: write
 
+env:
+  CARGO_NET_RETRY: "10"
+
 jobs:
   build-linux:
     # 22.04 over latest: its glibc 2.35 keeps the binary runnable on older
@@ -30,8 +33,8 @@ jobs:
       - name: Install dependencies
         run: |
           set -eux
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          sudo apt-get -o Acquire::Retries=5 update
+          sudo apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
             build-essential pkg-config ca-certificates libsdl2-dev zip
 
       - name: Rust toolchain
@@ -39,6 +42,13 @@ jobs:
           set -eux
           rustup show
           rustc --version
+
+      # Dependencies built once and reused; saved from main only, so a pull
+      # request restores it without spending the quota on its own copy.
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # System SDL2, dynamically linked — desktop distros all package it.
       - name: Build
