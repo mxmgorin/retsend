@@ -81,14 +81,14 @@ fn miyoo_mini(kc: Keycode, menu_quits: bool) -> Option<AppCommand> {
     Some(match kc {
         // MENU, where the launcher has handed it over.
         Keycode::Escape if menu_quits => AppCommand::Shutdown,
-        Keycode::Space => AppCommand::Confirm,    // A
-        Keycode::LCtrl => AppCommand::Back,       // B
-        Keycode::LShift => AppCommand::Alt,       // X
-        Keycode::LAlt => AppCommand::TogglePin,   // Y
-        Keycode::Return => AppCommand::Start,     // Start
-        Keycode::RCtrl => AppCommand::ReAnnounce, // Select
-        Keycode::E => AppCommand::PageUp,         // L1
-        Keycode::T => AppCommand::PageDown,       // R1
+        Keycode::Space => super::swap_face(AppCommand::Confirm), // A
+        Keycode::LCtrl => super::swap_face(AppCommand::Back),    // B
+        Keycode::LShift => super::swap_face(AppCommand::Alt),    // X
+        Keycode::LAlt => super::swap_face(AppCommand::TogglePin), // Y
+        Keycode::Return => AppCommand::Start,                    // Start
+        Keycode::RCtrl => AppCommand::ReAnnounce,                // Select
+        Keycode::E => AppCommand::PageUp,                        // L1
+        Keycode::T => AppCommand::PageDown,                      // R1
         _ => return None,
     })
 }
@@ -131,6 +131,31 @@ mod tests {
         assert_eq!(
             commands,
             vec![AppCommand::Confirm, AppCommand::Back, AppCommand::Start]
+        );
+    }
+
+    /// The swap is read live, so the test restores it: the tests share one
+    /// process.
+    #[test]
+    fn swapped_the_miyoo_pad_confirms_on_b_and_pins_on_x() {
+        let miyoo = Keymap::MiyooMini { menu_quits: false };
+        crate::config::input::set_swap_abxy(true);
+        let mut commands = Vec::new();
+        on_key_down(miyoo, Keycode::Space, false, &mut commands);
+        on_key_down(miyoo, Keycode::LCtrl, false, &mut commands);
+        on_key_down(miyoo, Keycode::LShift, false, &mut commands);
+        on_key_down(miyoo, Keycode::LAlt, false, &mut commands);
+        on_key_down(miyoo, Keycode::Return, false, &mut commands);
+        crate::config::input::set_swap_abxy(false);
+        assert_eq!(
+            commands,
+            vec![
+                AppCommand::Back,
+                AppCommand::Confirm,
+                AppCommand::TogglePin,
+                AppCommand::Alt,
+                AppCommand::Start,
+            ]
         );
     }
 

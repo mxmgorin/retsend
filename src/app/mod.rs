@@ -66,6 +66,7 @@ impl App {
     pub fn new(sdl: &sdl2::Sdl, config: AppConfig) -> Result<Self, String> {
         let mut ui = AppUi::new(sdl, &config.display)?;
         ui.splash();
+        crate::config::input::set_swap_abxy(config.input.swap_abxy);
         let event_handler = AppEventHandler::new(sdl, config.input.clone())?;
 
         // Net threads wake the blocked event loop through SDL user events;
@@ -531,6 +532,11 @@ impl App {
             SettingsRow::AutoRoutes => self.toggle_auto_routes(),
             SettingsRow::IdleAnimation => {
                 self.config.display.idle_animation = !self.config.display.idle_animation;
+            }
+            SettingsRow::SwapAbxy => {
+                let on = !self.config.input.swap_abxy;
+                self.config.input.swap_abxy = on;
+                crate::config::input::set_swap_abxy(on);
             }
             SettingsRow::Routes => {
                 let auto = self.detected_auto_routes();

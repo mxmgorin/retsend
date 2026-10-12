@@ -20,12 +20,13 @@ enum Kind {
 
 /// Headers, by the index of the row they sit above. Order matches
 /// `crate::overlay::settings::ROWS`.
-const SECTIONS: [(usize, &str); 5] = [
+const SECTIONS: [(usize, &str); 6] = [
     (0, "Device"),
     (1, "Receiving"),
     (5, "Save routes"),
     (7, "Network"),
     (8, "Display"),
+    (10, "Controls"),
 ];
 
 /// The switch: its box, the knob inside, and the gap to the word beside it.
@@ -109,6 +110,15 @@ pub fn render(
                 "still".into()
             },
             Kind::Toggle(config.display.idle_animation),
+        ),
+        (
+            "Swap A/B and X/Y",
+            if config.input.swap_abxy {
+                "A is the east button, X the north".into()
+            } else {
+                "A is the south button, X the west".into()
+            },
+            Kind::Toggle(config.input.swap_abxy),
         ),
         (
             "About",

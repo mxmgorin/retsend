@@ -57,11 +57,12 @@ impl Gamepad {
         if !pressed {
             return;
         }
+        let face = |cmd| super::swap_face(cmd);
         match button {
-            Button::A => commands.push(AppCommand::Confirm),
-            Button::B => commands.push(AppCommand::Back),
-            Button::X => commands.push(AppCommand::Alt),
-            Button::Y => commands.push(AppCommand::TogglePin),
+            Button::A => commands.push(face(AppCommand::Confirm)),
+            Button::B => commands.push(face(AppCommand::Back)),
+            Button::X => commands.push(face(AppCommand::Alt)),
+            Button::Y => commands.push(face(AppCommand::TogglePin)),
             Button::Start => commands.push(AppCommand::Start),
             Button::Back => commands.push(AppCommand::ReAnnounce),
             Button::LeftShoulder => commands.push(AppCommand::PageUp),

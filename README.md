@@ -59,6 +59,12 @@ retsend is a [LocalSend](https://localsend.org) client for retro handhelds, writ
 - **Headless mode**<br>
   `retsend --receive` runs without a screen, for SSH and scripting. See [Command line](docs/CLI.md).
 
+- **Runs wherever SDL2 does**<br>
+  Draws through whatever video backend the firmware ships: a framebuffer, KMS/DRM, a vendor driver. X11, Wayland or a display manager are not required.
+
+- **GPU optional**<br>
+  OpenGL ES where there is one, SDL's own renderer where there is not, picked at start-up.
+
 - **Small**<br>
   No async runtime, a minimal HTTP server, and the system's own SDL2 wherever it can drive the screen.
 

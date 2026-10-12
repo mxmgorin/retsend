@@ -347,14 +347,16 @@ enum Face {
 }
 
 /// The shape the device's pad prints for a button the hints name by SDL's
-/// positional layout (A south, B east, X west, Y north).
+/// positional layout (A south, B east, X west, Y north), or by the swapped
+/// one when the setting trades the pairs.
 #[cfg(target_os = "vita")]
 fn pad_face(button: &str) -> Option<Face> {
-    match button {
-        "A" => Some(Face::Cross),
-        "B" => Some(Face::Circle),
-        "X" => Some(Face::Square),
-        "Y" => Some(Face::Triangle),
+    let swapped = crate::config::input::swap_abxy();
+    match (button, swapped) {
+        ("A", false) | ("B", true) => Some(Face::Cross),
+        ("B", false) | ("A", true) => Some(Face::Circle),
+        ("X", false) | ("Y", true) => Some(Face::Square),
+        ("Y", false) | ("X", true) => Some(Face::Triangle),
         _ => None,
     }
 }

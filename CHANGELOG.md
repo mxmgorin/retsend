@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Vita's storage devices as browser roots, and labels the hints with the pad's
   own Cross, Circle, Square and Triangle.
 
+- **A "Swap A/B and X/Y" setting** for pads printed the Nintendo way, and for
+  the Vita's Circle-confirms convention: the pairs trade places, and the hints
+  name the buttons as printed. `[input] swap_abxy` in the config.
+
 ### Changed
 
 - **The UI wears the icon's palette.** Teal marks what comes in and what is

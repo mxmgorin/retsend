@@ -160,7 +160,6 @@ jobs:
           cp packaging/portmaster/gameinfo.xml "$pm/retsend/"
           cp packaging/portmaster/README.md "$pm/retsend/"
           cp packaging/portmaster/screenshot.png "$pm/retsend/"
-          cp packaging/portmaster/cover.png "$pm/retsend/"
           cp -r packaging/portmaster/retsend/. "$pm/retsend/"
           rm -f "$pm/retsend/.gitkeep"
           # Artifacts travel as zips, which drop file modes.

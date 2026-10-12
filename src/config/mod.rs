@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 mod device;
 pub mod display;
-mod input;
+pub mod input;
 mod network;
 mod paths;
 pub mod routes;

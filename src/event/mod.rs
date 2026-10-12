@@ -11,6 +11,22 @@ use crate::app::AppCommand;
 use crate::config::InputConfig;
 use crate::ui::AppUi;
 use gamepad::Gamepad;
+
+/// What a face button does once A/B and X/Y are swapped: the other button of
+/// its pair. Applied to the pad and to a pad that arrives as keys, never to a
+/// keyboard proper, whose Enter and Esc carry no printed letter.
+pub(crate) fn swap_face(cmd: AppCommand) -> AppCommand {
+    if !crate::config::input::swap_abxy() {
+        return cmd;
+    }
+    match cmd {
+        AppCommand::Confirm => AppCommand::Back,
+        AppCommand::Back => AppCommand::Confirm,
+        AppCommand::Alt => AppCommand::TogglePin,
+        AppCommand::TogglePin => AppCommand::Alt,
+        other => other,
+    }
+}
 use keyboard::Keymap;
 use sdl2::event::Event;
 

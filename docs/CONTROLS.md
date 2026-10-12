@@ -14,6 +14,11 @@
 On the PS Vita, A, B, X and Y are Cross, Circle, Square and Triangle, and L1 / R1
 are L / R.
 
+A, B, X and Y follow SDL's positions: A south, B east, X west, Y north. On a pad
+printed the Nintendo way, with A east and X north, **Settings → Swap A/B and
+X/Y** (or `[input] swap_abxy = true`) trades the pairs so the hints name the
+buttons as printed; on the Vita it makes Circle confirm.
+
 ## Touch
 
 Tap a row to act on it. Tap a hint in the footer to press the button it names.

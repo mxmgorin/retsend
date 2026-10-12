@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Input tunables (`[input]` in the config).
 #[derive(Clone, Serialize, Deserialize)]
@@ -10,6 +11,21 @@ pub struct InputConfig {
     pub repeat_initial_delay_ms: u64,
     /// Held D-pad/stick: interval between repeats once started, in ms.
     pub repeat_interval_ms: u64,
+    /// A and B, X and Y trade places: the hints then name the buttons as a
+    /// Nintendo-style pad prints them, A east and X north.
+    pub swap_abxy: bool,
+}
+
+/// The live [`InputConfig::swap_abxy`]: the setting toggles at runtime, and
+/// input routing and the hints read it without a config in hand.
+static SWAP_ABXY: AtomicBool = AtomicBool::new(false);
+
+pub fn swap_abxy() -> bool {
+    SWAP_ABXY.load(Ordering::Relaxed)
+}
+
+pub fn set_swap_abxy(on: bool) {
+    SWAP_ABXY.store(on, Ordering::Relaxed);
 }
 
 impl Default for InputConfig {
@@ -18,6 +34,7 @@ impl Default for InputConfig {
             deadzone: 0.5,
             repeat_initial_delay_ms: 350,
             repeat_interval_ms: 110,
+            swap_abxy: false,
         }
     }
 }
