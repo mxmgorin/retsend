@@ -46,9 +46,9 @@ env_logger = "0.11"
 png = "0.18"
 # Certificate verification is off: LocalSend trusts the fingerprint, not a CA.
 ureq = { version = "3", default-features = false, features = ["rustls"] }
-# A floor, not a pin: 0.23.13..=0.23.17 panic in Acceptor::accept
-# (RUSTSEC-2024-0399).
-rustls = { version = "0.23.42", default-features = false, features = ["ring", "std"] }
+# A floor, not a pin: earlier 0.23 releases carry RUSTSEC-2024-0399 and
+# RUSTSEC-2026-0285.
+rustls = { version = "0.23.45", default-features = false, features = ["ring", "std"] }
 # No default features: its `pem` pins pem 3 against our pem 4.
 rcgen = { version = "0.14", default-features = false, features = ["ring"] }
 # ureq's client-auth types take PEM only; the DER constructor's KeyKind is private.
