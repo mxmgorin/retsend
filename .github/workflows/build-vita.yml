@@ -35,7 +35,7 @@ jobs:
         run: |
           set -eux
           # The bootstrap creates the directory itself and refuses an existing one.
-          VITASDK="$HOME/vitasdk"
+          export VITASDK="$HOME/vitasdk"
           echo "VITASDK=$VITASDK" >> "$GITHUB_ENV"
           git clone --depth 1 https://github.com/vitasdk/vdpm /tmp/vdpm
           /tmp/vdpm/bootstrap-vitasdk.sh --install-dir "$VITASDK"
