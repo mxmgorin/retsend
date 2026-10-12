@@ -189,7 +189,6 @@ jobs:
           # Mirrors the card: unzipped at the SD root.
           cp -r packaging/miyoo/onionos/App "$pkg/"
           cp packaging/miyoo/onionos/README.md "$pkg/App/Retsend/"
-          cp packaging/miyoo/shared/icon.png "$pkg/App/Retsend/"
           cp -r packaging/miyoo/shared/lib "$pkg/App/Retsend/"
           install -m 755 bin/retsend "$pkg/App/Retsend/retsend"
           chmod 755 "$pkg/App/Retsend/launch.sh"
@@ -383,7 +382,7 @@ jobs:
           cp -r packaging/miyoo/allium/Apps/Retsend.pak/ports "$app/"
           chmod 755 "$app/ports/Retsend.port/launch.sh"
           cp packaging/miyoo/allium/README.md "$app/"
-          # Allium's list wants the plated icon, not OnionOS's transparent glyph.
+          # Allium's list wants the plated icon, not the transparent glyph.
           cp resources/icon/icon.png "$app/"
           cp -r packaging/miyoo/shared/lib "$app/"
           install -m 755 bin/retsend "$app/retsend"

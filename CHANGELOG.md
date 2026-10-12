@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The OnionOS icon matches Onion's own**: outlined, on a white rim with a
+  shadow ([#51](https://github.com/mxmgorin/retsend/issues/51)).
 - **The Miyoo Mini spruceOS package is now `retsend-spruceos-armhf.zip`**, beside
   `retsend-spruceos-aarch64.zip`.
 - **Touch only taps where it lands on the screen.** Fingers on a pad beside it,
