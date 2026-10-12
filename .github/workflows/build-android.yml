@@ -6,8 +6,15 @@ on:
   push:
     branches:
       - "main"
+  pull_request:
   release:
     types: [published]
+
+# Named by hand: in a called workflow `github.workflow` is the caller's. Only a
+# newer push to a pull request cancels a run.
+concurrency:
+  group: build-android-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: write
@@ -33,16 +40,16 @@ jobs:
       RUST_TARGET: ${{ matrix.rust_target }}
       APK: retsend-android-${{ matrix.name }}.apk
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Android SDK + NDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install NDK + platform + build-tools
         run: |
@@ -116,7 +123,7 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk "${APK}"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: retsend-android-${{ matrix.name }}
           path: ${{ env.APK }}
@@ -127,7 +134,7 @@ jobs:
 
       - name: Attach APK to release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             ${{ env.APK }}

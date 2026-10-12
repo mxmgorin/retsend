@@ -6,8 +6,15 @@ on:
   push:
     branches:
       - "main"
+  pull_request:
   release:
     types: [published]
+
+# Named by hand: in a called workflow `github.workflow` is the caller's. Only a
+# newer push to a pull request cancels a run.
+concurrency:
+  group: build-linux-arm-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: write
@@ -36,7 +43,7 @@ jobs:
             deb_arch: arm64
             libdir: aarch64-linux-gnu
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Rust toolchain
         run: |
@@ -99,7 +106,7 @@ jobs:
           fi
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: retsend-linux-${{ matrix.arch }}
           path: dist/retsend
@@ -108,14 +115,14 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: retsend-linux-aarch64
           path: bin/aarch64
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: retsend-linux-armhf
           path: bin/armhf
@@ -141,7 +148,7 @@ jobs:
           ls -laR "$pm"
 
       - name: Upload PortMaster artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: retsend-portmaster
           path: portmaster-dist
@@ -159,7 +166,7 @@ jobs:
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             retsend-portmaster.zip
@@ -173,9 +180,9 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: retsend-linux-armhf
           path: bin
@@ -195,7 +202,7 @@ jobs:
           ls -laR "$pkg"
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: retsend-onionos
           path: onionos-dist
@@ -209,7 +216,7 @@ jobs:
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             retsend-onionos.zip
@@ -219,9 +226,9 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: retsend-linux-armhf
           path: bin
@@ -243,7 +250,7 @@ jobs:
           ls -laR "$pkg"
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: retsend-spruceos-armhf
           path: spruce-armhf-dist
@@ -257,7 +264,7 @@ jobs:
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             retsend-spruceos-armhf.zip
@@ -267,9 +274,9 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: retsend-linux-aarch64
           path: bin
@@ -294,7 +301,7 @@ jobs:
           ls -laR "$pkg"
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: retsend-spruceos-aarch64
           path: spruce-aarch64-dist
@@ -308,7 +315,7 @@ jobs:
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             retsend-spruceos-aarch64.zip
@@ -318,9 +325,9 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: retsend-linux-aarch64
           path: bin
@@ -338,7 +345,7 @@ jobs:
           ls -laR "$pkg"
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: retsend-nextui
           path: nextui-dist
@@ -352,7 +359,7 @@ jobs:
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             retsend-nextui.zip
@@ -362,9 +369,9 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: retsend-linux-armhf
           path: bin
@@ -390,7 +397,7 @@ jobs:
           ls -laR "$pkg"
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: retsend-allium
           path: allium-dist
@@ -404,7 +411,7 @@ jobs:
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             retsend-allium.zip
@@ -414,9 +421,9 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: retsend-linux-aarch64
           path: bin
@@ -438,7 +445,7 @@ jobs:
           ls -laR "$pkg"
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: retsend-muos
           path: muos-dist
@@ -453,7 +460,7 @@ jobs:
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             retsend-muos.muxapp

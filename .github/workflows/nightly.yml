@@ -31,7 +31,7 @@ jobs:
       short: ${{ steps.check.outputs.short }}
       date: ${{ steps.check.outputs.date }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - id: check
         env:
@@ -90,9 +90,9 @@ jobs:
     needs: [changed, linux, linux-arm, android, vita]
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: art
 
@@ -131,7 +131,7 @@ jobs:
         run: gh release delete nightly --yes || true
 
       # Drafted until every asset is up, so nobody downloads half a release.
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: nightly
           name: Nightly ${{ needs.changed.outputs.date }} (${{ needs.changed.outputs.short }})

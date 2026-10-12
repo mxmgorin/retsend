@@ -6,8 +6,15 @@ on:
   push:
     branches:
       - "main"
+  pull_request:
   release:
     types: [published]
+
+# Named by hand: in a called workflow `github.workflow` is the caller's. Only a
+# newer push to a pull request cancels a run.
+concurrency:
+  group: build-vita-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: write
@@ -24,7 +31,7 @@ jobs:
     env:
       VITASDK: /usr/local/vitasdk
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: VitaSDK and its SDL2
         run: |
@@ -53,14 +60,14 @@ jobs:
           sha256sum retsend-vita.vpk > retsend-vita.vpk.sha256
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: retsend-vita
           path: retsend-vita.vpk
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             retsend-vita.vpk
