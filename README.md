@@ -21,13 +21,17 @@ retsend is a [LocalSend](https://localsend.org) client for retro handhelds, writ
 
 ## Screenshots
 
-| Receive | Request | Save | Transfer |
-|:---:|:---:|:---:|:---:|
-| ![Waiting for a sender: the device name under the mark, and the address, Wi-Fi network and save folder as chips along the bottom](resources/screenshots/receive.png) | ![An incoming request naming the sender, its files and where they land, counting down to the automatic decline](resources/screenshots/request.png) | ![Picking the folder an incoming transfer lands in, the request still counting down](resources/screenshots/save.png) | ![A transfer in progress: overall bar with bytes, speed and ETA, and a percentage per file](resources/screenshots/transfer.png) |
+| Receive | Send |
+|:---:|:---:|
+| ![Waiting for a sender: the device name under the mark, and the address, Wi-Fi network and save folder as chips along the bottom](resources/screenshots/receive.png) | ![Radar of a discovered device with its type, model and address](resources/screenshots/send.png) |
 
-| Send | History | Settings | Save routes |
-|:---:|:---:|:---:|:---:|
-| ![Radar of a discovered device with its model and address](resources/screenshots/send.png) | ![Sent and received transfers with file counts, sizes, times and the folders they used](resources/screenshots/history.png) | ![Settings on the device: name, save folder, quick save, file handling and port](resources/screenshots/settings.png) | ![Save routes: received files go to a folder by extension, over the console folders detected on the card](resources/screenshots/routes.png) |
+| Request | Transfer |
+|:---:|:---:|
+| ![An incoming request naming the sender, its files and where they land, counting down to the automatic decline](resources/screenshots/request.png) | ![A transfer in progress: overall bar with bytes, speed and ETA, and a bar for the file on the move](resources/screenshots/transfer.png) |
+
+| History | Settings |
+|:---:|:---:|
+| ![Sent and received transfers with file counts, sizes, times and the folders they used](resources/screenshots/history.png) | ![Settings on the device, grouped: name, save folder, quick save, file handling and routes](resources/screenshots/settings.png) |
 
 ## Features
 
