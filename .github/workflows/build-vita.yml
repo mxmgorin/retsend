@@ -28,17 +28,16 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    env:
-      VITASDK: /usr/local/vitasdk
     steps:
       - uses: actions/checkout@v7
 
       - name: VitaSDK and its SDL2
         run: |
           set -eux
+          # The bootstrap creates the directory itself and refuses an existing one.
+          VITASDK="$HOME/vitasdk"
+          echo "VITASDK=$VITASDK" >> "$GITHUB_ENV"
           git clone --depth 1 https://github.com/vitasdk/vdpm /tmp/vdpm
-          sudo mkdir -p "$VITASDK"
-          sudo chown "$USER" "$VITASDK"
           /tmp/vdpm/bootstrap-vitasdk.sh --install-dir "$VITASDK"
           yes | "$VITASDK/bin/vdpm" install sdl2
           echo "$VITASDK/bin" >> "$GITHUB_PATH"
