@@ -51,28 +51,49 @@ jobs:
           rustup target add ${{ matrix.target }}
           rustc --version
 
+      # Keyed by the versions above: a download only happens when one changes.
+      - name: Cache zig, cargo-zigbuild and SDL2
+        id: tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            /opt/zig-x86_64-linux-${{ env.ZIG_VERSION }}
+            /opt/cargo-zigbuild
+            /opt/sdl2
+          key: arm-tools-zig${{ env.ZIG_VERSION }}-zigbuild${{ env.ZIGBUILD_VERSION }}-sdl${{ env.SDL_VERSION }}-${{ matrix.deb_arch }}
+
       - name: zig and cargo-zigbuild
+        if: steps.tools.outputs.cache-hit != 'true'
         run: |
           set -eux
-          curl --retry 5 -fsSL \
-            "https://ziglang.org/download/$ZIG_VERSION/zig-x86_64-linux-$ZIG_VERSION.tar.xz" \
-            | tar -xJ -C /opt
-          echo "/opt/zig-x86_64-linux-$ZIG_VERSION" >> "$GITHUB_PATH"
-          curl --retry 5 -fsSL \
-            "https://github.com/rust-cross/cargo-zigbuild/releases/download/v$ZIGBUILD_VERSION/cargo-zigbuild-x86_64-unknown-linux-musl.tar.xz" \
-            | sudo tar -xJ -C /usr/local/bin --strip-components=1 \
-              "cargo-zigbuild-x86_64-unknown-linux-musl/cargo-zigbuild"
+          # Into a file, not a pipe: a failed fetch then fails here, not in tar.
+          # Long retries ride out a release-download outage of a few minutes.
+          fetch() { curl --retry 10 --retry-delay 5 --retry-all-errors -fsSL -o "$2" "$1"; }
+          fetch "https://ziglang.org/download/$ZIG_VERSION/zig-x86_64-linux-$ZIG_VERSION.tar.xz" zig.tar.xz
+          tar -xJf zig.tar.xz -C /opt
+          fetch "https://github.com/rust-cross/cargo-zigbuild/releases/download/v$ZIGBUILD_VERSION/cargo-zigbuild-x86_64-unknown-linux-musl.tar.xz" zigbuild.tar.xz
+          mkdir -p /opt/cargo-zigbuild
+          tar -xJf zigbuild.tar.xz -C /opt/cargo-zigbuild --strip-components=1 \
+            "cargo-zigbuild-x86_64-unknown-linux-musl/cargo-zigbuild"
 
       - name: SDL2 for linking
+        if: steps.tools.outputs.cache-hit != 'true'
         run: |
           set -eux
           # Link-time only; Debian's, as Ubuntu's 2.0.20 lacks SDL_RenderGeometry.
           pool=http://deb.debian.org/debian/pool/main/libs/libsdl2
           mkdir -p /opt/sdl2
           for pkg in libsdl2-2.0-0 libsdl2-dev; do
-            curl --retry 5 -fsSLO "$pool/${pkg}_${SDL_VERSION}_${{ matrix.deb_arch }}.deb"
-            dpkg -x "${pkg}_${SDL_VERSION}_${{ matrix.deb_arch }}.deb" /opt/sdl2
+            deb="${pkg}_${SDL_VERSION}_${{ matrix.deb_arch }}.deb"
+            curl --retry 10 --retry-delay 5 --retry-all-errors -fsSL -o "$deb" "$pool/$deb"
+            dpkg -x "$deb" /opt/sdl2
           done
+
+      - name: Tools on PATH
+        run: |
+          set -eux
+          echo "/opt/zig-x86_64-linux-$ZIG_VERSION" >> "$GITHUB_PATH"
+          echo "/opt/cargo-zigbuild" >> "$GITHUB_PATH"
           ls -l /opt/sdl2/usr/lib/${{ matrix.libdir }}/libSDL2*
 
       - name: Build
@@ -139,6 +160,7 @@ jobs:
           cp packaging/portmaster/gameinfo.xml "$pm/retsend/"
           cp packaging/portmaster/README.md "$pm/retsend/"
           cp packaging/portmaster/screenshot.png "$pm/retsend/"
+          cp packaging/portmaster/cover.png "$pm/retsend/"
           cp -r packaging/portmaster/retsend/. "$pm/retsend/"
           rm -f "$pm/retsend/.gitkeep"
           # Artifacts travel as zips, which drop file modes.
