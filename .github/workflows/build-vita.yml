@@ -46,6 +46,8 @@ jobs:
         if: steps.vitasdk.outputs.cache-hit != 'true'
         run: |
           set -eux
+          # vdpm reads it; the next step publishes it to the later ones.
+          export VITASDK="$HOME/vitasdk"
           git init -q /tmp/vdpm
           git -C /tmp/vdpm fetch -q --depth 1 https://github.com/vitasdk/vdpm "$VDPM_REF"
           git -C /tmp/vdpm checkout -q FETCH_HEAD
@@ -63,12 +65,12 @@ jobs:
           # The bootstrap pulls the toolchain packages and refuses an existing
           # directory, so a retry starts clean.
           for attempt in 1 2 3; do
-            rm -rf "$HOME/vitasdk"
-            /tmp/vdpm/bootstrap-vitasdk.sh --install-dir "$HOME/vitasdk" && break
+            rm -rf "$VITASDK"
+            /tmp/vdpm/bootstrap-vitasdk.sh --install-dir "$VITASDK" && break
             [ "$attempt" -lt 3 ] && sleep 30 || exit 1
           done
           for attempt in 1 2 3; do
-            yes | "$HOME/vitasdk/bin/vdpm" install sdl2 && break
+            yes | "$VITASDK/bin/vdpm" install sdl2 && break
             [ "$attempt" -lt 3 ] && sleep 30 || exit 1
           done
 
