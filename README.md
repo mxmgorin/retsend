@@ -17,7 +17,7 @@
 
 retsend is a [LocalSend](https://localsend.org) client for retro handhelds, written in Rust with [SDL2](https://www.libsdl.org/) and [egui](https://github.com/emilk/egui). It sends and receives files with your phone or PC over Wi-Fi, without a cable, SSH or pulling the SD card, and works with the official LocalSend apps. Built for the gamepad; keyboard, touch and mouse work too.
 
-**[Install](#install)** on handhelds through PortMaster, muOS, OnionOS, Allium, spruceOS, NextUI or NX Redux, on the PS Vita, and on Android or Linux.
+**[Install](#install)** on handhelds through PortMaster, muOS, OnionOS, Allium, spruceOS, NextUI, NX Redux or Knulli, on the PS Vita, and on Android or Linux.
 
 ## Screenshots
 
@@ -83,6 +83,7 @@ the same file names under the rolling
 | [Allium](https://github.com/goweiwen/Allium) | [`retsend-allium.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-allium.zip) | root of the SD card, lands in `Apps/Retsend.pak/` |
 | [spruceOS](https://github.com/spruceUI/spruceOS) | [`retsend-spruceos-aarch64.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-spruceos-aarch64.zip), [`retsend-spruceos-armhf.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-spruceos-armhf.zip) (Miyoo Mini) | root of the SD card, lands in `App/Retsend/` |
 | [NextUI](https://github.com/LoveRetro/NextUI), [NX Redux](https://github.com/mohammadsyuhada/nx-redux) | [`retsend-nextui.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-nextui.zip) | root of the SD card, lands in `Tools/` |
+| [Knulli](https://knulli.org) | [`retsend-knulli.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-knulli.zip) | `roms/` in the share (`/userdata/roms/`), lands in `tools/` |
 | PS Vita ([HENkaku](https://henkaku.xyz/)) | [`retsend-vita.vpk`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-vita.vpk) | install with VitaShell |
 | Android | [`retsend-android-arm64.apk`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-android-arm64.apk), [`retsend-android-armv7.apk`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-android-armv7.apk) (32-bit) | sideload it |
 | Linux | [`retsend-linux-x86_64.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-linux-x86_64.zip), [`retsend-linux-aarch64.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-linux-aarch64.zip), [`retsend-linux-armhf.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-linux-armhf.zip) | unpack and run |

@@ -395,6 +395,51 @@ jobs:
             retsend-nextui.zip
             retsend-nextui.zip.sha256
 
+  knulli:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: retsend-linux-aarch64
+          path: bin
+
+      - name: Assemble the card layout
+        run: |
+          set -eux
+          pkg=knulli-dist
+          rm -rf "$pkg"
+          mkdir -p "$pkg"
+          # Unzipped into /userdata/roms/; the menu lists only the .sh.
+          cp -r packaging/knulli/tools "$pkg/"
+          rm -f "$pkg/tools/retsend/.gitkeep"
+          install -m 755 bin/retsend "$pkg/tools/retsend/retsend"
+          chmod 755 "$pkg/tools/Retsend.sh"
+          ls -laR "$pkg"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: retsend-knulli
+          path: knulli-dist
+
+      - name: Zip for release
+        if: github.event_name == 'release'
+        run: |
+          set -eux
+          (cd knulli-dist && zip -r ../retsend-knulli.zip .)
+          sha256sum retsend-knulli.zip > retsend-knulli.zip.sha256
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            retsend-knulli.zip
+            retsend-knulli.zip.sha256
+
   allium:
     needs: build
     runs-on: ubuntu-22.04

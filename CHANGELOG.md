@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Splash screen; wordmark on the About screen
 - Launcher icons in each firmware's style, rendered by `tools/icons.sh`; Android adaptive icon
 - spruceOS aarch64, NextUI and NX Redux packages; 32-bit Android APK ([#50](https://github.com/mxmgorin/retsend/issues/50))
+- Knulli package for the Tools section
 - Nightly builds under the rolling [`nightly`](https://github.com/mxmgorin/retsend/releases/tag/nightly) tag
 
 ### Changed

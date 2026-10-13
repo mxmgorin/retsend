@@ -31,6 +31,7 @@ Only the screen taps: the Vita's rear touchpad is ignored.
 | OnionOS, Allium, spruceOS (Miyoo Mini) | MENU |
 | PortMaster, spruceOS (aarch64) | Select + Start |
 | muOS, NextUI, Android | B on the home screen |
+| Knulli | B on the home screen, or Hotkey + Start |
 | PS Vita | Close it from the LiveArea |
 | Desktop | Close the window |
 
