@@ -281,7 +281,12 @@ fn resolve(layout: Layout, overrides: &KeyBindings) -> HashMap<Keycode, Binding>
         if overrides.get(button).is_none() {
             let face = layout.is_pad() && is_face(button);
             for name in layout.keys(button) {
-                bind(&mut bindings, name, Binding { button, face });
+                match Keycode::from_name(name) {
+                    Some(kc) => {
+                        bindings.insert(kc, Binding { button, face });
+                    }
+                    None => log::debug!("preset key `{name}` unknown to this SDL; skipped"),
+                }
             }
         }
     }
@@ -320,6 +325,9 @@ mod tests {
     const DESKTOP: Layout = Layout::Desktop;
     const MIYOO: Layout = Layout::MiyooMini { menu_quits: false };
 
+    /// Preset keys an older linked SDL has no name for.
+    const NEWER_SDL_KEYS: &[&str] = &["SoftLeft", "SoftRight", "Call"];
+
     /// The swap is read live and process-wide: a test that sees it holds this.
     static SWAP: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
@@ -335,12 +343,22 @@ mod tests {
         Keycode::from_name(name).expect("test key names are SDL's")
     }
 
+    /// `name`'s key, or `None` for one the linked SDL predates.
+    fn linked_key(name: &str) -> Option<Keycode> {
+        let kc = Keycode::from_name(name);
+        assert!(kc.is_some() || NEWER_SDL_KEYS.contains(&name), "`{name}`");
+        kc
+    }
+
     #[test]
     fn every_preset_key_name_resolves() {
         for layout in [DESKTOP, Layout::MiyooMini { menu_quits: true }] {
             for button in PadButton::ALL {
                 for name in layout.keys(button) {
-                    assert!(Keycode::from_name(name).is_some(), "{layout:?}: `{name}`");
+                    assert!(
+                        Keycode::from_name(name).is_some() || NEWER_SDL_KEYS.contains(name),
+                        "{layout:?}: `{name}`"
+                    );
                 }
             }
         }
@@ -390,48 +408,30 @@ mod tests {
 
     #[test]
     fn a_keypad_phone_has_every_button_without_a_pad() {
+        let presses = [
+            ("Select", AppCommand::Confirm),
+            ("AC Back", AppCommand::Back),
+            ("7", AppCommand::Alt),
+            ("9", AppCommand::TogglePin),
+            ("SoftRight", AppCommand::Start),
+            ("Call", AppCommand::Start),
+            ("5", AppCommand::Start),
+            ("SoftLeft", AppCommand::ReAnnounce),
+            ("Menu", AppCommand::ReAnnounce),
+            ("0", AppCommand::ReAnnounce),
+            ("1", AppCommand::PageUp),
+            ("3", AppCommand::PageDown),
+            ("2", AppCommand::Nav(Direction::Up)),
+            ("8", AppCommand::Nav(Direction::Down)),
+            ("4", AppCommand::Nav(Direction::Left)),
+            ("6", AppCommand::Nav(Direction::Right)),
+        ];
+        let (keys, expected): (Vec<_>, Vec<_>) = presses
+            .into_iter()
+            .filter_map(|(name, cmd)| Some((linked_key(name)?, cmd)))
+            .unzip();
         let mut keymap = Keymap::new(DESKTOP, &KeyBindings::default());
-        assert_eq!(
-            press(
-                &mut keymap,
-                &[
-                    key("Select"),
-                    key("AC Back"),
-                    key("7"),
-                    key("9"),
-                    key("SoftRight"),
-                    key("Call"),
-                    key("5"),
-                    key("SoftLeft"),
-                    key("Menu"),
-                    key("0"),
-                    key("1"),
-                    key("3"),
-                    key("2"),
-                    key("8"),
-                    key("4"),
-                    key("6"),
-                ]
-            ),
-            vec![
-                AppCommand::Confirm,
-                AppCommand::Back,
-                AppCommand::Alt,
-                AppCommand::TogglePin,
-                AppCommand::Start,
-                AppCommand::Start,
-                AppCommand::Start,
-                AppCommand::ReAnnounce,
-                AppCommand::ReAnnounce,
-                AppCommand::ReAnnounce,
-                AppCommand::PageUp,
-                AppCommand::PageDown,
-                AppCommand::Nav(Direction::Up),
-                AppCommand::Nav(Direction::Down),
-                AppCommand::Nav(Direction::Left),
-                AppCommand::Nav(Direction::Right),
-            ]
-        );
+        assert_eq!(press(&mut keymap, &keys), expected);
     }
 
     #[test]
@@ -688,7 +688,7 @@ mod tests {
             "0",
             "X",
         ] {
-            let kc = key(name);
+            let Some(kc) = linked_key(name) else { continue };
             assert_eq!(Keycode::from_name(&kc.name()), Some(kc), "`{name}`");
         }
     }
