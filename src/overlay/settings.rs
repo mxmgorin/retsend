@@ -2,7 +2,7 @@
 //! the network restart to screen close (port changes shouldn't restart the
 //! stack on every step).
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum SettingsRow {
     Alias,
     SaveDir,
@@ -15,6 +15,7 @@ pub enum SettingsRow {
     Scale,
     IdleAnimation,
     SwapAbxy,
+    Keys,
     About,
 }
 
@@ -28,7 +29,7 @@ impl SettingsRow {
 /// Top-to-bottom order on screen; `crate::ui::settings` labels them in the same
 /// order, one cursor indexes both. Port and the scale are late — both are set
 /// once, if ever.
-const ROWS: [SettingsRow; 12] = [
+const ROWS: [SettingsRow; 13] = [
     SettingsRow::Alias,
     SettingsRow::SaveDir,
     SettingsRow::QuickSave,
@@ -40,6 +41,7 @@ const ROWS: [SettingsRow; 12] = [
     SettingsRow::Scale,
     SettingsRow::IdleAnimation,
     SettingsRow::SwapAbxy,
+    SettingsRow::Keys,
     SettingsRow::About,
 ];
 
@@ -53,6 +55,8 @@ pub struct Settings {
     /// "on" actually amounts to. Refreshed on entering the tab and after the
     /// edits that change it; detecting walks the save dir, too much per frame.
     pub auto_route_count: usize,
+    /// The keys editor is offered: not where the pad itself arrives as keys.
+    pub keys_row: bool,
 }
 
 impl Settings {
@@ -61,20 +65,46 @@ impl Settings {
             cursor: 0,
             port_dirty: false,
             auto_route_count: 0,
+            keys_row: true,
         }
     }
 
+    /// The rows on screen, top to bottom, each with its index in the full
+    /// order; the cursor indexes this list.
+    pub fn rows(&self) -> Vec<(usize, SettingsRow)> {
+        ROWS.into_iter()
+            .enumerate()
+            .filter(|&(_, row)| self.keys_row || row != SettingsRow::Keys)
+            .collect()
+    }
+
     pub fn row(&self) -> SettingsRow {
-        ROWS[self.cursor.min(ROW_COUNT - 1)]
+        let rows = self.rows();
+        rows[self.cursor.min(rows.len() - 1)].1
     }
 
     pub fn move_cursor(&mut self, delta: i32) {
-        let count = ROW_COUNT as i32;
+        let count = self.rows().len() as i32;
         self.cursor = (self.cursor as i32 + delta).rem_euclid(count) as usize;
     }
 
     /// Straight to `index`, for a tapped row.
     pub fn set_cursor(&mut self, index: usize) {
-        self.cursor = index.min(ROW_COUNT - 1);
+        self.cursor = index.min(self.rows().len() - 1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_hidden_keys_row_is_skipped_by_the_cursor() {
+        let mut settings = Settings::new();
+        settings.keys_row = false;
+        settings.move_cursor(-1);
+        assert_eq!(settings.row(), SettingsRow::About);
+        settings.move_cursor(-1);
+        assert_eq!(settings.row(), SettingsRow::SwapAbxy);
     }
 }

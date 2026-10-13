@@ -4,6 +4,7 @@
 mod about;
 mod browser;
 mod chips;
+mod controls;
 mod history;
 mod home;
 mod icons;
@@ -25,6 +26,7 @@ use crate::overlay::toast::ToastKind;
 use crate::overlay::{
     about::AboutView,
     browser::FileBrowser,
+    controls::ControlsView,
     history::HistoryView,
     home::Home,
     osk::Osk,
@@ -112,6 +114,7 @@ enum Screen {
     /// Renders straight from `AppUi::browser`.
     Browser,
     Routes(routes::RoutesData),
+    Controls(controls::ControlsData),
     About,
     Transfer(transfer::TransferData),
     Send(home::HomeData),
@@ -128,6 +131,7 @@ pub struct AppUi {
     pub history: HistoryView,
     pub settings: Settings,
     pub routes: RoutesView,
+    pub controls: ControlsView,
     pub about: AboutView,
     pub browser: FileBrowser,
     pub osk: Osk,
@@ -177,6 +181,7 @@ impl AppUi {
             history: HistoryView::new(),
             settings: Settings::new(),
             routes: RoutesView::new(),
+            controls: ControlsView::new(),
             about: AboutView::new(),
             browser: FileBrowser::new(),
             osk: Osk::new(),
@@ -298,6 +303,7 @@ impl AppUi {
                     &mut taps,
                 ),
                 Screen::Routes(data) => routes::render(&mut root, data, &mut taps),
+                Screen::Controls(data) => controls::render(&mut root, data, &mut taps),
                 Screen::About => about::render(&mut root, &mut taps),
                 Screen::Transfer(data) => transfer::render(&mut root, data, &mut taps),
                 Screen::Send(data) => {
@@ -332,6 +338,15 @@ impl AppUi {
         if let Some(t) = self.toasts.next_expiry() {
             delay = delay.min(t);
         }
+        // Wakes for the capture's timeout and each tick of its countdown.
+        if let Some(t) = self.controls.time_left() {
+            let tick = Duration::from_nanos(t.subsec_nanos().into());
+            delay = delay.min(if tick.is_zero() {
+                t.min(Duration::from_secs(1))
+            } else {
+                tick
+            });
+        }
         if prompt_data.is_some() {
             delay = delay.min(PROMPT_REFRESH);
         }
@@ -344,7 +359,7 @@ impl AppUi {
     }
 
     /// Snapshot what the rendered screen needs, and only that. Precedence
-    /// mirrors Focus: browser, routes, About, transfer, then the active tab.
+    /// mirrors Focus: browser, routes, keys, About, transfer, then the active tab.
     /// Covered screens cost nothing, the network probe included.
     fn screen_data(&mut self, net: &NetService, config: &AppConfig, history: &History) -> Screen {
         if self.browser.open {
@@ -364,6 +379,12 @@ impl AppUi {
                 auto_rows,
                 auto_on: config.transfer.auto_routes,
             });
+        }
+        if self.controls.open {
+            return Screen::Controls(controls::ControlsData::new(
+                &self.controls,
+                &config.input.keys,
+            ));
         }
         if self.about.open {
             return Screen::About;

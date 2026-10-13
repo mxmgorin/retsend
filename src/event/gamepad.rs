@@ -4,6 +4,7 @@
 //! machinery and bindings.toml arrive with the settings milestone.
 
 use crate::app::{AppCommand, Direction};
+use crate::config::input::PadButton;
 use crate::config::InputConfig;
 use sdl2::controller::{Axis, Button};
 use std::time::{Duration, Instant};
@@ -57,18 +58,15 @@ impl Gamepad {
         if !pressed {
             return;
         }
-        let face = |cmd| super::swap_face(cmd);
-        match button {
-            Button::A => commands.push(face(AppCommand::Confirm)),
-            Button::B => commands.push(face(AppCommand::Back)),
-            Button::X => commands.push(face(AppCommand::Alt)),
-            Button::Y => commands.push(face(AppCommand::TogglePin)),
-            Button::Start => commands.push(AppCommand::Start),
-            Button::Back => commands.push(AppCommand::ReAnnounce),
-            Button::LeftShoulder => commands.push(AppCommand::PageUp),
-            Button::RightShoulder => commands.push(AppCommand::PageDown),
-            _ => {}
-        }
+        let Some(pad) = pad_button(button) else {
+            return;
+        };
+        let cmd = super::command(pad);
+        commands.push(if super::is_face(pad) {
+            super::swap_face(cmd)
+        } else {
+            cmd
+        });
     }
 
     pub fn on_axis(&mut self, axis: Axis, value: i16, commands: &mut Vec<AppCommand>) {
@@ -138,6 +136,21 @@ impl Gamepad {
             last_repeat: None,
         });
     }
+}
+
+/// The SDL button as the app's own; the D-pad is [`dpad_dir`]'s.
+fn pad_button(button: Button) -> Option<PadButton> {
+    Some(match button {
+        Button::A => PadButton::A,
+        Button::B => PadButton::B,
+        Button::X => PadButton::X,
+        Button::Y => PadButton::Y,
+        Button::Start => PadButton::Start,
+        Button::Back => PadButton::Select,
+        Button::LeftShoulder => PadButton::L1,
+        Button::RightShoulder => PadButton::R1,
+        _ => return None,
+    })
 }
 
 fn dpad_dir(button: Button) -> Option<Direction> {

@@ -251,6 +251,13 @@ enum Cap {
 
 impl Cap {
     fn for_button(ui: &egui::Ui, button: &str) -> Self {
+        if let Some(key) = crate::event::hints::label(button) {
+            return if key.chars().count() == 1 {
+                Cap::Letter(cap_galley(ui, &key))
+            } else {
+                Cap::Wide(cap_galley(ui, &key))
+            };
+        }
         if let Some(face) = pad_face(button) {
             return Cap::Face(face);
         }

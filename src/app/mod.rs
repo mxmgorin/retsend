@@ -4,11 +4,14 @@ mod command;
 
 pub use command::{AppCommand, Direction};
 
+use crate::config::input::KeyBindings;
+use crate::config::input::PadButton;
 use crate::config::AppConfig;
 use crate::event::user::UserEventSender;
 use crate::event::AppEventHandler;
 use crate::net::NetService;
 use crate::overlay::browser::{BrowserMode, DirPurpose, Taken};
+use crate::overlay::controls::{Capture, ControlsRow, RemapStep};
 use crate::overlay::osk::{OskEvent, OskTarget};
 use crate::overlay::routes::RouteCursor;
 use crate::overlay::settings::SettingsRow;
@@ -68,6 +71,7 @@ impl App {
         ui.splash();
         crate::config::input::set_swap_abxy(config.input.swap_abxy);
         let event_handler = AppEventHandler::new(sdl, config.input.clone())?;
+        ui.settings.keys_row = !event_handler.layout().is_pad();
 
         // Net threads wake the blocked event loop through SDL user events;
         // the sender must be created on this (video) thread.
@@ -121,6 +125,10 @@ impl App {
             for command in commands.drain(..) {
                 self.execute_command(command);
             }
+            if self.ui.controls.timed_out() {
+                self.cancel_capture();
+                self.ui.toasts.warn("No key pressed; cancelled");
+            }
             // Adopt or release the active inbound session; its transitions
             // become toasts, a finished transfer a history entry.
             let active = self.net.shared.active.lock().unwrap().clone();
@@ -162,6 +170,8 @@ impl App {
             Focus::Browser
         } else if self.ui.routes.open {
             Focus::Routes
+        } else if self.ui.controls.open {
+            Focus::Controls
         } else if self.ui.about.open {
             Focus::About
         } else if self.ui.transfer.opened {
@@ -190,6 +200,10 @@ impl App {
 
         match (self.focus(), command) {
             (_, AppCommand::Shutdown) => self.running = false,
+
+            (Focus::Controls, AppCommand::BindKey(kc)) => self.bind_captured(kc),
+            // Armed capture outlived its screen (a request took over).
+            (_, AppCommand::BindKey(_)) => {}
 
             // Select is the browser's root-carousel; everywhere else it
             // refreshes the radar.
@@ -234,6 +248,8 @@ impl App {
                     // About view in progress is abandoned.
                     self.ui.browser.close();
                     self.ui.routes.close();
+                    self.ui.controls.close();
+                    self.event_handler.capture_key(false);
                     self.ui.about.close();
                     self.ui.transfer.open();
                 }
@@ -316,6 +332,35 @@ impl App {
             (Focus::Routes, AppCommand::Back) => self.ui.routes.close(),
             (Focus::Routes, _) => {}
 
+            // Keys editor: up/down over the buttons; A captures a key for the
+            // row, X resets it; B cancels a capture or goes back to Settings.
+            (Focus::Controls, AppCommand::Back) => {
+                if self.ui.controls.remap_button().is_some() {
+                    self.ui.toasts.push("Remap cancelled");
+                }
+                if self.ui.controls.is_capturing() {
+                    self.cancel_capture();
+                } else {
+                    self.ui.controls.close();
+                }
+            }
+            // A capture turns keys into BindKey, so anything else is the pad.
+            (Focus::Controls, _) if self.ui.controls.is_capturing() => {
+                self.ui
+                    .toasts
+                    .push("Press a keyboard key; the pad's buttons stay as they are");
+            }
+            (Focus::Controls, AppCommand::Nav(dir)) => self.ui.controls.move_cursor(nav_delta(dir)),
+            (Focus::Controls, AppCommand::Confirm) => self.controls_confirm(),
+            (Focus::Controls, AppCommand::Alt) => {
+                if let ControlsRow::Button(button) = self.ui.controls.row() {
+                    self.config.input.keys.set(button, None);
+                    self.apply_keys();
+                    self.ui.toasts.push(format!("{} reset", button.label()));
+                }
+            }
+            (Focus::Controls, _) => {}
+
             // About screen: read-only, so B backs out to Settings and nothing
             // else does anything.
             (Focus::About, AppCommand::Back) => self.ui.about.close(),
@@ -367,6 +412,11 @@ impl App {
                 Tab::Settings => self.ui.settings.set_cursor(index),
                 Tab::Receive => {}
             },
+            Focus::Controls => {
+                if !self.ui.controls.is_capturing() {
+                    self.ui.controls.set_cursor(index);
+                }
+            }
             Focus::Osk | Focus::Prompt | Focus::Transfer | Focus::About => {}
         }
     }
@@ -542,6 +592,7 @@ impl App {
                 let auto = self.detected_auto_routes();
                 self.ui.routes.open(auto);
             }
+            SettingsRow::Keys => self.ui.controls.open(self.event_handler.layout()),
             SettingsRow::About => self.ui.about.open(),
             // Walked with ◂ ▸; A on it would have to pick a direction.
             SettingsRow::Scale => {}
@@ -551,6 +602,95 @@ impl App {
                     .open(OskTarget::Port, &self.config.network.port.to_string());
             }
         }
+    }
+
+    /// A in the keys editor: capture a key for the button under the cursor,
+    /// start a remap of every button, or reset them all.
+    fn controls_confirm(&mut self) {
+        match self.ui.controls.row() {
+            ControlsRow::Button(_) => {
+                self.ui.controls.arm(Capture::Row);
+                self.event_handler.capture_key(true);
+            }
+            ControlsRow::RemapAll => {
+                self.ui.controls.arm(Capture::Remap(Vec::new()));
+                self.event_handler.capture_key(true);
+            }
+            ControlsRow::ResetAll => {
+                self.config.input.keys = KeyBindings::default();
+                self.apply_keys();
+                self.ui.toasts.push("Keys reset to the defaults");
+            }
+        }
+    }
+
+    /// A key arrived while capture was armed: bind it to the row's button, or
+    /// take it as the remap's next.
+    fn bind_captured(&mut self, kc: sdl2::keyboard::Keycode) {
+        match self.ui.controls.capture() {
+            Capture::Off => return,
+            Capture::Remap(_) => return self.remap_captured(kc),
+            Capture::Row => self.ui.controls.disarm(),
+        }
+        let ControlsRow::Button(button) = self.ui.controls.row() else {
+            return;
+        };
+        let layout = self.event_handler.layout();
+        let name = kc.name();
+        let key = crate::event::key_label(&name);
+        match crate::event::bind_key(layout, &mut self.config.input.keys, button, kc) {
+            Ok(()) => {
+                self.apply_keys();
+                self.ui.toasts.push(format!("{key} → {}", button.label()));
+            }
+            Err(left_bare) => self
+                .ui
+                .toasts
+                .warn(format!("{key} is the only key for {}", left_bare.label())),
+        }
+    }
+
+    fn remap_captured(&mut self, kc: sdl2::keyboard::Keycode) {
+        let name = kc.name();
+        let key = crate::event::key_label(&name);
+        match self.ui.controls.remap_key(kc) {
+            RemapStep::Taken(button) => {
+                self.ui
+                    .toasts
+                    .warn(format!("{key} is already {}", button.label()));
+                self.event_handler.capture_key(true);
+            }
+            RemapStep::Next => self.event_handler.capture_key(true),
+            RemapStep::Done(keys) => {
+                for (button, kc) in keys {
+                    let mut names = vec![kc.name()];
+                    // The way out of every screen survives any remap.
+                    if button == PadButton::B {
+                        names.extend(["Escape", "AC Back"].map(String::from));
+                    }
+                    self.config.input.keys.set(button, Some(names));
+                }
+                self.apply_keys();
+                self.ui.toasts.push("Keys remapped");
+            }
+        }
+    }
+
+    fn close_controls(&mut self) {
+        self.ui.controls.close();
+        self.event_handler.capture_key(false);
+    }
+
+    fn cancel_capture(&mut self) {
+        self.ui.controls.disarm();
+        self.event_handler.capture_key(false);
+    }
+
+    /// Persist the keys and rebuild the live keymap from them.
+    fn apply_keys(&mut self) {
+        self.config.save();
+        self.event_handler
+            .set_key_overrides(&self.config.input.keys);
     }
 
     /// A in the routes editor: on the add row, start the add flow (type an
@@ -830,6 +970,7 @@ impl App {
         };
         pending.accept_into(dir.clone());
         self.ui.routes.close();
+        self.close_controls();
         self.ui.about.close();
         self.ui.transfer.open();
         self.ui.toasts.push(format!(

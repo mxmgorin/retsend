@@ -4,6 +4,7 @@
 
 pub mod about;
 pub mod browser;
+pub mod controls;
 pub mod history;
 pub mod home;
 pub mod osk;
@@ -25,6 +26,8 @@ pub enum Focus {
     Browser,
     /// The routes editor (reached from the Settings tab).
     Routes,
+    /// The keys editor (reached from the Settings tab).
+    Controls,
     /// The About screen (reached from the Settings tab): read-only build info.
     About,
     /// The transfer progress/summary screen, a full-screen takeover.

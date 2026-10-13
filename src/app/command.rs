@@ -22,6 +22,8 @@ pub enum AppCommand {
     /// file in the folder in the browser.
     Alt,
     Shutdown,
+    /// A key pressed while capture was armed, to be bound.
+    BindKey(sdl2::keyboard::Keycode),
     /// Put the showing list's cursor on this row. A tap emits it with a
     /// [`Self::Confirm`] behind it, which is what makes a tap act.
     PickRow(usize),

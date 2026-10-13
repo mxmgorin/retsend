@@ -13,6 +13,7 @@ first run. The Settings screen edits everything except:
 | `[transfer] history_limit` | Transfers kept in History (default 200). |
 | `[transfer] pinned_paths`, `last_send_dir` | Written by Y and by sending. |
 | `[display] scale` | UI size over the screen's own (0.6–1.6). Every screen is drawn for 640×480 and fitted. |
+| `[input.keys]` | Keys per pad button ([Controls](CONTROLS.md#remapping-keys)). |
 | `[display] idle_animation` | The Receive screen's orbit turns while waiting (default `true`). Also **Settings → Idle animation**. |
 
 Environment variables are in [Command line](CLI.md#environment-variables).

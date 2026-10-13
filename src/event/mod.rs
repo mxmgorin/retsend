@@ -3,14 +3,42 @@
 //! app costs nothing while nobody is transferring or pressing buttons.
 
 mod gamepad;
+pub mod hints;
 mod keyboard;
 pub mod quit;
 pub mod user;
 
-use crate::app::AppCommand;
+use crate::app::{AppCommand, Direction};
+use crate::config::input::PadButton;
 use crate::config::InputConfig;
 use crate::ui::AppUi;
 use gamepad::Gamepad;
+
+/// What `button` asks of the app, before any A/B swap.
+pub(crate) fn command(button: PadButton) -> AppCommand {
+    match button {
+        PadButton::Up => AppCommand::Nav(Direction::Up),
+        PadButton::Down => AppCommand::Nav(Direction::Down),
+        PadButton::Left => AppCommand::Nav(Direction::Left),
+        PadButton::Right => AppCommand::Nav(Direction::Right),
+        PadButton::A => AppCommand::Confirm,
+        PadButton::B => AppCommand::Back,
+        PadButton::X => AppCommand::Alt,
+        PadButton::Y => AppCommand::TogglePin,
+        PadButton::Start => AppCommand::Start,
+        PadButton::Select => AppCommand::ReAnnounce,
+        PadButton::L1 => AppCommand::PageUp,
+        PadButton::R1 => AppCommand::PageDown,
+        PadButton::Menu => AppCommand::Shutdown,
+    }
+}
+
+fn is_face(button: PadButton) -> bool {
+    matches!(
+        button,
+        PadButton::A | PadButton::B | PadButton::X | PadButton::Y
+    )
+}
 
 /// What a face button does once A/B and X/Y are swapped: the other button of
 /// its pair. Applied to the pad and to a pad that arrives as keys, never to a
@@ -28,6 +56,7 @@ pub(crate) fn swap_face(cmd: AppCommand) -> AppCommand {
     }
 }
 use keyboard::Keymap;
+pub use keyboard::{bind_key, effective_keys, key_label, Layout};
 use sdl2::event::Event;
 
 pub struct AppEventHandler {
@@ -35,7 +64,7 @@ pub struct AppEventHandler {
     game_controllers: Vec<sdl2::controller::GameController>,
     game_controller_subsystem: sdl2::GameControllerSubsystem,
     gamepad: Gamepad,
-    /// Which keys the device's pad sends, when it sends keys at all.
+    /// The layout's keys with the `[input.keys]` overrides applied.
     keymap: Keymap,
 }
 
@@ -53,8 +82,9 @@ impl AppEventHandler {
             }
         }
 
-        let keymap = Keymap::detect(sdl.video()?.current_video_driver());
-        log::info!("keyboard layout: {keymap:?}");
+        let layout = Layout::detect(sdl.video()?.current_video_driver());
+        log::info!("keyboard layout: {layout:?}");
+        let keymap = Keymap::new(layout, &input_cfg.keys);
 
         Ok(Self {
             event_pump: sdl.event_pump()?,
@@ -63,6 +93,20 @@ impl AppEventHandler {
             gamepad: Gamepad::new(input_cfg),
             keymap,
         })
+    }
+
+    pub fn layout(&self) -> Layout {
+        self.keymap.layout()
+    }
+
+    /// Rebuild the keymap after `[input.keys]` changed.
+    pub fn set_key_overrides(&mut self, overrides: &crate::config::input::KeyBindings) {
+        self.keymap.set_overrides(overrides);
+    }
+
+    /// Arm or disarm reporting the next key press as [`AppCommand::BindKey`].
+    pub fn capture_key(&mut self, on: bool) {
+        self.keymap.capture(on);
     }
 
     /// Block for the next event when idle, then drain everything queued this
@@ -117,19 +161,25 @@ impl AppEventHandler {
                 log::info!("controller {which} disconnected");
             }
             Event::ControllerButtonDown { button, .. } => {
+                hints::pad_used();
                 self.gamepad.on_button(button, true, commands);
             }
             Event::ControllerButtonUp { button, .. } => {
                 self.gamepad.on_button(button, false, commands);
             }
             Event::ControllerAxisMotion { axis, value, .. } => {
+                let before = commands.len();
                 self.gamepad.on_axis(axis, value, commands);
+                // Only a push past the dead zone counts, not stick drift.
+                if commands.len() > before {
+                    hints::pad_used();
+                }
             }
             Event::KeyDown {
                 keycode: Some(kc),
                 repeat,
                 ..
-            } => keyboard::on_key_down(self.keymap, kc, repeat, commands),
+            } => self.keymap.on_key_down(kc, repeat, commands),
             Event::Quit { .. } => commands.push(AppCommand::Shutdown),
             // User events exist purely to unblock the wait; per-frame reads of
             // the shared net state pick up whatever changed.

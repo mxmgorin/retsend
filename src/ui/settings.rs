@@ -121,6 +121,15 @@ pub fn render(
             Kind::Toggle(config.input.swap_abxy),
         ),
         (
+            "Keys",
+            match config.input.keys.changed() {
+                0 => "defaults".into(),
+                1 => "1 button changed".into(),
+                n => format!("{n} buttons changed"),
+            },
+            Kind::Edit("Edit"),
+        ),
+        (
             "About",
             format!("retsend {}", env!("CARGO_PKG_VERSION")),
             Kind::Edit("Open"),
@@ -132,7 +141,9 @@ pub fn render(
     egui::Panel::bottom(super::BOTTOM_PANEL_ID).show(root, |ui| {
         ui.add_space(4.0);
         // The row's action, where every other screen puts its buttons.
-        let mut hints: Vec<super::home::Hint> = match rows[state.cursor.min(rows.len() - 1)].2 {
+        let shown = state.rows();
+        let at = shown[state.cursor.min(shown.len() - 1)].0;
+        let mut hints: Vec<super::home::Hint> = match rows[at].2 {
             Kind::Edit(action) => vec![
                 ("← →", "Tabs", None),
                 ("A", action, Some(AppCommand::Confirm)),
@@ -162,8 +173,9 @@ pub fn render(
         egui::ScrollArea::vertical()
             .id_salt("settings")
             .show(ui, |ui| {
-                for (i, (name, value, kind)) in rows.iter().enumerate() {
-                    if let Some((_, title)) = SECTIONS.iter().find(|(at, _)| *at == i) {
+                for (i, &(at, _)) in state.rows().iter().enumerate() {
+                    let (name, value, kind) = &rows[at];
+                    if let Some((_, title)) = SECTIONS.iter().find(|(start, _)| *start == at) {
                         if i > 0 {
                             ui.add_space(6.0);
                         }
