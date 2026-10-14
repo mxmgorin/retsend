@@ -10,6 +10,9 @@ pub enum AppCommand {
     Nav(Direction),
     Confirm,
     Back,
+    /// B from a keyboard key other than Esc or Back: [`Self::Back`], except on
+    /// the on-screen keyboard, where it erases and leaves once empty.
+    Clear,
     /// The Start button: confirm a send in the browser, commit the keyboard.
     Start,
     /// Multicast our announce right now (the radar's manual refresh).

@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - spruceOS aarch64, NextUI and NX Redux packages; 32-bit Android APK ([#50](https://github.com/mxmgorin/retsend/issues/50))
 - Knulli package for the Tools section
 - Key remapping in **Settings → Keys**, one button or all in turn, or `[input.keys]` ([#50](https://github.com/mxmgorin/retsend/issues/50))
-- Default keys for keypad phones (OK, Back, soft keys, Call, digits) and QWERTY ones (H J K L or W A S D, Shift as Select, Alt as Start)
+- Default keys for keypad phones (OK, Back, CLR, soft keys, Call, digits) and QWERTY ones (H J K L or W A S D, Shift as Select, Alt as Start)
 - Footer hints name the last input's keys or buttons
 - Nightly builds under the rolling [`nightly`](https://github.com/mxmgorin/retsend/releases/tag/nightly) tag
 
@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shorter launcher descriptions
 - Touch acts only where it lands on the screen; the Vita's rear touchpad is ignored
 - A network start-up failure names the step that failed
+- Backspace is B, not X; on the on-screen keyboard B's keys other than Esc and Back erase, then leave once empty ([#50](https://github.com/mxmgorin/retsend/issues/50))
 
 ### Fixed
 

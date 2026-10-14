@@ -197,6 +197,16 @@ impl App {
             AppCommand::PickTab(tab) => return self.pick_tab(tab),
             _ => {}
         }
+        let command = match (self.focus(), command) {
+            (Focus::Osk, AppCommand::Clear) => {
+                if let Some(event) = self.ui.osk.clear() {
+                    self.handle_osk_event(event);
+                }
+                return;
+            }
+            (_, AppCommand::Clear) => AppCommand::Back,
+            (_, command) => command,
+        };
 
         match (self.focus(), command) {
             (_, AppCommand::Shutdown) => self.running = false,
@@ -393,6 +403,9 @@ impl App {
             (Focus::Tabs, AppCommand::Start | AppCommand::TogglePin | AppCommand::Alt) => {}
             (_, AppCommand::PickRow(_) | AppCommand::PickKey { .. } | AppCommand::PickTab(_)) => {
                 unreachable!("taps are routed by their target above, before the focus match")
+            }
+            (_, AppCommand::Clear) => {
+                unreachable!("Clear is resolved to an erase or Back above, before the focus match")
             }
         }
     }

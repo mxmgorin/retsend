@@ -4,12 +4,15 @@
 | --- | --- | --- | --- |
 | D-pad / stick | Arrows / H J K L / W A S D | D-pad / 2 4 6 8 | Navigate; left/right switch tabs or step a setting |
 | A | Enter / V | OK | Send to a device, select a file, accept, repeat a send, type |
-| B | Esc / Z | Back | Back, decline, cancel, leave the keyboard |
-| X | X / Backspace | 7 / Del | Add a device by IP, pick where a transfer lands, delete a history row, erase a character, take a folder |
+| B | Esc / Z / Backspace | Back / CLR | Back, decline, cancel, leave the keyboard |
+| X | X | 7 | Add a device by IP, pick where a transfer lands, delete a history row, erase a character, take a folder |
 | Y | Y / C | 9 | Pin or unpin the row under the cursor |
 | Start | Space / Alt | Right soft key / Call / 5 | Confirm a send, OK on the keyboard |
 | Select | Shift / Tab | Left soft key / 0 | Refresh the radar, switch roots, switch the keyboard layer |
 | L1 / R1 | PgUp / PgDn, Q / E | 1 / 3 | Switch tabs, page the file browser |
+
+On the on-screen keyboard, B's keys other than Esc and Back erase a character,
+and leave once the text is empty.
 
 Footer hints show keys after a key press and pad buttons after a button press.
 

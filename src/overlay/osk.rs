@@ -152,11 +152,19 @@ impl Osk {
         None
     }
 
-    /// B: erase; on an empty buffer, cancel out.
     /// X: drop the last character. Leaving the keyboard is B's job, so an empty
     /// buffer simply has nothing to erase.
     pub fn erase(&mut self) {
         self.buffer.pop();
+    }
+
+    /// Drop the last character, or cancel on an empty buffer.
+    pub fn clear(&mut self) -> Option<OskEvent> {
+        if self.buffer.pop().is_some() {
+            None
+        } else {
+            Some(self.cancel())
+        }
     }
 
     /// B: leave without committing, whatever has been typed.
@@ -209,6 +217,16 @@ mod tests {
         osk.erase();
         assert!(osk.active, "leaving is B's job now, not the erase key's");
         assert_eq!(osk.buffer, "");
+    }
+
+    #[test]
+    fn clear_erases_then_cancels_once_empty() {
+        let mut osk = Osk::new();
+        osk.open(OskTarget::Alias, "a");
+        assert!(osk.clear().is_none());
+        assert_eq!(osk.buffer, "");
+        assert!(matches!(osk.clear(), Some(OskEvent::Cancelled)));
+        assert!(!osk.active);
     }
 
     #[test]

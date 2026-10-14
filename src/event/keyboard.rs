@@ -51,9 +51,10 @@ impl Layout {
                 PadButton::Left => &["Left", "4", "H", "A"],
                 PadButton::Right => &["Right", "6", "L", "D"],
                 PadButton::A => &["Return", "Keypad Enter", "V", "Select"],
-                // AC Back: Android's Back, trapped into a key event.
-                PadButton::B => &["Escape", "AC Back", "Z"],
-                PadButton::X => &["X", "Backspace", "7"],
+                // AC Back: Android's Back, trapped into a key event. Backspace
+                // is a keypad phone's CLR.
+                PadButton::B => &["Escape", "AC Back", "Z", "Backspace"],
+                PadButton::X => &["X", "7"],
                 PadButton::Y => &["Y", "C", "9"],
                 // Shift and Alt stand in for the Tab and F-keys a QWERTY phone
                 // lacks; soft keys sit as Select and Start, the left one as Menu.
@@ -184,9 +185,7 @@ impl Keymap {
     /// Esc and Android's Back always leave a capture, so it can be cancelled
     /// whatever was bound. A pad sent as keys has neither: its B does.
     fn cancels_capture(&self, kc: Keycode) -> bool {
-        kc == Keycode::ESCAPE
-            || kc == Keycode::AC_BACK
-            || (self.layout.is_pad() && self.command(kc) == Some(AppCommand::Back))
+        always_leaves(kc) || (self.layout.is_pad() && self.command(kc) == Some(AppCommand::Back))
     }
 
     fn command(&self, kc: Keycode) -> Option<AppCommand> {
@@ -194,10 +193,17 @@ impl Keymap {
         let cmd = command(binding.button);
         Some(if binding.face {
             super::swap_face(cmd)
+        } else if cmd == AppCommand::Back && !always_leaves(kc) {
+            AppCommand::Clear
         } else {
             cmd
         })
     }
+}
+
+/// Esc and Android's Back: keys that leave a screen whatever it holds.
+fn always_leaves(kc: Keycode) -> bool {
+    kc == Keycode::ESCAPE || kc == Keycode::AC_BACK
 }
 
 /// The keys `button` answers to: its override, else the layout's less those
@@ -383,7 +389,7 @@ mod tests {
             vec![
                 AppCommand::Confirm,
                 AppCommand::Back,
-                AppCommand::Alt,
+                AppCommand::Clear,
                 AppCommand::TogglePin,
                 AppCommand::Start,
                 AppCommand::Start,
@@ -411,6 +417,7 @@ mod tests {
         let presses = [
             ("Select", AppCommand::Confirm),
             ("AC Back", AppCommand::Back),
+            ("Backspace", AppCommand::Clear),
             ("7", AppCommand::Alt),
             ("9", AppCommand::TogglePin),
             ("SoftRight", AppCommand::Start),
@@ -472,7 +479,7 @@ mod tests {
     fn z_x_c_v_press_the_face_buttons() {
         let mut keymap = Keymap::new(DESKTOP, &KeyBindings::default());
         let face = [
-            AppCommand::Back,
+            AppCommand::Clear,
             AppCommand::Alt,
             AppCommand::TogglePin,
             AppCommand::Confirm,
