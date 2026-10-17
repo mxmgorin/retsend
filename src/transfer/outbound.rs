@@ -74,8 +74,25 @@ impl OutboundSession {
             .count()
     }
 
+    /// Asks the send to stop. One still waiting on the peer is cancelled at
+    /// once; the worker withdraws the request when the peer answers.
+    pub fn request_cancel(&self) {
+        self.cancel.store(true, Ordering::SeqCst);
+        let mut phase = self.phase.lock().unwrap();
+        if *phase == OutboundPhase::Waiting {
+            *phase = OutboundPhase::Cancelled;
+        }
+    }
+
+    /// Moves to `phase`, unless the send is already cancelled: that is final.
     fn set_phase(&self, phase: OutboundPhase, wake: &dyn Wake) {
-        *self.phase.lock().unwrap() = phase;
+        {
+            let mut current = self.phase.lock().unwrap();
+            if *current == OutboundPhase::Cancelled {
+                return;
+            }
+            *current = phase;
+        }
         wake.wake(WakeReason::Done);
     }
 
@@ -317,5 +334,56 @@ impl Read for ProgressReader<'_> {
             .fetch_add(n as u64, Ordering::SeqCst);
         self.session.maybe_wake(self.wake);
         Ok(n)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct NoWake;
+
+    impl Wake for NoWake {
+        fn wake(&self, _reason: WakeReason) {}
+    }
+
+    fn session() -> OutboundSession {
+        OutboundSession {
+            peer_alias: "peer".into(),
+            base: "http://127.0.0.1:1".into(),
+            sources: Vec::new(),
+            files: Vec::new(),
+            total_bytes: 0,
+            sent_total: AtomicU64::new(0),
+            cancel: AtomicBool::new(false),
+            phase: Mutex::new(OutboundPhase::Waiting),
+            last_wake: Mutex::new(Instant::now()),
+        }
+    }
+
+    #[test]
+    fn a_send_cancelled_while_waiting_ends_at_once() {
+        let session = session();
+        session.request_cancel();
+        assert_eq!(session.phase(), OutboundPhase::Cancelled);
+        assert!(session.is_finished());
+    }
+
+    #[test]
+    fn the_peers_late_answer_does_not_undo_a_cancel() {
+        let session = session();
+        session.request_cancel();
+        session.set_phase(OutboundPhase::Declined, &NoWake);
+        session.set_phase(OutboundPhase::Sending, &NoWake);
+        assert_eq!(session.phase(), OutboundPhase::Cancelled);
+    }
+
+    #[test]
+    fn a_send_cancelled_mid_upload_is_left_to_the_worker() {
+        let session = session();
+        session.set_phase(OutboundPhase::Sending, &NoWake);
+        session.request_cancel();
+        assert_eq!(session.phase(), OutboundPhase::Sending);
+        assert!(session.cancel.load(Ordering::SeqCst));
     }
 }

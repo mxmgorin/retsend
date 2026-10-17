@@ -1089,7 +1089,7 @@ impl App {
                 log::info!("transfer from `{}` cancelled by user", session.peer_alias);
             }
             Some(Viewed::Out(session)) => {
-                session.cancel.store(true, Ordering::SeqCst);
+                session.request_cancel();
                 log::info!("send to `{}` cancelled by user", session.peer_alias);
             }
             None => {}

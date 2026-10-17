@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Launcher icons in each firmware's style, rendered by `tools/icons.sh`; Android adaptive icon
 - spruceOS aarch64, NextUI and NX Redux packages; 32-bit Android APK ([#50](https://github.com/mxmgorin/retsend/issues/50))
 - Knulli package for the Tools section
+- spruceOS packages name the device after its model (TrimUI Smart Pro S, Miyoo A30…) until it is renamed
 - Key remapping in **Settings → Keys**, one button or all in turn, or `[input.keys]` ([#50](https://github.com/mxmgorin/retsend/issues/50))
 - Default keys for keypad phones (OK, Back, CLR, soft keys, Call, digits) and QWERTY ones (H J K L or W A S D, Shift as Select, Alt as Start)
 - Footer hints name the last input's keys or buttons
@@ -47,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mouse wheel and drag scrolling snapped back to the selected row
 - rustls 0.23.46, past [RUSTSEC-2026-0285](https://rustsec.org/advisories/RUSTSEC-2026-0285) and [RUSTSEC-2026-0346](https://rustsec.org/advisories/RUSTSEC-2026-0346) to [-0349](https://rustsec.org/advisories/RUSTSEC-2026-0349)
 - A failed SDL or window start-up is logged and exits with status 1 instead of panicking
+- Cancelling a send while the peer is still deciding takes effect at once
 
 ## [0.9.0] - 2026-09-03
 

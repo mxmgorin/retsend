@@ -34,6 +34,7 @@ export RETSEND_BLIT=1     # the panel driver shows texture copies and nothing el
 # Layout detection expects the driver name `mmiyoo`; this build says `Mini`.
 export RETSEND_KEYMAP=miyoo
 export RETSEND_THEME=spruce
+export RETSEND_ALIAS="Miyoo Mini"
 # spruce's MENU handler ignores apps launched from App/.
 export RETSEND_MENU_QUIT=1
 #export RETSEND_LOG_LEVEL=debug
