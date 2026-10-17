@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - rustls 0.23.46, past [RUSTSEC-2026-0285](https://rustsec.org/advisories/RUSTSEC-2026-0285) and [RUSTSEC-2026-0346](https://rustsec.org/advisories/RUSTSEC-2026-0346) to [-0349](https://rustsec.org/advisories/RUSTSEC-2026-0349)
 - A failed SDL or window start-up is logged and exits with status 1 instead of panicking
 - Cancelling a send while the peer is still deciding takes effect at once
+- Start-up no longer waits for the sweep of stale `.part` files in the save folder
 
 ## [0.9.0] - 2026-09-03
 

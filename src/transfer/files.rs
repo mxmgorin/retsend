@@ -281,7 +281,7 @@ const MAX_SWEEP_AGE: std::time::Duration = std::time::Duration::from_secs(24 * 3
 /// As deep as a received folder can go, and so as deep as its debris.
 const MAX_SWEEP_DEPTH: usize = MAX_DEPTH;
 /// Directories one sweep may open. A save directory is a card's ROM tree —
-/// thousands of folders — and this runs before the first frame.
+/// thousands of folders — and the walk shares the card with the UI starting up.
 const MAX_SWEEP_DIRS: usize = 512;
 
 fn sweep_into(dir: &Path, depth: usize, budget: &mut usize) {
@@ -301,14 +301,17 @@ fn sweep_into(dir: &Path, depth: usize, budget: &mut usize) {
             sweep_into(&path, depth + 1, budget);
             continue;
         }
-        let is_part = path.extension().is_some_and(|e| e == "part");
+        // Named first: a stat per file costs more than the walk on a card.
+        if path.extension().is_none_or(|e| e != "part") {
+            continue;
+        }
         let stale = entry
             .metadata()
             .and_then(|m| m.modified())
             .ok()
             .and_then(|t| t.elapsed().ok())
             .is_some_and(|age| age > MAX_SWEEP_AGE);
-        if is_part && stale {
+        if stale {
             match std::fs::remove_file(&path) {
                 Ok(()) => log::info!("swept stale `{}`", path.display()),
                 Err(e) => log::warn!("could not sweep `{}`: {e}", path.display()),

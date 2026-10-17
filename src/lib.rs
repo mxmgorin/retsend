@@ -37,7 +37,14 @@ pub fn run_app() -> std::process::ExitCode {
     #[cfg(target_os = "android")]
     android_startup(&mut app_config);
 
-    transfer::files::sweep_stale_parts(std::path::Path::new(&app_config.transfer.save_dir));
+    // In the background: it takes only day-old `.part`s, never a live transfer's.
+    let save_dir = std::path::PathBuf::from(&app_config.transfer.save_dir);
+    if let Err(e) = std::thread::Builder::new()
+        .name("sweep".into())
+        .spawn(move || transfer::files::sweep_stale_parts(&save_dir))
+    {
+        log::warn!("could not start the .part sweep: {e}");
+    }
 
     // Headless receiver: no SDL, no screen — auto-accept into save_dir and
     // log to stdout. For ssh sessions on the device and scripted testing.
