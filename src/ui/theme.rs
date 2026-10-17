@@ -97,6 +97,8 @@ pub const ICON_SIZE: f32 = 15.0;
 const HIGHLIGHT_WASH: f32 = 0.30;
 /// The key a theme's font is registered under.
 const THEME_FONT: &str = "theme";
+/// The family that keeps egui's own face for the wordmark.
+const BRAND_FAMILY: &str = "brand";
 /// Width of a [`Cursor::Bar`]'s leading stripe.
 const BAR_STRIPE: f32 = 3.0;
 
@@ -162,10 +164,23 @@ pub fn lerp_color(a: egui::Color32, b: egui::Color32, t: f32) -> egui::Color32 {
     )
 }
 
+/// The wordmark's face in `size`: egui's own, whatever the theme's font.
+pub fn brand_font(size: f32) -> egui::FontId {
+    egui::FontId::new(size, egui::FontFamily::Name(BRAND_FAMILY.into()))
+}
+
 /// The font set for `palette`: its face ahead of egui's own, then Hack for
-/// glyphs neither holds.
+/// glyphs neither holds; egui's own also under [`BRAND_FAMILY`].
 fn fonts(palette: &Palette) -> egui::FontDefinitions {
     let mut fonts = egui::FontDefinitions::default();
+    let brand = fonts
+        .families
+        .get(&egui::FontFamily::Proportional)
+        .cloned()
+        .unwrap_or_default();
+    fonts
+        .families
+        .insert(egui::FontFamily::Name(BRAND_FAMILY.into()), brand);
     if let Some(data) = palette.font {
         fonts.font_data.insert(
             THEME_FONT.to_owned(),

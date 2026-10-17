@@ -35,6 +35,8 @@ pub struct Palette {
     pub cursor: Cursor,
     /// A face put ahead of egui's own for proportional text.
     pub font: Option<&'static [u8]>,
+    /// Who the theme's look and font are owed to.
+    pub credit: Option<&'static str>,
 }
 
 /// How the cursor marks the row under it.
@@ -58,6 +60,7 @@ pub const RETSEND: Palette = Palette {
     dim: egui::Color32::from_rgb(0x8f, 0x94, 0x9c),
     cursor: Cursor::Ring,
     font: None,
+    credit: None,
 };
 
 /// spruceOS's stock theme: gruvbox colors, a solid list bar, its Nunito.
@@ -73,4 +76,5 @@ pub const SPRUCE: Palette = Palette {
     dim: egui::Color32::from_rgb(0xa8, 0x99, 0x84),
     cursor: Cursor::Bar(egui::Color32::from_rgb(0x50, 0x49, 0x45)),
     font: Some(include_bytes!("../../../resources/fonts/nunwen.ttf")),
+    credit: Some("Theme inspired by spruceOS, by tenlevels · Nunito, SIL OFL 1.1"),
 };

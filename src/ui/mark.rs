@@ -286,7 +286,7 @@ fn gradient(f: f32) -> egui::Color32 {
 pub fn wordmark(ui: &egui::Ui, size: f32) -> std::sync::Arc<egui::Galley> {
     const INK_PART: &str = "ret";
     const WARM_PART: &str = "send";
-    let font = egui::FontId::proportional(size);
+    let font = theme::brand_font(size);
     let mut job = egui::text::LayoutJob::default();
     let format = |color| egui::TextFormat {
         font_id: font.clone(),
