@@ -38,7 +38,11 @@ pub fn render_bar(root: &mut egui::Ui, active: Tab, taps: &mut Vec<AppCommand>) 
             .iter()
             .map(|(tab, icon, label)| {
                 let is_active = *tab == active;
-                let color = if is_active { theme::INK } else { theme::DIM };
+                let color = if is_active {
+                    theme::ink()
+                } else {
+                    theme::dim()
+                };
                 let galley = ui
                     .painter()
                     .layout_no_wrap(label.to_string(), font.clone(), color);

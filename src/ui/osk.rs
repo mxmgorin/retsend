@@ -15,13 +15,13 @@ pub fn render(ctx: &egui::Context, osk: &Osk, taps: &mut Vec<AppCommand>) {
     egui::Area::new(egui::Id::new("osk"))
         .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -8.0))
         .show(ctx, |ui| {
-            theme::card_frame(theme::ACCENT).show(ui, |ui| {
+            theme::card_frame(theme::accent()).show(ui, |ui| {
                 ui.set_width((screen.width() * 0.9).min(520.0));
 
                 ui.label(
                     egui::RichText::new(osk.target.prompt())
                         .size(theme::DETAIL_FONT)
-                        .color(theme::DIM),
+                        .color(theme::dim()),
                 );
                 ui.label(
                     egui::RichText::new(format!("{}▏", osk.buffer))
@@ -49,13 +49,13 @@ pub fn render(ctx: &egui::Context, osk: &Osk, taps: &mut Vec<AppCommand>) {
                             }
                             let selected = osk.row == row_index && osk.col == col_index;
                             if selected {
-                                theme::highlight(ui.painter(), rect, theme::ACCENT);
+                                theme::highlight(ui.painter(), rect, theme::accent());
                             } else {
                                 ui.painter().rect(
                                     rect,
                                     KEY_RADIUS,
-                                    theme::SURFACE,
-                                    egui::Stroke::new(1.0, theme::BORDER),
+                                    theme::surface(),
+                                    egui::Stroke::new(1.0, theme::border()),
                                     egui::StrokeKind::Inside,
                                 );
                             }
@@ -67,9 +67,9 @@ pub fn render(ctx: &egui::Context, osk: &Osk, taps: &mut Vec<AppCommand>) {
                                 Key::Ok => "OK".to_string(),
                             };
                             let color = match key {
-                                Key::Ok => theme::ACCENT,
-                                Key::Char(_) => theme::INK,
-                                _ => theme::DIM,
+                                Key::Ok => theme::accent(),
+                                Key::Char(_) => theme::ink(),
+                                _ => theme::dim(),
                             };
                             ui.painter().text(
                                 rect.center(),

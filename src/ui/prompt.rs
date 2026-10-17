@@ -47,9 +47,9 @@ impl PromptData {
 /// The countdown's color: the accent until the last seconds, then red.
 pub(crate) fn countdown_color(seconds_left: u32) -> egui::Color32 {
     if seconds_left <= URGENT_SECS {
-        theme::DANGER
+        theme::danger()
     } else {
-        theme::ACCENT
+        theme::accent()
     }
 }
 
@@ -66,7 +66,7 @@ pub fn render(ctx: &egui::Context, data: &PromptData, taps: &mut Vec<AppCommand>
     egui::Area::new(egui::Id::new("prompt"))
         .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
         .show(ctx, |ui| {
-            theme::card_frame(theme::ACCENT).show(ui, |ui| {
+            theme::card_frame(theme::accent()).show(ui, |ui| {
                 ui.set_width((screen.width() * 0.75).min(460.0));
 
                 ui.horizontal(|ui| {
@@ -79,7 +79,7 @@ pub fn render(ctx: &egui::Context, data: &PromptData, taps: &mut Vec<AppCommand>
                         data.icon,
                         rect.center(),
                         theme::ICON_SIZE + 4.0,
-                        theme::ACCENT,
+                        theme::accent(),
                     );
                     ui.label(
                         egui::RichText::new(format!(
@@ -101,7 +101,7 @@ pub fn render(ctx: &egui::Context, data: &PromptData, taps: &mut Vec<AppCommand>
                             ui.label(
                                 egui::RichText::new(super::fmt_bytes(*size))
                                     .size(theme::DETAIL_FONT)
-                                    .color(theme::DIM),
+                                    .color(theme::dim()),
                             );
                         });
                     });
@@ -110,7 +110,7 @@ pub fn render(ctx: &egui::Context, data: &PromptData, taps: &mut Vec<AppCommand>
                     ui.label(
                         egui::RichText::new(format!("…and {} more", data.hidden))
                             .size(theme::DETAIL_FONT)
-                            .color(theme::DIM),
+                            .color(theme::dim()),
                     );
                 }
 
@@ -124,7 +124,7 @@ pub fn render(ctx: &egui::Context, data: &PromptData, taps: &mut Vec<AppCommand>
                             super::truncate_middle(dest, super::PATH_CHARS)
                         ))
                         .size(theme::DETAIL_FONT)
-                        .color(theme::DIM),
+                        .color(theme::dim()),
                     );
                 }
                 if data.hidden_dests > 0 {
@@ -134,7 +134,7 @@ pub fn render(ctx: &egui::Context, data: &PromptData, taps: &mut Vec<AppCommand>
                             plural(data.hidden_dests, "more folder")
                         ))
                         .size(theme::DETAIL_FONT)
-                        .color(theme::DIM),
+                        .color(theme::dim()),
                     );
                 }
                 ui.add_space(8.0);

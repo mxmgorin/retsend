@@ -2,6 +2,7 @@
 //! section headers, toggles drawn as switches, the current row's action in the
 //! footer.
 
+use super::icons::{self, Icon};
 use super::theme;
 use crate::app::{AppCommand, Direction};
 use crate::config::AppConfig;
@@ -14,8 +15,8 @@ enum Kind {
     Edit(&'static str),
     /// A flips it; the value is a switch with a word beside it.
     Toggle(bool),
-    /// ◂ ▸ walk the value.
-    Stepper,
+    /// ◂ ▸ walk the value; the words they are hinted with.
+    Stepper(&'static str, &'static str),
 }
 
 /// Headers, by the index of the row they sit above. Order matches
@@ -26,13 +27,16 @@ const SECTIONS: [(usize, &str); 6] = [
     (5, "Save routes"),
     (7, "Network"),
     (8, "Display"),
-    (10, "Controls"),
+    (11, "Controls"),
 ];
 
 /// The switch: its box, the knob inside, and the gap to the word beside it.
 const SWITCH_SIZE: egui::Vec2 = egui::vec2(30.0, 16.0);
 const KNOB_INSET: f32 = 2.5;
 const SWITCH_GAP: f32 = 10.0;
+/// A stepper's chevrons, and the gap between each and the value.
+const CHEVRON_SIZE: f32 = theme::ICON_SIZE;
+const CHEVRON_GAP: f32 = 4.0;
 /// Height of a section header row.
 const HEADER_H: f32 = 24.0;
 
@@ -101,7 +105,16 @@ pub fn render(
             port_label(config.network.port, actual_port, state.port_dirty),
             Kind::Edit("Edit"),
         ),
-        ("UI scale", scale_label(config.display.scale), Kind::Stepper),
+        (
+            "Theme",
+            config.display.theme.name().into(),
+            Kind::Stepper("Previous", "Next"),
+        ),
+        (
+            "UI scale",
+            scale_label(config.display.scale),
+            Kind::Stepper("Smaller", "Bigger"),
+        ),
         (
             "Idle animation",
             if config.display.idle_animation {
@@ -154,9 +167,9 @@ pub fn render(
             ],
             // A stepper row spends ◂ ▸ on its own value, so it names them —
             // and naming them is what lets a screen with no pad reach them.
-            Kind::Stepper => vec![
-                ("◂", "Smaller", Some(AppCommand::Nav(Direction::Left))),
-                ("▸", "Bigger", Some(AppCommand::Nav(Direction::Right))),
+            Kind::Stepper(back, on) => vec![
+                ("◂", back, Some(AppCommand::Nav(Direction::Left))),
+                ("▸", on, Some(AppCommand::Nav(Direction::Right))),
                 ("L1 R1", "Tabs", None),
             ],
         };
@@ -190,7 +203,7 @@ pub fn render(
                     }
                     if selected {
                         super::scroll_to_cursor(ui, ("setting", i), rect);
-                        theme::highlight(ui.painter(), rect, theme::ACCENT);
+                        theme::highlight(ui.painter(), rect, theme::accent());
                     }
                     let painter = ui.painter();
                     painter.text(
@@ -198,7 +211,7 @@ pub fn render(
                         egui::Align2::LEFT_CENTER,
                         *name,
                         egui::FontId::proportional(theme::ROW_FONT),
-                        theme::INK,
+                        theme::ink(),
                     );
                     let mut right = rect.right_center() - egui::vec2(theme::ROW_PAD, 0.0);
                     if let Kind::Toggle(on) = kind {
@@ -209,13 +222,38 @@ pub fn render(
                         paint_switch(painter, switch, *on);
                         right.x -= SWITCH_SIZE.x + SWITCH_GAP;
                     }
-                    painter.text(
+                    let stepper = matches!(kind, Kind::Stepper(..));
+                    let chevron = if selected {
+                        theme::accent()
+                    } else {
+                        theme::dim()
+                    };
+                    if stepper {
+                        icons::paint(
+                            painter,
+                            Icon::ChevronRight,
+                            right - egui::vec2(CHEVRON_SIZE / 2.0, 0.0),
+                            CHEVRON_SIZE,
+                            chevron,
+                        );
+                        right.x -= CHEVRON_SIZE + CHEVRON_GAP;
+                    }
+                    let text = painter.text(
                         right,
                         egui::Align2::RIGHT_CENTER,
                         value,
                         egui::FontId::proportional(theme::DETAIL_FONT),
-                        theme::DIM,
+                        theme::dim(),
                     );
+                    if stepper {
+                        icons::paint(
+                            painter,
+                            Icon::ChevronLeft,
+                            text.left_center() - egui::vec2(CHEVRON_GAP + CHEVRON_SIZE / 2.0, 0.0),
+                            CHEVRON_SIZE,
+                            chevron,
+                        );
+                    }
                 }
             });
     });
@@ -233,12 +271,12 @@ pub(super) fn section_header(ui: &mut egui::Ui, title: &str) {
         egui::Align2::LEFT_CENTER,
         title,
         egui::FontId::proportional(theme::DETAIL_FONT),
-        theme::DIM,
+        theme::dim(),
     );
     painter.hline(
         rect.x_range(),
         rect.bottom() - 1.0,
-        egui::Stroke::new(1.0, theme::BORDER),
+        egui::Stroke::new(1.0, theme::border()),
     );
 }
 
@@ -246,15 +284,15 @@ pub(super) fn section_header(ui: &mut egui::Ui, title: &str) {
 fn paint_switch(painter: &egui::Painter, rect: egui::Rect, on: bool) {
     let radius = rect.height() / 2.0;
     let (fill, knob) = if on {
-        (theme::ACCENT, theme::BG)
+        (theme::accent(), theme::bg())
     } else {
-        (theme::SURFACE, theme::DIM)
+        (theme::surface(), theme::dim())
     };
     painter.rect(
         rect,
         radius,
         fill,
-        egui::Stroke::new(1.0, if on { theme::ACCENT } else { theme::BORDER }),
+        egui::Stroke::new(1.0, if on { theme::accent() } else { theme::border() }),
         egui::StrokeKind::Inside,
     );
     let knob_r = radius - KNOB_INSET;

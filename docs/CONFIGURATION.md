@@ -15,6 +15,7 @@ first run. The Settings screen edits everything except:
 | `[display] scale` | UI size over the screen's own (0.6–1.6). Every screen is drawn for 640×480 and fitted. |
 | `[input.keys]` | Keys per pad button ([Controls](CONTROLS.md#remapping-keys)). |
 | `[display] idle_animation` | The Receive screen's orbit turns while waiting (default `true`). Also **Settings → Idle animation**. |
+| `[display] theme` | `retsend` or `spruce` (spruceOS's gruvbox colors and font). Default `retsend`; `spruce` in the spruceOS packages. Also **Settings → Theme**. |
 
 Environment variables are in [Command line](CLI.md#environment-variables).
 

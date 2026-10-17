@@ -468,7 +468,7 @@ impl App {
     fn tab_nav(&mut self, dir: Direction) {
         match dir {
             Direction::Left | Direction::Right if self.on_stepper_row() => {
-                self.step_scale(if dir == Direction::Left { -1 } else { 1 });
+                self.step_setting(if dir == Direction::Left { -1 } else { 1 });
             }
             Direction::Left => self.switch_tab(-1),
             Direction::Right => self.switch_tab(1),
@@ -563,12 +563,16 @@ impl App {
         self.ui.tabs.active() == Tab::Settings && self.ui.settings.row().is_stepper()
     }
 
-    /// ◂ ▸ on the scale row: nudge the factor over the panel's own fit. The
-    /// zoom follows on the next frame; the config is written on leaving the tab,
-    /// like every other setting here.
-    fn step_scale(&mut self, dir: i32) {
-        let scale = &mut self.config.display.scale;
-        *scale = crate::config::display::SCALE.step(*scale, dir);
+    /// ◂ ▸ on a stepper row: step the scale over the panel's own fit, or the theme.
+    fn step_setting(&mut self, dir: i32) {
+        let display = &mut self.config.display;
+        match self.ui.settings.row() {
+            SettingsRow::Scale => {
+                display.scale = crate::config::display::SCALE.step(display.scale, dir)
+            }
+            SettingsRow::Theme => display.theme = display.theme.step(dir),
+            _ => {}
+        }
     }
 
     /// A on a settings row: open its editor or toggle it.
@@ -593,6 +597,9 @@ impl App {
             SettingsRow::Overwrite => self.toggle_overwrite(),
             SettingsRow::KeepFolders => self.toggle_keep_folders(),
             SettingsRow::AutoRoutes => self.toggle_auto_routes(),
+            SettingsRow::Theme => {
+                self.config.display.theme = self.config.display.theme.step(1);
+            }
             SettingsRow::IdleAnimation => {
                 self.config.display.idle_animation = !self.config.display.idle_animation;
             }

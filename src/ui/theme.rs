@@ -5,40 +5,78 @@
 //! The palette is the icon's: a striped sun (amber into coral) inside a teal
 //! orbit. Teal marks what comes in and what is selected; coral marks what goes
 //! out. Everything else is the dark plate the icon sits on.
+//!
+//! A [`Theme`] repaints the screens around the mark — neutrals, accents, the
+//! cursor's shape and the font — keeping teal for in and coral for out in its
+//! own hues; the mark and wordmark keep the brand colors in every theme. The
+//! theme in force is process-wide: painters read it through [`palette`].
 
+use crate::config::display::Theme;
 use egui_sdl2::egui;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// The brand accent (teal): incoming transfers, selection, links.
-pub const ACCENT: egui::Color32 = egui::Color32::from_rgb(0x3f, 0xb8, 0xa0);
-/// The sun's coral: outgoing transfers.
-pub const WARM: egui::Color32 = egui::Color32::from_rgb(0xff, 0x8c, 0x69);
+mod palettes;
+
+pub use palettes::{Cursor, Palette};
+
+/// The orbit's teal.
+pub const TEAL: egui::Color32 = egui::Color32::from_rgb(0x3f, 0xb8, 0xa0);
+/// The sun's coral.
+pub const CORAL: egui::Color32 = egui::Color32::from_rgb(0xff, 0x8c, 0x69);
 /// The sun's amber top, and the orbit arrow's head.
 pub const SUN_TOP: egui::Color32 = egui::Color32::from_rgb(0xff, 0xb8, 0x70);
 
-/// The plate the icon sits on; the window clear color.
-pub const BG: egui::Color32 = egui::Color32::from_rgb(0x16, 0x17, 0x1a);
-/// Header and footer bars, cards, keys: one step up from the plate.
-pub const PANEL_FILL: egui::Color32 = egui::Color32::from_rgb(0x1b, 0x1c, 0x20);
-/// Raised controls: keys, a switch that is off.
-pub const SURFACE: egui::Color32 = egui::Color32::from_rgb(0x24, 0x26, 0x2b);
-/// Hairlines: card edges, progress tracks, section rules.
-pub const BORDER: egui::Color32 = egui::Color32::from_rgb(0x2e, 0x31, 0x37);
-/// Primary text, matching the wordmark.
-pub const INK: egui::Color32 = egui::Color32::from_rgb(0xec, 0xec, 0xea);
-/// Secondary text: hints, device details, statuses.
-pub const DIM: egui::Color32 = egui::Color32::from_rgb(0x8f, 0x94, 0x9c);
 /// Backdrop under a modal: what it covers reads as inactive.
 pub const SCRIM: egui::Color32 = egui::Color32::from_black_alpha(160);
-/// Failure red: declined, failed, no network, seconds running out.
-pub const DANGER: egui::Color32 = egui::Color32::from_rgb(0xe0, 0x5a, 0x5a);
 
-/// [`BG`] as the GL clear color.
-pub const BACKGROUND: [f32; 4] = [
-    0x16 as f32 / 255.0,
-    0x17 as f32 / 255.0,
-    0x1a as f32 / 255.0,
-    1.0,
-];
+/// The theme in force, as its index in [`Theme::ALL`].
+static ACTIVE: AtomicUsize = AtomicUsize::new(0);
+
+/// The palette of the theme in force.
+pub fn palette() -> &'static Palette {
+    palettes::of(Theme::ALL[ACTIVE.load(Ordering::Relaxed)])
+}
+
+pub fn accent() -> egui::Color32 {
+    palette().accent
+}
+
+pub fn warm() -> egui::Color32 {
+    palette().warm
+}
+
+pub fn danger() -> egui::Color32 {
+    palette().danger
+}
+
+pub fn bg() -> egui::Color32 {
+    palette().bg
+}
+
+pub fn panel_fill() -> egui::Color32 {
+    palette().panel_fill
+}
+
+pub fn surface() -> egui::Color32 {
+    palette().surface
+}
+
+pub fn border() -> egui::Color32 {
+    palette().border
+}
+
+pub fn ink() -> egui::Color32 {
+    palette().ink
+}
+
+pub fn dim() -> egui::Color32 {
+    palette().dim
+}
+
+/// [`bg`] as the GL clear color.
+pub fn background() -> [f32; 4] {
+    egui::Rgba::from(bg()).to_array()
+}
 
 /// Primary row font size (logical px) — readable on a 3.5" 640×480 panel.
 pub const ROW_FONT: f32 = 16.0;
@@ -57,31 +95,44 @@ pub const ICON_SIZE: f32 = 15.0;
 
 /// Alpha of the wash behind a selected row: tints without swamping the text.
 const HIGHLIGHT_WASH: f32 = 0.30;
+/// The key a theme's font is registered under.
+const THEME_FONT: &str = "theme";
+/// Width of a [`Cursor::Bar`]'s leading stripe.
+const BAR_STRIPE: f32 = 3.0;
 
-/// Teal for what comes in, coral for what goes out.
+/// The accent for what comes in, the warm color for what goes out.
 pub fn flow_color(outgoing: bool) -> egui::Color32 {
     if outgoing {
-        WARM
+        warm()
     } else {
-        ACCENT
+        accent()
     }
 }
 
-/// The cursor: a translucent wash of `color` ringed by its solid stroke.
+/// The cursor over `rect`, marked in `color` the way the theme draws it.
 pub fn highlight(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
-    painter.rect(
-        rect,
-        ROW_RADIUS,
-        color.linear_multiply(HIGHLIGHT_WASH),
-        egui::Stroke::new(1.0, color),
-        egui::StrokeKind::Inside,
-    );
+    match palette().cursor {
+        Cursor::Ring => {
+            painter.rect(
+                rect,
+                ROW_RADIUS,
+                color.linear_multiply(HIGHLIGHT_WASH),
+                egui::Stroke::new(1.0, color),
+                egui::StrokeKind::Inside,
+            );
+        }
+        Cursor::Bar(fill) => {
+            painter.rect_filled(rect, 0.0, fill);
+            let stripe = egui::Rect::from_min_size(rect.min, egui::vec2(BAR_STRIPE, rect.height()));
+            painter.rect_filled(stripe, 0.0, color);
+        }
+    }
 }
 
 /// A progress bar: a hairline track with `frac` of it lit in `color`.
 pub fn progress(painter: &egui::Painter, rect: egui::Rect, frac: f32, color: egui::Color32) {
     let radius = rect.height() / 2.0;
-    painter.rect_filled(rect, radius, BORDER);
+    painter.rect_filled(rect, radius, border());
     let mut lit = rect;
     lit.set_width(rect.width() * frac.clamp(0.0, 1.0));
     if lit.width() >= rect.height() {
@@ -93,7 +144,7 @@ pub fn progress(painter: &egui::Painter, rect: egui::Rect, frac: f32, color: egu
 /// so they read as the same surface. `edge` rings it.
 pub fn card_frame(edge: egui::Color32) -> egui::Frame {
     egui::Frame::new()
-        .fill(PANEL_FILL)
+        .fill(panel_fill())
         .stroke(egui::Stroke::new(1.0, edge))
         .corner_radius(10.0)
         .inner_margin(egui::Margin::same(14))
@@ -111,23 +162,38 @@ pub fn lerp_color(a: egui::Color32, b: egui::Color32, t: f32) -> egui::Color32 {
     )
 }
 
-/// Install the palette on egui's dark theme: a translucent accent fill behind
-/// selected widgets ringed by the solid accent, plus accent links and caret.
-pub fn apply(ctx: &egui::Context) {
-    // Hack holds glyphs the Proportional stack lacks (the arrow before a
-    // save path); appended last, so ordinary text is unchanged.
+/// The font set for `palette`: its face ahead of egui's own, then Hack for
+/// glyphs neither holds.
+fn fonts(palette: &Palette) -> egui::FontDefinitions {
     let mut fonts = egui::FontDefinitions::default();
+    if let Some(data) = palette.font {
+        fonts.font_data.insert(
+            THEME_FONT.to_owned(),
+            egui::FontData::from_static(data).into(),
+        );
+    }
     if let Some(prop) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+        if palette.font.is_some() {
+            prop.insert(0, THEME_FONT.to_owned());
+        }
         prop.push("Hack".to_owned());
     }
-    ctx.set_fonts(fonts);
+    fonts
+}
 
+/// Make `theme` the one in force and install its fonts and egui's dark visuals:
+/// a translucent accent fill behind selected widgets ringed by the solid
+/// accent, plus accent links and caret.
+pub fn apply(ctx: &egui::Context, theme: Theme) {
+    ACTIVE.store(theme.index(), Ordering::Relaxed);
+    let palette = palette();
+    ctx.set_fonts(fonts(palette));
     let mut visuals = egui::Visuals::dark();
-    visuals.selection.bg_fill = ACCENT.linear_multiply(HIGHLIGHT_WASH);
-    visuals.selection.stroke = egui::Stroke::new(1.0, ACCENT);
-    visuals.hyperlink_color = ACCENT;
-    visuals.text_cursor.stroke.color = ACCENT;
-    visuals.panel_fill = PANEL_FILL;
-    visuals.override_text_color = Some(INK);
+    visuals.selection.bg_fill = palette.accent.linear_multiply(HIGHLIGHT_WASH);
+    visuals.selection.stroke = egui::Stroke::new(1.0, palette.accent);
+    visuals.hyperlink_color = palette.accent;
+    visuals.text_cursor.stroke.color = palette.accent;
+    visuals.panel_fill = palette.panel_fill;
+    visuals.override_text_color = Some(palette.ink);
     ctx.set_visuals(visuals);
 }

@@ -33,7 +33,7 @@ pub fn render(root: &mut egui::Ui, data: &RoutesData, taps: &mut Vec<AppCommand>
         ui.label(
             egui::RichText::new("Received files go to a folder by extension")
                 .size(theme::DETAIL_FONT)
-                .color(theme::DIM),
+                .color(theme::dim()),
         );
         ui.add_space(6.0);
     });
@@ -112,16 +112,16 @@ fn route_row(
         egui::Sense::click(),
     );
     if selected {
-        theme::highlight(ui.painter(), rect, theme::ACCENT);
+        theme::highlight(ui.painter(), rect, theme::accent());
     }
-    let ext_color = if dim { theme::DIM } else { theme::INK };
+    let ext_color = if dim { theme::dim() } else { theme::ink() };
     let painter = ui.painter();
     icons::paint(
         painter,
         Icon::Folder,
         rect.left_center() + egui::vec2(theme::ROW_PAD + theme::ICON_SIZE / 2.0, 0.0),
         theme::ICON_SIZE,
-        if dim { theme::DIM } else { theme::ACCENT },
+        if dim { theme::dim() } else { theme::accent() },
     );
     painter.text(
         rect.left_center() + egui::vec2(theme::ROW_PAD + ICON_GUTTER, 0.0),
@@ -135,7 +135,7 @@ fn route_row(
         egui::Align2::RIGHT_CENTER,
         folder,
         egui::FontId::proportional(theme::DETAIL_FONT),
-        theme::DIM,
+        theme::dim(),
     );
     response
 }
@@ -146,21 +146,21 @@ fn add_row(ui: &mut egui::Ui, selected: bool) -> egui::Response {
         egui::Sense::click(),
     );
     if selected {
-        theme::highlight(ui.painter(), rect, theme::ACCENT);
+        theme::highlight(ui.painter(), rect, theme::accent());
     }
     icons::paint(
         ui.painter(),
         Icon::Plus,
         rect.left_center() + egui::vec2(theme::ROW_PAD + theme::ICON_SIZE / 2.0, 0.0),
         theme::ICON_SIZE,
-        theme::ACCENT,
+        theme::accent(),
     );
     ui.painter().text(
         rect.left_center() + egui::vec2(theme::ROW_PAD + ICON_GUTTER, 0.0),
         egui::Align2::LEFT_CENTER,
         "Add route",
         egui::FontId::proportional(theme::ROW_FONT),
-        theme::ACCENT,
+        theme::accent(),
     );
     response
 }

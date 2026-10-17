@@ -67,13 +67,13 @@ pub fn render(root: &mut egui::Ui, data: &HomeData, taps: &mut Vec<AppCommand>) 
                 facts.push(Chip {
                     icon: Icon::Wifi,
                     text: ssid.clone(),
-                    color: theme::DIM,
+                    color: theme::dim(),
                 });
             }
             facts.push(Chip {
                 icon: Icon::Plus,
                 text: "Not showing up? X adds a device by IP".to_string(),
-                color: theme::DIM,
+                color: theme::dim(),
             });
             let rows = Rows::pack(ui, &facts, ui.available_width());
             let spin = mark::turning(ui, data.spin_frame);
@@ -83,7 +83,7 @@ pub fn render(root: &mut egui::Ui, data: &HomeData, taps: &mut Vec<AppCommand>) 
                 spin,
                 0.0,
                 "Looking for devices…",
-                theme::INK,
+                theme::ink(),
                 "Open LocalSend on a phone or PC on the same network",
             );
             rows.paint(ui);
@@ -117,7 +117,7 @@ fn peer_row(ui: &mut egui::Ui, peer: &PeerRow, selected: bool) -> egui::Response
         theme::highlight(ui.painter(), rect, flow);
     }
     let painter = ui.painter();
-    let icon_color = if selected { flow } else { theme::DIM };
+    let icon_color = if selected { flow } else { theme::dim() };
     icons::paint(
         painter,
         peer.icon,
@@ -131,14 +131,14 @@ fn peer_row(ui: &mut egui::Ui, peer: &PeerRow, selected: bool) -> egui::Response
         egui::Align2::LEFT_TOP,
         &peer.alias,
         egui::FontId::proportional(theme::ROW_FONT),
-        theme::INK,
+        theme::ink(),
     );
     painter.text(
         rect.left_bottom() + egui::vec2(text_x, -7.0),
         egui::Align2::LEFT_BOTTOM,
         &peer.detail,
         egui::FontId::proportional(theme::DETAIL_FONT),
-        theme::DIM,
+        theme::dim(),
     );
     if peer.insecure {
         let text = painter.text(
@@ -146,14 +146,14 @@ fn peer_row(ui: &mut egui::Ui, peer: &PeerRow, selected: bool) -> egui::Response
             egui::Align2::RIGHT_CENTER,
             "HTTP",
             egui::FontId::proportional(theme::DETAIL_FONT),
-            theme::DANGER,
+            theme::danger(),
         );
         icons::paint(
             painter,
             Icon::LockOpen,
             text.left_center() - egui::vec2(theme::ICON_SIZE / 2.0 + 4.0, 0.0),
             theme::ICON_SIZE - 2.0,
-            theme::DANGER,
+            theme::danger(),
         );
     }
     response
@@ -198,7 +198,7 @@ pub fn hint_bar(ui: &mut egui::Ui, hints: &[Hint], taps: &mut Vec<AppCommand>) {
             left + cap.width() + HINT_GAP,
             center.y - galley.size().y / 2.0,
         );
-        ui.painter().galley(text_pos, galley, theme::DIM);
+        ui.painter().galley(text_pos, galley, theme::dim());
     }
 }
 
@@ -283,8 +283,8 @@ impl Cap {
             painter.rect(
                 rect,
                 CAP_SIZE / 2.0,
-                theme::ACCENT.linear_multiply(CAP_FILL),
-                egui::Stroke::new(1.0, theme::ACCENT.linear_multiply(CAP_RING)),
+                theme::accent().linear_multiply(CAP_FILL),
+                egui::Stroke::new(1.0, theme::accent().linear_multiply(CAP_RING)),
                 egui::StrokeKind::Inside,
             );
         };
@@ -295,7 +295,7 @@ impl Cap {
                     egui::Vec2::splat(CAP_SIZE),
                 ));
                 let pos = center - galley.size() / 2.0;
-                painter.galley(pos, galley.clone(), theme::ACCENT);
+                painter.galley(pos, galley.clone(), theme::accent());
             }
             Cap::Face(face) => {
                 plate(egui::Rect::from_center_size(
@@ -308,7 +308,7 @@ impl Cap {
                 let size = egui::vec2(galley.size().x + CAP_PAD * 2.0, CAP_SIZE);
                 plate(egui::Rect::from_center_size(center, size));
                 let pos = center - galley.size() / 2.0;
-                painter.galley(pos, galley.clone(), theme::ACCENT);
+                painter.galley(pos, galley.clone(), theme::accent());
             }
             Cap::Arrows(dirs) => {
                 let left = center.x - self.width() / 2.0;
@@ -334,7 +334,7 @@ impl Cap {
                     };
                     painter.add(egui::Shape::convex_polygon(
                         pts,
-                        theme::ACCENT,
+                        theme::accent(),
                         egui::Stroke::NONE,
                     ));
                 }
@@ -395,7 +395,7 @@ const SQUARE_HEIGHT_SPAN: f32 = 0.95;
 /// Draw `face` centred on `center`, every shape filling the same box.
 fn paint_face(painter: &egui::Painter, face: Face, center: egui::Pos2) {
     let half = FACE_SIZE / 2.0;
-    let stroke = egui::Stroke::new(FACE_STROKE, theme::ACCENT);
+    let stroke = egui::Stroke::new(FACE_STROKE, theme::accent());
     match face {
         Face::Cross => {
             let d = half * CROSS_SPAN;
@@ -437,7 +437,7 @@ fn cap_galley(ui: &egui::Ui, label: &str) -> std::sync::Arc<egui::Galley> {
     ui.painter().layout_no_wrap(
         label.to_string(),
         egui::FontId::proportional(CAP_FONT),
-        theme::ACCENT,
+        theme::accent(),
     )
 }
 
@@ -445,7 +445,7 @@ fn action_galley(ui: &egui::Ui, action: &str) -> std::sync::Arc<egui::Galley> {
     ui.painter().layout_no_wrap(
         action.to_string(),
         egui::FontId::proportional(theme::DETAIL_FONT),
-        theme::DIM,
+        theme::dim(),
     )
 }
 

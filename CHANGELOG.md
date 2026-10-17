@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Device type icons on the radar and the incoming request; an open padlock on plain-HTTP peers
 - Transfer summary: files, bytes, time and average speed; a bar for the moving file
 - The mark's orbit turns while waiting (`[display] idle_animation`)
+- Spruce theme (`[display] theme`)
 - Splash screen; wordmark on the About screen
 - Launcher icons in each firmware's style, rendered by `tools/icons.sh`; Android adaptive icon
 - spruceOS aarch64, NextUI and NX Redux packages; 32-bit Android APK ([#50](https://github.com/mxmgorin/retsend/issues/50))

@@ -58,7 +58,7 @@ pub fn render(
                 ui.label(
                     egui::RichText::new(truncate_middle(&browser.cwd.display().to_string(), 48))
                         .size(theme::DETAIL_FONT)
-                        .color(theme::DIM),
+                        .color(theme::dim()),
                 );
             });
         });
@@ -75,7 +75,7 @@ pub fn render(
                         .size(theme::DETAIL_FONT)
                         .color(flow),
                 );
-                ui.label(egui::RichText::new("·").color(theme::DIM));
+                ui.label(egui::RichText::new("·").color(theme::dim()));
             }
             // Built rather than a literal: X has nothing to do while a folder is
             // being chosen, and six hints is already tight on a 320px screen.
@@ -118,7 +118,7 @@ pub fn render(
                 ui.label(
                     egui::RichText::new("Empty folder")
                         .size(theme::ROW_FONT)
-                        .color(theme::DIM),
+                        .color(theme::dim()),
                 );
             });
             return;
@@ -164,7 +164,7 @@ pub fn render(
                         ui.painter().hline(
                             band.x_range(),
                             band.max.y + spacing * 0.5,
-                            egui::Stroke::new(1.0, theme::DIM.linear_multiply(RULE_TINT)),
+                            egui::Stroke::new(1.0, theme::dim().linear_multiply(RULE_TINT)),
                         );
                     }
                 }
@@ -194,9 +194,9 @@ pub fn render(
                     let mut x = rect.left() + theme::ROW_PAD + MARK_SIZE / 2.0;
                     if !picking_dir {
                         let (icon, color) = match (checked, covered) {
-                            (true, true) => (Icon::CheckboxOn, theme::DIM),
+                            (true, true) => (Icon::CheckboxOn, theme::dim()),
                             (true, false) => (Icon::CheckboxOn, flow),
-                            (false, _) => (Icon::CheckboxOff, theme::DIM),
+                            (false, _) => (Icon::CheckboxOff, theme::dim()),
                         };
                         icons::paint(
                             painter,
@@ -209,8 +209,8 @@ pub fn render(
                     }
                     let (icon, color) = match (entry.pinned, entry.is_dir) {
                         (true, _) => (Icon::Star, flow),
-                        (false, true) => (Icon::Folder, theme::DIM),
-                        (false, false) => (Icon::File, theme::DIM),
+                        (false, true) => (Icon::Folder, theme::dim()),
+                        (false, false) => (Icon::File, theme::dim()),
                     };
                     icons::paint(
                         painter,
@@ -225,7 +225,7 @@ pub fn render(
                         egui::Align2::LEFT_CENTER,
                         &entry.name,
                         egui::FontId::proportional(theme::ROW_FONT),
-                        theme::INK,
+                        theme::ink(),
                     );
                     // A pinned row shows where it leads, two cards can carry a folder of
                     // one name; a picked folder shows what it weighs.
@@ -242,7 +242,7 @@ pub fn render(
                             egui::Align2::RIGHT_CENTER,
                             trailing,
                             egui::FontId::proportional(theme::DETAIL_FONT),
-                            theme::DIM,
+                            theme::dim(),
                         );
                     }
                 }

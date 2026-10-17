@@ -77,9 +77,9 @@ pub fn render(root: &mut egui::Ui, data: &ControlsData, taps: &mut Vec<AppComman
             None => "Keyboard keys per button; a gamepad keeps its buttons".to_string(),
         };
         let color = if data.remap.is_some() {
-            theme::ACCENT
+            theme::accent()
         } else {
-            theme::DIM
+            theme::dim()
         };
         ui.label(
             egui::RichText::new(subtitle)
@@ -116,13 +116,13 @@ pub fn render(root: &mut egui::Ui, data: &ControlsData, taps: &mut Vec<AppComman
                     let lit = data.lit == i;
                     let waiting = format!("press a key… {}s", data.seconds_left);
                     let value = if lit && data.capturing {
-                        (waiting.as_str(), theme::ACCENT)
+                        (waiting.as_str(), theme::accent())
                     } else if *fresh {
-                        (keys.as_str(), theme::ACCENT)
+                        (keys.as_str(), theme::accent())
                     } else {
-                        (keys.as_str(), theme::DIM)
+                        (keys.as_str(), theme::dim())
                     };
-                    let resp = row(ui, label, theme::INK, Some(value), lit);
+                    let resp = row(ui, label, theme::ink(), Some(value), lit);
                     if lit {
                         super::scroll_to_cursor(ui, ("controls", i), resp.rect);
                     }
@@ -135,7 +135,7 @@ pub fn render(root: &mut egui::Ui, data: &ControlsData, taps: &mut Vec<AppComman
                 ];
                 for (label, index) in tail {
                     let lit = data.lit == index && !data.capturing;
-                    let resp = row(ui, label, theme::ACCENT, None, lit);
+                    let resp = row(ui, label, theme::accent(), None, lit);
                     if lit {
                         super::scroll_to_cursor(ui, ("controls", index), resp.rect);
                     }
@@ -164,7 +164,7 @@ fn row(
         egui::Sense::click(),
     );
     if selected {
-        theme::highlight(ui.painter(), rect, theme::ACCENT);
+        theme::highlight(ui.painter(), rect, theme::accent());
     }
     let painter = ui.painter();
     painter.text(

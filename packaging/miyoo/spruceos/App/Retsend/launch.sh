@@ -33,6 +33,7 @@ export RETSEND_SOFTWARE=1 # no GPU on the SSD202
 export RETSEND_BLIT=1     # the panel driver shows texture copies and nothing else
 # Layout detection expects the driver name `mmiyoo`; this build says `Mini`.
 export RETSEND_KEYMAP=miyoo
+export RETSEND_THEME=spruce
 # spruce's MENU handler ignores apps launched from App/.
 export RETSEND_MENU_QUIT=1
 #export RETSEND_LOG_LEVEL=debug

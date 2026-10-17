@@ -20,6 +20,7 @@ Launchers set these; on the desktop they are for testing.
 | `RETSEND_SAVE_DIR` | Default folder for received files. |
 | `RETSEND_BROWSER_ROOTS` | Extra file-browser roots, `:`-separated. |
 | `RETSEND_ALIAS` | Default device name. |
+| `RETSEND_THEME=retsend\|spruce` | Default theme, until `[display] theme` is set. |
 | `RETSEND_SCALE` | UI scale base, replacing the fit to the screen; `[display] scale` applies over it. |
 | `RETSEND_GLES=0\|1` | Prefer desktop GL or GLES. |
 | `RETSEND_SOFTWARE=1` | Skip GL; draw with SDL's renderer. |

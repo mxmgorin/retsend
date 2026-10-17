@@ -153,6 +153,8 @@ pub struct AppUi {
     forced_scale: Option<f32>,
     /// The zoom in force, so a frame that wants the same one installs nothing.
     scale: f32,
+    /// The theme in force, so a frame that wants the same one installs nothing.
+    theme: crate::config::display::Theme,
     /// A GL renderer came up: frames are cheap enough for a smooth animation.
     gpu: bool,
 }
@@ -160,7 +162,7 @@ pub struct AppUi {
 impl AppUi {
     pub fn new(sdl: &sdl2::Sdl, config: &crate::config::DisplayConfig) -> Result<Self, String> {
         let egui = window::open(sdl, config)?;
-        theme::apply(egui.ctx());
+        theme::apply(egui.ctx(), config.theme);
         // The fit needs a frame's measurements; a pinned scale is known now, so
         // the first frame is already at it rather than at 1.0.
         let forced_scale = crate::config::device_scale();
@@ -193,6 +195,7 @@ impl AppUi {
             net_status: NetStatusCache::new(),
             forced_scale,
             scale: forced_scale.unwrap_or(1.0),
+            theme: config.theme,
         })
     }
 
@@ -206,7 +209,7 @@ impl AppUi {
                 egui::Id::new("splash"),
                 egui::UiBuilder::new().max_rect(screen),
             );
-            ui.painter().rect_filled(screen, 0.0, theme::BG);
+            ui.painter().rect_filled(screen, 0.0, theme::bg());
             let mark_size = SPLASH_MARK_SHARE * screen.height();
             let wordmark = mark::wordmark(&ui, mark_size * SPLASH_WORDMARK_SHARE);
             let total_h = mark_size + SPLASH_GAP + wordmark.size().y;
@@ -222,9 +225,9 @@ impl AppUi {
                 screen.center().x - wordmark.size().x / 2.0,
                 top + mark_size + SPLASH_GAP,
             );
-            ui.painter().galley(pos, wordmark, theme::INK);
+            ui.painter().galley(pos, wordmark, theme::ink());
         });
-        self.egui.paint(theme::BACKGROUND);
+        self.egui.paint(theme::background());
     }
 
     /// Feed an SDL event to egui (resize/DPI bookkeeping, pointer hover).
@@ -265,6 +268,10 @@ impl AppUi {
     /// the egui closure.
     pub fn update(&mut self, net: &NetService, config: &AppConfig, history: &History) {
         self.sync_scale(config.display.scale);
+        if config.display.theme != self.theme {
+            self.theme = config.display.theme;
+            theme::apply(self.egui.ctx(), self.theme);
+        }
         let screen = self.screen_data(net, config, history);
         let prompt_data = prompt_data(net);
         // The destination picker stands in for the modal while it is up, so it
@@ -522,7 +529,7 @@ impl AppUi {
     }
 
     pub fn draw(&mut self) {
-        self.egui.paint(theme::BACKGROUND);
+        self.egui.paint(theme::background());
     }
 
     pub fn destroy(&mut self) {
@@ -703,8 +710,8 @@ fn render_toasts(ctx: &egui::Context, toasts: &[(String, ToastKind)]) {
         .show(ctx, |ui| {
             for (text, kind) in toasts {
                 let (icon, color) = match kind {
-                    ToastKind::Info => (icons::Icon::Info, theme::ACCENT),
-                    ToastKind::Warn => (icons::Icon::Warning, theme::DANGER),
+                    ToastKind::Info => (icons::Icon::Info, theme::accent()),
+                    ToastKind::Warn => (icons::Icon::Warning, theme::danger()),
                 };
                 theme::card_frame(color)
                     .corner_radius(6.0)

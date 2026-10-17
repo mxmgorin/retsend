@@ -131,3 +131,8 @@ retsend is built on:
 - [Steward Fu's SDL2](https://github.com/steward-fu/sdl2) with the Miyoo Mini display driver
 - [VitaSDK](https://vitasdk.org) and [vita-rust](https://github.com/vita-rust) for the PS Vita build
 - [PortMaster](https://portmaster.games) for running on Linux handhelds
+- [Nunito](https://github.com/googlefonts/nunito) (SIL OFL 1.1), in spruceOS's `nunwen.ttf` build,
+  for the Spruce theme's text
+
+The Spruce theme is inspired by the stock theme of [spruceOS](https://github.com/spruceUI/spruceOS)
+by tenlevels.

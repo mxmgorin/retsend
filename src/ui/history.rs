@@ -87,13 +87,13 @@ pub fn render(root: &mut egui::Ui, data: &HistoryData, taps: &mut Vec<AppCommand
                 ui.label(
                     egui::RichText::new("No transfers yet.")
                         .size(theme::ROW_FONT)
-                        .color(theme::DIM),
+                        .color(theme::dim()),
                 );
                 ui.add_space(6.0);
                 ui.label(
                     egui::RichText::new("Files sent and received show up here.")
                         .size(theme::DETAIL_FONT)
-                        .color(theme::DIM),
+                        .color(theme::dim()),
                 );
             });
             return;
@@ -176,7 +176,7 @@ fn history_row(ui: &mut egui::Ui, row: &HistoryRow, rect: egui::Rect, selected: 
         egui::Align2::LEFT_TOP,
         &row.title,
         egui::FontId::proportional(theme::ROW_FONT),
-        theme::INK,
+        theme::ink(),
     );
     // Title and detail keep their places in the first ROW_HEIGHT; the path line
     // hangs below it.
@@ -185,7 +185,7 @@ fn history_row(ui: &mut egui::Ui, row: &HistoryRow, rect: egui::Rect, selected: 
         egui::Align2::LEFT_BOTTOM,
         &row.detail,
         egui::FontId::proportional(theme::DETAIL_FONT),
-        theme::DIM,
+        theme::dim(),
     );
     if !row.path.is_empty() {
         painter.text(
@@ -193,7 +193,7 @@ fn history_row(ui: &mut egui::Ui, row: &HistoryRow, rect: egui::Rect, selected: 
             egui::Align2::LEFT_BOTTOM,
             &row.path,
             egui::FontId::proportional(theme::DETAIL_FONT),
-            theme::DIM,
+            theme::dim(),
         );
     }
     let (icon, color) = outcome_mark(row.outcome, flow);
@@ -214,9 +214,9 @@ fn history_row(ui: &mut egui::Ui, row: &HistoryRow, rect: egui::Rect, selected: 
 fn outcome_mark(outcome: Outcome, flow: egui::Color32) -> (Icon, egui::Color32) {
     match outcome {
         Outcome::Completed => (Icon::Check, flow),
-        Outcome::Partial => (Icon::Check, theme::DIM),
-        Outcome::Cancelled => (Icon::Cross, theme::DIM),
-        Outcome::Declined | Outcome::Failed => (Icon::Cross, theme::DANGER),
+        Outcome::Partial => (Icon::Check, theme::dim()),
+        Outcome::Cancelled => (Icon::Cross, theme::dim()),
+        Outcome::Declined | Outcome::Failed => (Icon::Cross, theme::danger()),
     }
 }
 

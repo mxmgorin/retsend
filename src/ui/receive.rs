@@ -60,13 +60,13 @@ pub fn render(root: &mut egui::Ui, data: &ReceiveData, taps: &mut Vec<AppCommand
         let (name, name_color, status) = if online {
             (
                 data.alias.as_str(),
-                theme::INK,
+                theme::ink(),
                 "Waiting for a sender…".to_string(),
             )
         } else {
             (
                 "No network",
-                theme::DANGER,
+                theme::danger(),
                 format!("Connect to Wi-Fi so senders can reach {}", data.alias),
             )
         };
@@ -85,25 +85,29 @@ fn chips(data: &ReceiveData) -> Vec<Chip> {
             chips.push(Chip {
                 icon: if secure { Icon::Lock } else { Icon::LockOpen },
                 text: format!("{ip}:{}", data.port),
-                color: if secure { theme::DIM } else { theme::DANGER },
+                color: if secure {
+                    theme::dim()
+                } else {
+                    theme::danger()
+                },
             });
             if let Some(ssid) = ssid {
                 chips.push(Chip {
                     icon: Icon::Wifi,
                     text: ssid.clone(),
-                    color: theme::DIM,
+                    color: theme::dim(),
                 });
             }
             chips.push(Chip {
                 icon: Icon::Folder,
                 text: super::truncate_middle(&data.save_dir, CHIP_PATH_CHARS),
-                color: theme::DIM,
+                color: theme::dim(),
             });
             if data.quick_save {
                 chips.push(Chip {
                     icon: Icon::Check,
                     text: "Quick save".to_string(),
-                    color: theme::ACCENT,
+                    color: theme::accent(),
                 });
             }
         }
@@ -111,12 +115,12 @@ fn chips(data: &ReceiveData) -> Vec<Chip> {
         (None, Some(ssid)) => chips.push(Chip {
             icon: Icon::Wifi,
             text: format!("{ssid} · waiting for an address"),
-            color: theme::DANGER,
+            color: theme::danger(),
         }),
         (None, None) => chips.push(Chip {
             icon: Icon::Wifi,
             text: "Not connected".to_string(),
-            color: theme::DANGER,
+            color: theme::danger(),
         }),
     }
     chips

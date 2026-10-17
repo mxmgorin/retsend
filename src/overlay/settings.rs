@@ -12,6 +12,7 @@ pub enum SettingsRow {
     AutoRoutes,
     Routes,
     Port,
+    Theme,
     Scale,
     IdleAnimation,
     SwapAbxy,
@@ -22,14 +23,14 @@ pub enum SettingsRow {
 impl SettingsRow {
     /// Rows whose value ◂ ▸ walk instead of switching tabs.
     pub fn is_stepper(self) -> bool {
-        self == SettingsRow::Scale
+        matches!(self, SettingsRow::Scale | SettingsRow::Theme)
     }
 }
 
 /// Top-to-bottom order on screen; `crate::ui::settings` labels them in the same
 /// order, one cursor indexes both. Port and the scale are late — both are set
 /// once, if ever.
-const ROWS: [SettingsRow; 13] = [
+const ROWS: [SettingsRow; 14] = [
     SettingsRow::Alias,
     SettingsRow::SaveDir,
     SettingsRow::QuickSave,
@@ -38,6 +39,7 @@ const ROWS: [SettingsRow; 13] = [
     SettingsRow::AutoRoutes,
     SettingsRow::Routes,
     SettingsRow::Port,
+    SettingsRow::Theme,
     SettingsRow::Scale,
     SettingsRow::IdleAnimation,
     SettingsRow::SwapAbxy,

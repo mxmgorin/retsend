@@ -37,6 +37,10 @@ pub enum Icon {
     Wifi,
     Info,
     Warning,
+    /// An open angle pointing left.
+    ChevronLeft,
+    /// An open angle pointing right.
+    ChevronRight,
 }
 
 /// The device icon for a LocalSend `deviceType`; anything unknown is a
@@ -148,7 +152,7 @@ pub fn paint(
         Icon::CheckboxOn => {
             let r = egui::Rect::from_center_size(center, egui::Vec2::splat(size * 0.84));
             painter.rect_filled(r, size * 0.16, color);
-            let tick = egui::Stroke::new(stroke.width, theme::BG);
+            let tick = egui::Stroke::new(stroke.width, theme::bg());
             painter.add(egui::Shape::line(
                 vec![p(-0.24, 0.02), p(-0.08, 0.18), p(0.24, -0.18)],
                 tick,
@@ -239,5 +243,7 @@ pub fn paint(
             line(p(0.0, -0.14), p(0.0, 0.12));
             painter.circle_filled(p(0.0, 0.27), stroke.width * 0.75, color);
         }
+        Icon::ChevronLeft => path(vec![p(0.16, -0.34), p(-0.16, 0.0), p(0.16, 0.34)]),
+        Icon::ChevronRight => path(vec![p(-0.16, -0.34), p(0.16, 0.0), p(-0.16, 0.34)]),
     }
 }

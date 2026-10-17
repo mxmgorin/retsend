@@ -4,7 +4,7 @@
 //! the landing screens is the icon, sharp at any zoom, and its orbit can turn
 //! while the device waits.
 
-use super::theme::{self, lerp_color, ACCENT, BG, SUN_TOP, WARM};
+use super::theme::{self, lerp_color, CORAL, SUN_TOP, TEAL};
 use egui_sdl2::egui;
 use std::f32::consts::TAU;
 use std::time::Duration;
@@ -104,7 +104,8 @@ pub fn measure(size: f32) -> egui::Vec2 {
 /// orbit (in turns, clockwise); `dim` pulls every color toward the plate,
 /// 1.0 being gone.
 pub fn paint(painter: &egui::Painter, center: egui::Pos2, size: f32, spin: f32, dim: f32) {
-    let tint = |c: egui::Color32| lerp_color(c, BG, dim);
+    let bg = theme::bg();
+    let tint = |c: egui::Color32| lerp_color(c, bg, dim);
     let at = |turns: f32, r: f32| {
         let a = turns * TAU;
         center + egui::vec2(a.cos(), a.sin()) * r * size
@@ -114,7 +115,7 @@ pub fn paint(painter: &egui::Painter, center: egui::Pos2, size: f32, spin: f32, 
         center,
         HALO_R * HALO_INNER * size,
         HALO_R * size,
-        tint(WARM).gamma_multiply(HALO_ALPHA),
+        tint(CORAL).gamma_multiply(HALO_ALPHA),
     )));
     painter.add(egui::Shape::mesh(sun_mesh(
         painter.pixels_per_point(),
@@ -131,7 +132,7 @@ pub fn paint(painter: &egui::Painter, center: egui::Pos2, size: f32, spin: f32, 
         tint(SUN_TOP).gamma_multiply(GLOW_ALPHA),
     )));
 
-    let arc_stroke = egui::Stroke::new(ARC_W * size, tint(ACCENT));
+    let arc_stroke = egui::Stroke::new(ARC_W * size, tint(TEAL));
     for (from, to) in ARCS {
         let pts = arc_points(|t| at(t + spin, ORBIT_R), from, to);
         round_caps(painter, &pts, arc_stroke);
@@ -200,11 +201,11 @@ fn arrow_mesh(
     for i in 0..=steps {
         let f = i as f32 / steps as f32;
         let color = if f < ARROW_FADE {
-            tint(ACCENT)
+            tint(TEAL)
                 .gamma_multiply(ARROW_START_ALPHA + (1.0 - ARROW_START_ALPHA) * f / ARROW_FADE)
         } else {
             tint(lerp_color(
-                ACCENT,
+                TEAL,
                 SUN_TOP,
                 (f - ARROW_FADE) / (1.0 - ARROW_FADE),
             ))
@@ -274,9 +275,9 @@ fn sun_mesh(
 /// The icon gradient at `f` of the way down the disk.
 fn gradient(f: f32) -> egui::Color32 {
     if f < WARM_STOP {
-        lerp_color(SUN_TOP, WARM, f / WARM_STOP)
+        lerp_color(SUN_TOP, CORAL, f / WARM_STOP)
     } else {
-        lerp_color(WARM, ACCENT, (f - WARM_STOP) / (1.0 - WARM_STOP))
+        lerp_color(CORAL, TEAL, (f - WARM_STOP) / (1.0 - WARM_STOP))
     }
 }
 
@@ -292,10 +293,10 @@ pub fn wordmark(ui: &egui::Ui, size: f32) -> std::sync::Arc<egui::Galley> {
         color,
         ..Default::default()
     };
-    job.append(INK_PART, 0.0, format(theme::INK));
+    job.append(INK_PART, 0.0, format(theme::ink()));
     let last = WARM_PART.len() - 1;
     for (i, ch) in WARM_PART.chars().enumerate() {
-        let color = lerp_color(ACCENT, WARM, i as f32 / last as f32);
+        let color = lerp_color(TEAL, CORAL, i as f32 / last as f32);
         job.append(&ch.to_string(), 0.0, format(color));
     }
     ui.ctx().fonts_mut(|f| f.layout_job(job))

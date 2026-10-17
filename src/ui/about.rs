@@ -40,11 +40,11 @@ pub fn render(root: &mut egui::Ui, taps: &mut Vec<AppCommand>) {
             ui.add_space(8.0);
             let wordmark = mark::wordmark(ui, WORDMARK_SIZE);
             let (_, rect) = ui.allocate_space(wordmark.size());
-            ui.painter().galley(rect.min, wordmark, theme::INK);
+            ui.painter().galley(rect.min, wordmark, theme::ink());
             ui.label(
                 egui::RichText::new(env!("CARGO_PKG_DESCRIPTION"))
                     .size(theme::DETAIL_FONT)
-                    .color(theme::DIM),
+                    .color(theme::dim()),
             );
             ui.add_space(20.0);
 
@@ -67,7 +67,7 @@ fn info_row(ui: &mut egui::Ui, label: &str, value: &str) {
         0.0,
         egui::TextFormat {
             font_id: font.clone(),
-            color: theme::DIM,
+            color: theme::dim(),
             ..Default::default()
         },
     );
@@ -76,7 +76,7 @@ fn info_row(ui: &mut egui::Ui, label: &str, value: &str) {
         0.0,
         egui::TextFormat {
             font_id: font,
-            color: theme::ACCENT,
+            color: theme::accent(),
             ..Default::default()
         },
     );

@@ -137,7 +137,7 @@ pub fn render(root: &mut egui::Ui, data: &TransferData, taps: &mut Vec<AppComman
             ui.label(
                 egui::RichText::new(line)
                     .size(theme::DETAIL_FONT)
-                    .color(theme::DIM),
+                    .color(theme::dim()),
             );
         }
         ui.add_space(10.0);
@@ -163,9 +163,9 @@ fn summary(ui: &mut egui::Ui, data: &TransferData, flow: egui::Color32) {
     let (icon, color) = if all {
         (Icon::Check, flow)
     } else if done == 0 {
-        (Icon::Cross, theme::DANGER)
+        (Icon::Cross, theme::danger())
     } else {
-        (Icon::Warning, theme::DANGER)
+        (Icon::Warning, theme::danger())
     };
     let mut parts = vec![
         if all {
@@ -213,7 +213,7 @@ fn summary(ui: &mut egui::Ui, data: &TransferData, flow: egui::Color32) {
             ui.label(
                 egui::RichText::new(parts.join(" · "))
                     .size(theme::DETAIL_FONT)
-                    .color(theme::DIM),
+                    .color(theme::dim()),
             );
         });
     });
@@ -233,18 +233,18 @@ fn file_row(ui: &mut egui::Ui, row: &FileRow, flow: egui::Color32) {
             Icon::Cross,
             mark_center,
             theme::ICON_SIZE,
-            theme::DANGER,
+            theme::danger(),
         ),
         RowState::Moving => {
             painter.circle_filled(mark_center, 3.0, flow);
         }
         RowState::Pending => {
-            painter.circle_stroke(mark_center, 3.0, egui::Stroke::new(1.0, theme::DIM));
+            painter.circle_stroke(mark_center, 3.0, egui::Stroke::new(1.0, theme::dim()));
         }
     }
     let name_color = match row.state {
-        RowState::Pending => theme::DIM,
-        _ => theme::INK,
+        RowState::Pending => theme::dim(),
+        _ => theme::ink(),
     };
     painter.text(
         egui::pos2(rect.left() + MARK_GUTTER, rect.top() + 9.0),
@@ -258,7 +258,7 @@ fn file_row(ui: &mut egui::Ui, row: &FileRow, flow: egui::Color32) {
         egui::Align2::RIGHT_CENTER,
         super::fmt_bytes(row.size),
         egui::FontId::proportional(theme::DETAIL_FONT),
-        theme::DIM,
+        theme::dim(),
     );
     // Only a moving file has a bar: a done one would be a full line of color
     // per row, and a pending one an empty track.

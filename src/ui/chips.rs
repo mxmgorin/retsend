@@ -82,7 +82,7 @@ fn chip_width(ui: &egui::Ui, chip: &Chip) -> f32 {
     let galley = ui.painter().layout_no_wrap(
         chip.text.clone(),
         egui::FontId::proportional(theme::DETAIL_FONT),
-        theme::DIM,
+        theme::dim(),
     );
     CHIP_PAD + CHIP_ICON + CHIP_ICON_GAP + galley.size().x + CHIP_PAD
 }
@@ -92,14 +92,14 @@ fn paint_chip(ui: &egui::Ui, chip: &Chip, rect: egui::Rect) {
     painter.rect(
         rect,
         CHIP_H / 2.0,
-        theme::PANEL_FILL,
-        egui::Stroke::new(1.0, theme::BORDER),
+        theme::panel_fill(),
+        egui::Stroke::new(1.0, theme::border()),
         egui::StrokeKind::Inside,
     );
     let icon_center = egui::pos2(rect.left() + CHIP_PAD + CHIP_ICON / 2.0, rect.center().y);
     icons::paint(painter, chip.icon, icon_center, CHIP_ICON, chip.color);
-    let text_color = if chip.color == theme::DIM {
-        theme::DIM
+    let text_color = if chip.color == theme::dim() {
+        theme::dim()
     } else {
         chip.color
     };
@@ -156,7 +156,7 @@ pub fn hero(
         ui.label(
             egui::RichText::new(status)
                 .size(theme::DETAIL_FONT)
-                .color(theme::DIM),
+                .color(theme::dim()),
         );
     });
 }
