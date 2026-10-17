@@ -14,7 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Device type icons on the radar and the incoming request; an open padlock on plain-HTTP peers
 - Transfer summary: files, bytes, time and average speed; a bar for the moving file
 - The mark's orbit turns while waiting (`[display] idle_animation`)
-- Spruce theme (`[display] theme`)
+- Themes in **Settings → Theme** (`[display] theme`, `RETSEND_THEME`): retsend, and Spruce with spruceOS's gruvbox colors and Nunito; the spruceOS packages start in Spruce
+- Chevrons on settings rows that ◂ ▸ change
+- Credits on the About screen
 - Splash screen; wordmark on the About screen
 - Launcher icons in each firmware's style, rendered by `tools/icons.sh`; Android adaptive icon
 - spruceOS aarch64, NextUI and NX Redux packages; 32-bit Android APK ([#50](https://github.com/mxmgorin/retsend/issues/50))
@@ -37,12 +39,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shorter launcher descriptions
 - Touch acts only where it lands on the screen; the Vita's rear touchpad is ignored
 - A network start-up failure names the step that failed
+- About lists its build info as an aligned table, the project link without `https://`
 - Backspace is B, not X; on the on-screen keyboard B's keys other than Esc and Back erase, then leave once empty ([#50](https://github.com/mxmgorin/retsend/issues/50))
 
 ### Fixed
 
 - Mouse wheel and drag scrolling snapped back to the selected row
-- rustls 0.23.45, past [RUSTSEC-2026-0285](https://rustsec.org/advisories/RUSTSEC-2026-0285)
+- rustls 0.23.46, past [RUSTSEC-2026-0285](https://rustsec.org/advisories/RUSTSEC-2026-0285) and [RUSTSEC-2026-0346](https://rustsec.org/advisories/RUSTSEC-2026-0346) to [-0349](https://rustsec.org/advisories/RUSTSEC-2026-0349)
+- A failed SDL or window start-up is logged and exits with status 1 instead of panicking
 
 ## [0.9.0] - 2026-09-03
 

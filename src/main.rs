@@ -1,3 +1,3 @@
-fn main() {
-    retsend::run_app();
+fn main() -> std::process::ExitCode {
+    retsend::run_app()
 }

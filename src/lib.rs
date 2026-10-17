@@ -13,7 +13,8 @@ use crate::app::App;
 
 /// Shared startup for the desktop binary, the handheld launcher (same binary,
 /// different env), and Android's `SDL_main`. Mirrors retsurf's `run_app`.
-pub fn run_app() {
+/// Returns failure when SDL or the window cannot come up, the cause logged.
+pub fn run_app() -> std::process::ExitCode {
     // Ahead of the panic hook and the logger, which read the paths it sets.
     #[cfg(target_os = "vita")]
     vita_env();
@@ -42,7 +43,7 @@ pub fn run_app() {
     // log to stdout. For ssh sessions on the device and scripted testing.
     if std::env::args().any(|a| a == "--receive") {
         run_headless(app_config);
-        return;
+        return std::process::ExitCode::SUCCESS;
     }
 
     // After the headless branch, whose quit has no event loop to reach, and
@@ -61,10 +62,19 @@ pub fn run_app() {
         std::env::set_var("SDL_VIDEODRIVER", "wayland");
     }
 
-    let sdl = sdl2::init().unwrap();
-    let app = App::new(&sdl, app_config).unwrap();
-
-    app.run();
+    let app = sdl2::init()
+        .map_err(|e| format!("SDL init: {e}"))
+        .and_then(|sdl| App::new(&sdl, app_config).map(|app| (sdl, app)));
+    match app {
+        Ok((_sdl, app)) => {
+            app.run();
+            std::process::ExitCode::SUCCESS
+        }
+        Err(e) => {
+            log::error!("cannot start: {e}");
+            std::process::ExitCode::FAILURE
+        }
+    }
 }
 
 /// SDL's Android shell (`SDLActivity`) `dlopen`s our cdylib and calls this on
@@ -75,8 +85,11 @@ pub extern "C" fn SDL_main(
     _argc: std::os::raw::c_int,
     _argv: *const *const std::os::raw::c_char,
 ) -> std::os::raw::c_int {
-    run_app();
-    0
+    if run_app() == std::process::ExitCode::SUCCESS {
+        0
+    } else {
+        1
+    }
 }
 
 /// What only Android decides. Its paths, alias and UI scale arrive as the same
