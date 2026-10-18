@@ -351,6 +351,57 @@ jobs:
             retsend-spruceos-aarch64.zip
             retsend-spruceos-aarch64.zip.sha256
 
+  crossmix:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: retsend-linux-aarch64
+          path: bin
+
+      - name: Assemble the card layout
+        run: |
+          set -eux
+          pkg=crossmix-dist
+          app=$pkg/Apps/Retsend
+          rm -rf "$pkg"
+          mkdir -p "$app/retsend"
+          # The PortMaster port as an app, run by CrossMix's ports launcher.
+          cp packaging/crossmix/Apps/Retsend/config.json packaging/crossmix/Apps/Retsend/launch.sh \
+            packaging/crossmix/Apps/Retsend/icon.png "$app/"
+          cp packaging/portmaster/Retsend.sh "$app/"
+          cp packaging/portmaster/port.json packaging/portmaster/gameinfo.xml \
+            packaging/portmaster/README.md packaging/portmaster/screenshot.png "$app/retsend/"
+          cp -r packaging/portmaster/retsend/. "$app/retsend/"
+          rm -f "$app/retsend/.gitkeep"
+          install -m 755 bin/retsend "$app/retsend/retsend.aarch64"
+          chmod 755 "$app/launch.sh" "$app/Retsend.sh"
+          ls -laR "$pkg"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: retsend-crossmix
+          path: crossmix-dist
+
+      - name: Zip for release
+        if: github.event_name == 'release'
+        run: |
+          set -eux
+          (cd crossmix-dist && zip -r ../retsend-crossmix.zip .)
+          sha256sum retsend-crossmix.zip > retsend-crossmix.zip.sha256
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            retsend-crossmix.zip
+            retsend-crossmix.zip.sha256
+
   nextui:
     needs: build
     runs-on: ubuntu-22.04

@@ -106,7 +106,7 @@ jobs:
           mkdir -p out
           for a in retsend-linux-x86_64 retsend-linux-aarch64 retsend-linux-armhf \
                    retsend-portmaster retsend-onionos retsend-allium retsend-spruceos-armhf \
-                   retsend-spruceos-aarch64 retsend-nextui retsend-knulli; do
+                   retsend-spruceos-aarch64 retsend-crossmix retsend-nextui retsend-knulli; do
             (cd "art/$a" && zip -r "../../out/$a.zip" .)
           done
           (cd art/retsend-muos && zip -r ../../out/retsend-muos.muxapp Retsend)

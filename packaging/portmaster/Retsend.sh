@@ -33,7 +33,7 @@ cd "$GAMEDIR"
 
 export HOME="$GAMEDIR"
 export XDG_DATA_HOME="$GAMEDIR"
-export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"
+export SDL_GAMECONTROLLERCONFIG="${RETSEND_GAMECONTROLLERCONFIG:-$sdl_controllerconfig}"
 
 export RETSEND_DATA_DIR="$GAMEDIR/data"
 

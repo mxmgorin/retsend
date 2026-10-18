@@ -1,0 +1,7 @@
+{
+  "label": "Retsend",
+  "icon": "icon.png",
+  "iconsel": "icon.png",
+  "launch": "launch.sh",
+  "description": "Transfer files over Wi-Fi (LocalSend)"
+}

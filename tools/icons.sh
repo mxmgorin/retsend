@@ -1,9 +1,9 @@
 #!/bin/sh
 # Renders the packaged icons from the SVG masters in resources/icon, one per
 # launcher style: muOS draws a 24x24 single-colour glyph its themes recolour,
-# spruceOS a flat gold 70x70 silhouette, Android an adaptive icon whose
-# foreground sits in the 66dp safe zone of a 108dp canvas. Needs rsvg-convert
-# and ImageMagick 7.
+# spruceOS a flat gold 70x70 silhouette, CrossMix-OS the full tile, Android an
+# adaptive icon whose foreground sits in the 66dp safe zone of a 108dp canvas.
+# Needs rsvg-convert and ImageMagick 7.
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
 glyph="$root/resources/icon/retsend-glyph.svg"
@@ -19,6 +19,10 @@ tinted "$small" '#ffffff' | rsvg-convert -w 24 -h 24 -o "$root/packaging/muos/gl
 # spruceOS: the SPRUCE theme's gold, inset like its own app icons.
 tinted "$glyph" '#d7b45f' | rsvg-convert -w 52 -h 52 | magick - -background none -gravity center -extent 70x70 \
   "$root/packaging/spruce/App/Retsend/icon.png"
+
+# CrossMix-OS: the full tile, high in the canvas like its own app icons.
+rsvg-convert -w 176 -h 176 "$root/resources/icon/retsend.svg" | magick -size 300x300 xc:none - \
+  -geometry +62+21 -composite "$root/packaging/crossmix/Apps/Retsend/icon.png"
 
 # Android: the foreground layer per density; the launcher masks and parallaxes it.
 for density in mdpi:108 hdpi:162 xhdpi:216 xxhdpi:324 xxxhdpi:432; do

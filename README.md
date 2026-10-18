@@ -17,7 +17,7 @@
 
 retsend is a [LocalSend](https://localsend.org) client for retro handhelds, written in Rust with [SDL2](https://www.libsdl.org/) and [egui](https://github.com/emilk/egui). It sends and receives files with your phone or PC over Wi-Fi, without a cable, SSH or pulling the SD card, and works with the official LocalSend apps. Built for the gamepad; keyboard, touch and mouse work too.
 
-**[Install](#install)** on handhelds through PortMaster, muOS, OnionOS, Allium, spruceOS, NextUI, NX Redux or Knulli, on the PS Vita, and on Android or Linux.
+**[Install](#install)** on handhelds through PortMaster, muOS, OnionOS, Allium, spruceOS, CrossMix-OS, NextUI, NX Redux or Knulli, on the PS Vita, and on Android or Linux.
 
 ## Screenshots
 
@@ -82,6 +82,7 @@ the same file names under the rolling
 | [OnionOS](https://onionui.github.io/) | [`retsend-onionos.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-onionos.zip) | root of the SD card, lands in `App/Retsend/` |
 | [Allium](https://github.com/goweiwen/Allium) | [`retsend-allium.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-allium.zip) | root of the SD card, lands in `Apps/Retsend.pak/` |
 | [spruceOS](https://github.com/spruceUI/spruceOS) | [`retsend-spruceos-aarch64.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-spruceos-aarch64.zip), [`retsend-spruceos-armhf.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-spruceos-armhf.zip) (Miyoo Mini) | root of the SD card, lands in `App/Retsend/` |
+| [CrossMix-OS](https://github.com/cizia64/CrossMix-OS) | [`retsend-crossmix.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-crossmix.zip) | root of the SD card, lands in `Apps/Retsend/` |
 | [NextUI](https://github.com/LoveRetro/NextUI), [NX Redux](https://github.com/mohammadsyuhada/nx-redux) | [`retsend-nextui.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-nextui.zip) | root of the SD card, lands in `Tools/` |
 | [Knulli](https://knulli.org) | [`retsend-knulli.zip`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-knulli.zip) | `roms/` in the share (`/userdata/roms/`), lands in `tools/` |
 | PS Vita ([HENkaku](https://henkaku.xyz/)) | [`retsend-vita.vpk`](https://github.com/mxmgorin/retsend/releases/latest/download/retsend-vita.vpk) | install with VitaShell |

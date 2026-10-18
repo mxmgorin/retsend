@@ -24,7 +24,7 @@ Cross-builds run in Docker, the way CI does them:
 
 ```sh
 tools/arm/build.sh armhf     # Miyoo Mini
-tools/arm/build.sh aarch64   # PortMaster, muOS, spruceOS aarch64, NextUI, Knulli
+tools/arm/build.sh aarch64   # PortMaster, muOS, spruceOS aarch64, CrossMix-OS, NextUI, Knulli
 ```
 
 The packages are assembled in
@@ -58,6 +58,6 @@ Vita; see its header.
 ## Icons
 
 `tools/icons.sh` renders the launcher icons from the SVG masters in
-`resources/icon/`: the muOS glyph, the spruceOS icon and the Android adaptive
-foreground. Needs `rsvg-convert` and ImageMagick 7. The OnionOS sticker and the
+`resources/icon/`: the muOS glyph, the spruceOS and CrossMix-OS icons and the
+Android adaptive foreground. Needs `rsvg-convert` and ImageMagick 7. The OnionOS sticker and the
 Vita assets are drawn by hand.
