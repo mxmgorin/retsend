@@ -35,7 +35,7 @@ strip = false
 
 [dependencies]
 sdl2 = { version = "0.38", default-features = false }
-egui-sdl2 = { version = "0.12", default-features = false, features = ["glow-backend"] }
+egui-sdl2 = { version = "0.12.1", default-features = false, features = ["glow-backend"] }
 # Must match egui_glow's glow: we hand it our glow::Context.
 glow = "0.17"
 serde = { version = "1", features = ["derive"] }

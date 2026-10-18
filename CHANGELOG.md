@@ -50,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A failed SDL or window start-up is logged and exits with status 1 instead of panicking
 - Cancelling a send while the peer is still deciding takes effect at once
 - Start-up no longer waits for the sweep of stale `.part` files in the save folder
+- Footer hints no longer overlap while files are selected
+- Text no longer loses its bottom rows on the software renderer at a fractional scale (egui-sdl2 0.12.1)
 
 ## [0.9.0] - 2026-09-03
 
