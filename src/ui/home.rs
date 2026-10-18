@@ -159,8 +159,8 @@ fn peer_row(ui: &mut egui::Ui, peer: &PeerRow, selected: bool) -> egui::Response
     response
 }
 
-/// `[Btn] Action` hints spread evenly across the width — each hint owns an
-/// equal slot and sits centered in it, matching the tab bar. Shared by every
+/// `[Btn] Action` hints spread across the width — each hint sits centered in
+/// its slot, equal while they fit, matching the tab bar. Shared by every
 /// screen's footer. The button is drawn as the key it names.
 pub fn hint_bar(ui: &mut egui::Ui, hints: &[Hint], taps: &mut Vec<AppCommand>) {
     if hints.is_empty() {
@@ -178,10 +178,17 @@ pub fn hint_bar(ui: &mut egui::Ui, hints: &[Hint], taps: &mut Vec<AppCommand>) {
         .fold(CAP_SIZE, f32::max);
     let full_w = ui.available_width();
     let (_, rect) = ui.allocate_space(egui::vec2(full_w, row_h));
-    let slot_w = full_w / hints.len() as f32;
+    let widths: Vec<f32> = items
+        .iter()
+        .map(|(cap, galley)| cap.width() + HINT_GAP + galley.size().x)
+        .collect();
+    let slots = slot_widths(&widths, full_w);
     let tap = tap_pos(ui);
+    let mut slot_left = rect.left();
     for (i, (cap, galley)) in items.into_iter().enumerate() {
-        let center = egui::pos2(rect.left() + slot_w * (i as f32 + 0.5), rect.center().y);
+        let slot_w = slots[i];
+        let center = egui::pos2(slot_left + slot_w / 2.0, rect.center().y);
+        slot_left += slot_w;
         // A hint names a button, so its slot *is* that button — the only way to
         // reach Start/Select/X/Y on a device with no pad.
         if let Some(command) = hints[i].2 {
@@ -191,8 +198,7 @@ pub fn hint_bar(ui: &mut egui::Ui, hints: &[Hint], taps: &mut Vec<AppCommand>) {
                 taps.push(command);
             }
         }
-        let width = cap.width() + HINT_GAP + galley.size().x;
-        let left = center.x - width / 2.0;
+        let left = center.x - widths[i] / 2.0;
         cap.paint(ui.painter(), egui::pos2(left + cap.width() / 2.0, center.y));
         let text_pos = egui::pos2(
             left + cap.width() + HINT_GAP,
@@ -200,6 +206,17 @@ pub fn hint_bar(ui: &mut egui::Ui, hints: &[Hint], taps: &mut Vec<AppCommand>) {
         );
         ui.painter().galley(text_pos, galley, theme::dim());
     }
+}
+
+/// Splits `full_w` into a slot per hint of `widths`; returns equal slots while
+/// every hint fits its share, else each width plus an equal share of the rest.
+fn slot_widths(widths: &[f32], full_w: f32) -> Vec<f32> {
+    let equal = full_w / widths.len() as f32;
+    if widths.iter().all(|&w| w <= equal) {
+        return vec![equal; widths.len()];
+    }
+    let spare = (full_w - widths.iter().sum::<f32>()).max(0.0) / widths.len() as f32;
+    widths.iter().map(|&w| w + spare).collect()
 }
 
 /// Where a tap landed, for bars and virtualized lists that paint themselves.
@@ -504,6 +521,18 @@ mod tests {
             ssid: None,
             spin_frame: None,
         }
+    }
+
+    #[test]
+    fn hints_that_fit_share_the_width_evenly() {
+        assert_eq!(slot_widths(&[40.0, 90.0], 200.0), vec![100.0, 100.0]);
+    }
+
+    #[test]
+    fn a_hint_wider_than_its_share_keeps_its_width() {
+        let slots = slot_widths(&[40.0, 120.0], 200.0);
+        assert_eq!(slots, vec![60.0, 140.0]);
+        assert_eq!(slots.iter().sum::<f32>(), 200.0);
     }
 
     #[test]
