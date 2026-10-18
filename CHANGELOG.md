@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-18
+
 ### Added
 
 - PS Vita port: GXM renderer at 960x544, data in `ux0:/data/mxmgorin/retsend/`, storage devices as browser roots, Cross/Circle/Square/Triangle hints
@@ -53,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Start-up no longer waits for the sweep of stale `.part` files in the save folder
 - Footer hints no longer overlap while files are selected
 - Text no longer loses its bottom rows on the software renderer at a fractional scale (egui-sdl2 0.12.1)
+- A black strip no longer flashes under the header after a screen switch
 
 ## [0.9.0] - 2026-09-03
 
@@ -518,7 +521,8 @@ use (Knulli, muOS, ROCKNIX), running on desktop Linux too.
 - Brand wordmark and window icon.
 - Builds for Linux x86_64 and aarch64, with PortMaster packaging.
 
-[Unreleased]: https://github.com/mxmgorin/retsend/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/mxmgorin/retsend/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/mxmgorin/retsend/compare/v0.9.0...v1.0.0
 [0.9.0]: https://github.com/mxmgorin/retsend/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/mxmgorin/retsend/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/mxmgorin/retsend/compare/v0.7.0...v0.7.1
