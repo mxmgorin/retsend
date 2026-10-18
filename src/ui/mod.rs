@@ -157,6 +157,8 @@ pub struct AppUi {
     theme: crate::config::display::Theme,
     /// A GL renderer came up: frames are cheap enough for a smooth animation.
     gpu: bool,
+    /// The screen the last frame drew, to catch a switch.
+    shown: Option<std::mem::Discriminant<Screen>>,
 }
 
 impl AppUi {
@@ -196,6 +198,7 @@ impl AppUi {
             forced_scale,
             scale: forced_scale.unwrap_or(1.0),
             theme: config.theme,
+            shown: None,
         })
     }
 
@@ -273,6 +276,8 @@ impl AppUi {
             theme::apply(self.egui.ctx(), self.theme);
         }
         let screen = self.screen_data(net, config, history);
+        let shown = std::mem::discriminant(&screen);
+        let switched = self.shown.replace(shown) != Some(shown);
         let prompt_data = prompt_data(net);
         // The destination picker stands in for the modal while it is up, so it
         // shows what is left of the deadline and the modal stays hidden.
@@ -294,6 +299,13 @@ impl AppUi {
         // Local, not `self.taps`: the closure already borrows the state it draws.
         let mut taps: Vec<AppCommand> = Vec::new();
         self.egui.run(|ctx| {
+            // A panel is clipped to the last screen's size for a pass, leaving an
+            // unpainted strip on a switch.
+            if switched && ctx.current_pass_index() == 0 {
+                ctx.request_discard("screen switch");
+            }
+            // Only the painted pass's taps count.
+            taps.clear();
             // Panels go in an explicit root Ui: top-level `show` is deprecated.
             let mut root = egui::Ui::new(
                 ctx.clone(),
